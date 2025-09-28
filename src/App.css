@@ -1,0 +1,35 @@
+@import "tailwindcss";
+body {
+  font-family: Bricolage Grotesque;
+}
+* {
+  font-family: Helvetica;
+}
+.Homeimg {
+  background-image: url("../src/assets/Heroimg.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.Attendeeimg {
+  background-image: url("../src/assets/AboutHeroimg.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.Organizerimg {
+  background-image: url("../src/assets/ContactHeroimg.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.Loading {
+  background-image: url("../src/assets/Hero.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.Blend-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+  background-blend-mode: overlay;
+}

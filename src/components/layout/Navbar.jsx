@@ -1,0 +1,274 @@
+import React, { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { Menu, X, User, LogOut, Settings, Bell, LayoutDashboard, Calendar, Wallet, Ticket } from "lucide-react";
+import Brandlogo from "../../assets/1.png";
+
+const Navbar = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const location = useLocation();
+
+  // Check authentication status on component mount and route change
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    const userData = {
+      name: localStorage.getItem("userName") || "User",
+      email: localStorage.getItem("userEmail") || "",
+      role: localStorage.getItem("userRole") || "attendee"
+    };
+    
+    if (token) {
+      setIsAuthenticated(true);
+      setUser(userData);
+    } else {
+      setIsAuthenticated(false);
+      setUser(null);
+    }
+  }, [location]); // Re-run when location changes
+
+  // accent color for hover underline
+  const navLinkClasses =
+    "px-3 py-2 text-sm font-medium text-white hover:text-[#00E8D9] relative after:content-[''] after:block after:h-0.5 after:w-0 after:bg-[#00E8D9] after:transition-all hover:after:w-full";
+
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userName");
+    setIsAuthenticated(false);
+    setUser(null);
+    setIsUserMenuOpen(false);
+    window.location.href = "/";
+  };
+
+  // Authenticated user menu items
+  const userMenuItems = user?.role === "organizer" 
+  ? [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard/organizer" },
+      { icon: User, label: "Profile", path: "/dashboard/profile" },
+      { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+    ]
+  : [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+      { icon: User, label: "Profile", path: "/dashboard/profile" },
+      { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+    ];
+
+  // Navigation links for authenticated users 
+  const authenticatedLinks = [
+    { path: "/discover", label: "Discover Events", icon: null },
+    { path: "/dashboard/events", label: "My Events", icon: Calendar },
+    ...(user?.role === "organizer" && !location.pathname.includes('/create-event') 
+      ? [{ path: "/create-event", label: "Create Event", icon: null }] 
+      : []),
+  ];
+
+  // Navigation links for unauthenticated users
+  const unauthenticatedLinks = [
+    { path: "/discover", label: "Discover Events", icon: null },
+    ...(!location.pathname.includes('/create-event') 
+      ? [{ path: "/create-event", label: "Create Events", icon: null }] 
+      : []),
+    { path: "/team", label: "Team", icon: null },
+  ];
+
+  return (
+    <div className="relative">
+      {/* Navbar */}
+      <nav className="top-0 left-0 right-0 z-30">
+        <div className="w-11/12 mx-auto">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo + Brand */}
+            <NavLink to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center">
+              <img className="h-10 w-auto" src={Brandlogo} alt="Logo" />
+              <span className="ml-2 text-xl font-bold text-white tracking-wide">
+                Eventry
+              </span>
+            </NavLink>
+
+            {/* Desktop links */}
+            <div className="hidden md:flex items-center space-x-6">
+              {/* Navigation Links */}
+              {(isAuthenticated ? authenticatedLinks : unauthenticatedLinks).map((link) => (
+                <NavLink 
+                  key={link.path} 
+                  to={link.path} 
+                  className={navLinkClasses}
+                >
+                  {link.label}
+                </NavLink>
+              ))}
+
+              {/* Authenticated User Section */}
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-4 ml-4">
+                  {/* Notifications */}
+                  <button className="relative p-2 text-white hover:text-[#00E8D9] transition-colors">
+                    <Bell className="h-5 w-5" />
+                    <span className="absolute top-0 right-0 block h-2 w-2 bg-red-500 rounded-full"></span>
+                  </button>
+
+                  {/* Wallet (for blockchain integration) */}
+                  {user?.role === "organizer" && (
+                    <NavLink 
+                      to="/dashboard/wallet" 
+                      className="flex items-center px-3 py-2 text-sm font-medium text-white hover:text-[#00E8D9] transition-colors"
+                    >
+                      <Wallet className="h-4 w-4 mr-1" />
+                      Wallet
+                    </NavLink>
+                  )}
+
+                  {/* User Menu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                      className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/10 transition-colors"
+                    >
+                      <div className="w-8 h-8 bg-[#00E8D9] rounded-full flex items-center justify-center">
+                        <User className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="text-white text-sm font-medium">
+                        {user?.name}
+                      </span>
+                    </button>
+
+                    {/* User Dropdown Menu */}
+                    {isUserMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                        {/* User Info */}
+                        <div className="px-4 py-2 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                          <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                        </div>
+                        
+                        {/* Menu Items */}
+                        {userMenuItems.map((item) => (
+                          <NavLink
+                            key={item.label}
+                            to={item.path}
+                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            <item.icon className="h-4 w-4 mr-3" />
+                            {item.label}
+                          </NavLink>
+                        ))}
+                        
+                        {/* Logout */}
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
+                        >
+                          <LogOut className="h-4 w-4 mr-3" />
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Unauthenticated CTA */
+                <NavLink
+                  to="/signup"
+                  className="ml-4 bg-white text-[#006F6A] px-4 py-2 rounded-full text-sm font-medium hover:bg-[#00E8D9] hover:text-white transition-colors"
+                >
+                  Get Started
+                </NavLink>
+              )}
+            </div>
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-white/10 transition-colors"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile dropdown menu */}
+        {isMenuOpen && (
+          <div className="md:hidden border-t border-white/10">
+            <div className="w-11/12 mx-auto px-4 pt-2 pb-4 space-y-2">
+              {/* Navigation Links */}
+              {(isAuthenticated ? authenticatedLinks : unauthenticatedLinks).map((link) => (
+                <NavLink
+                  key={link.path}
+                  to={link.path}
+                  className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {link.icon && <link.icon className="h-4 w-4 mr-2" />}
+                  {link.label}
+                </NavLink>
+              ))}
+
+              {/* Authenticated Mobile Menu Items */}
+              {isAuthenticated ? (
+                <>
+                  {/* User Menu Items */}
+                  {userMenuItems.map((item) => (
+                    <NavLink
+                      key={item.label}
+                      to={item.path}
+                      className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4 mr-2" />
+                      {item.label}
+                    </NavLink>
+                  ))}
+                  
+                  {/* Notifications */}
+                  <button className="flex items-center w-full px-3 py-2 text-white hover:bg-white/10 rounded-md">
+                    <Bell className="h-4 w-4 mr-2" />
+                    Notifications
+                  </button>
+
+                  {/* Wallet */}
+                  {user?.role === "organizer" && (
+                    <NavLink
+                      to="/dashboard/wallet"
+                      className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <Wallet className="h-4 w-4 mr-2" />
+                      Wallet
+                    </NavLink>
+                  )}
+
+                  {/* Logout */}
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-3 py-2 text-red-400 hover:bg-red-400/10 rounded-md"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                /* Unauthenticated CTA */
+                <NavLink
+                  to="/signup"
+                  className="flex items-center justify-center px-3 py-2 bg-white text-[#006F6A] rounded-md font-medium hover:bg-[#00E8D9] hover:text-white transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Get Started
+                </NavLink>
+              )}
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* Spacer for fixed nav */}
+      <div className="h-16"></div>
+    </div>
+  );
+};
+
+export default Navbar;
