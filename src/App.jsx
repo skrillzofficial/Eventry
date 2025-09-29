@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { FadeLoader, PulseLoader, RingLoader } from "react-spinners";
 import "./App.css";
 import Home from "./pages/Home";
 import SignUp from "./Auths/SignUp";
@@ -27,8 +28,7 @@ function App() {
     return (
       <div className="flex items-center justify-center h-screen Loading Blend-overrlay">
         <div className="flex flex-col items-center space-y-6">
-          {/* Spinner */}
-          <div className="mt-6 w-40 h-15 border-4 border-[#E55A2B] rounded-full animate-spin"></div>
+          <RingLoader color="#FF6B35" loading={loading} size={80} />
         </div>
       </div>
     );

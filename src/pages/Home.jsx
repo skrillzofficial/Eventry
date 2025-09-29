@@ -138,7 +138,7 @@ const Home = () => {
                 key={index}
                 className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-xl transition-all group hover:border-[#FF6B35]/20"
               >
-                <div className="w-12 h-12 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-xl flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                <div className="w-12 h-12 bg-[#FF6B35]  rounded-xl flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform shadow-lg">
                   {feature.icon}
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-[#FF6B35] transition-colors">

@@ -12,6 +12,7 @@ import {
   Wallet,
   Ticket,
   Search,
+  Sparkles,
 } from "lucide-react";
 import Brandlogo from "../../assets/1.png";
 
@@ -42,9 +43,9 @@ const Navbar = () => {
     }
   }, [location]); // Re-run when location changes
 
-  // accent color for hover underline
+  // Updated accent color for hover effects
   const navLinkClasses =
-    "px-3 py-2 text-sm font-medium text-white hover:text-[#00E8D9] relative after:content-[''] after:block after:h-0.5 after:w-0 after:bg-[#00E8D9] after:transition-all hover:after:w-full";
+    "px-3 py-2 text-sm font-medium text-white hover:text-[#FF6B35] relative after:content-[''] after:block after:h-0.5 after:w-0 after:bg-[#FF6B35] after:transition-all hover:after:w-full";
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
@@ -100,19 +101,19 @@ const Navbar = () => {
 
   // Navigation links for authenticated users
   const authenticatedLinks = [
-    { path: "/discover", label: "Discover Events", icon: null },
+    { path: "/discover", label: "Discover Events", icon: Ticket },
     { path: "/dashboard/events", label: "My Events", icon: Calendar },
     ...(user?.role === "organizer" &&
     !location.pathname.includes("/create-event")
-      ? [{ path: "/create-event", label: "Create Event", icon: null }]
+      ? [{ path: "/create-event", label: "Create Event", icon: Sparkles }]
       : []),
   ];
 
   // Navigation links for unauthenticated users
   const unauthenticatedLinks = [
-    { path: "/discover", label: "Discover Events", icon: null },
+    { path: "/discover", label: "Discover Events", icon: Ticket },
     ...(!location.pathname.includes("/create-event")
-      ? [{ path: "/create-event", label: "Create Events", icon: null }]
+      ? [{ path: "/create-event", label: "Create Events", icon: Sparkles }]
       : []),
     { path: "/team", label: "Team", icon: null },
   ];
@@ -120,16 +121,16 @@ const Navbar = () => {
   return (
     <div className="relative">
       {/* Navbar */}
-      <nav className="top-0 left-0 right-0 z-30">
+      <nav className="top-0 left-0 fixed right-0 z-30 bg-gradient-to-r from-black/20 to-black/10 backdrop-blur-md border-b border-white/10">
         <div className="w-11/12 mx-auto">
           <div className="flex justify-between items-center h-16">
             {/* Logo + Brand */}
             <NavLink
               to={isAuthenticated ? "/dashboard" : "/"}
-              className="flex items-center"
+              className="flex items-center group"
             >
               <img className="h-10 w-auto" src={Brandlogo} alt="Logo" />
-              <span className="ml-2 text-xl font-bold text-white tracking-wide">
+              <span className="ml-2 text-xl font-bold text-white tracking-wide group-hover:text-[#FF6B35] transition-colors">
                 Eventry
               </span>
             </NavLink>
@@ -142,15 +143,9 @@ const Navbar = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search events, organizers..."
-                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#00E8D9] focus:border-transparent"
+                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm transition-all"
                 />
-
-                <button
-                  type="submit"
-                  className="absolute right-2 top-1.5 p-1 text-white/70 hover:text-[#00E8D9] transition-colors"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
               </form>
             </div>
 
@@ -174,18 +169,18 @@ const Navbar = () => {
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4 ml-4">
                   {/* Notifications */}
-                  <button className="relative p-2 text-white hover:text-[#00E8D9] transition-colors">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-0 right-0 block h-2 w-2 bg-red-500 rounded-full"></span>
+                  <button className="relative p-2 text-white hover:text-[#FF6B35] transition-colors group">
+                    <Bell className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                    <span className="absolute top-1 right-1 block h-2 w-2 bg-[#FF6B35] rounded-full"></span>
                   </button>
 
                   {/* Wallet (for blockchain integration) */}
                   {user?.role === "organizer" && (
                     <NavLink
                       to="/dashboard/wallet"
-                      className="flex items-center px-3 py-2 text-sm font-medium text-white hover:text-[#00E8D9] transition-colors"
+                      className="flex items-center px-3 py-2 text-sm font-medium text-white hover:text-[#FF6B35] transition-colors group"
                     >
-                      <Wallet className="h-4 w-4 mr-1" />
+                      <Wallet className="h-4 w-4 mr-1 group-hover:scale-110 transition-transform" />
                       Wallet
                     </NavLink>
                   )}
@@ -194,9 +189,9 @@ const Navbar = () => {
                   <div className="relative">
                     <button
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                      className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/10 transition-colors group"
                     >
-                      <div className="w-8 h-8 bg-[#00E8D9] rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                         <User className="h-4 w-4 text-white" />
                       </div>
                       <span className="text-white text-sm font-medium">
@@ -206,7 +201,7 @@ const Navbar = () => {
 
                     {/* User Dropdown Menu */}
                     {isUserMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
                         {/* User Info */}
                         <div className="px-4 py-2 border-b border-gray-100">
                           <p className="text-sm font-medium text-gray-900">
@@ -222,10 +217,10 @@ const Navbar = () => {
                           <NavLink
                             key={item.label}
                             to={item.path}
-                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-[#FF6B35] hover:text-white transition-colors group"
                             onClick={() => setIsUserMenuOpen(false)}
                           >
-                            <item.icon className="h-4 w-4 mr-3" />
+                            <item.icon className="h-4 w-4 mr-3 group-hover:scale-110 transition-transform" />
                             {item.label}
                           </NavLink>
                         ))}
@@ -233,9 +228,9 @@ const Navbar = () => {
                         {/* Logout */}
                         <button
                           onClick={handleLogout}
-                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100 group"
                         >
-                          <LogOut className="h-4 w-4 mr-3" />
+                          <LogOut className="h-4 w-4 mr-3 group-hover:scale-110 transition-transform" />
                           Sign out
                         </button>
                       </div>
@@ -244,12 +239,21 @@ const Navbar = () => {
                 </div>
               ) : (
                 /* Unauthenticated CTA */
-                <NavLink
-                  to="/signup"
-                  className="ml-4 bg-white text-[#006F6A] px-4 py-2 rounded-full text-sm font-medium hover:bg-[#00E8D9] hover:text-white transition-colors"
-                >
-                  Get Started
-                </NavLink>
+                <div className="flex items-center space-x-4">
+                  <NavLink
+                    to="/login"
+                    className="px-4 py-2 text-white hover:text-[#FF6B35] transition-colors font-medium"
+                  >
+                    Sign In
+                  </NavLink>
+                  <NavLink
+                    to="/signup"
+                    className="bg-[#FF6B35] text-white px-6 py-2 rounded-full text-sm font-semibold hover:bg-[#FF8535] hover:shadow-lg transform hover:scale-105 transition-all flex items-center"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Get Started
+                  </NavLink>
+                </div>
               )}
             </div>
 
@@ -269,7 +273,7 @@ const Navbar = () => {
 
         {/* Mobile dropdown menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-white/10">
+          <div className="md:hidden border-t border-white/10 bg-black/20 backdrop-blur-lg">
             <div className="w-11/12 mx-auto px-4 pt-2 pb-4 space-y-2">
               {/* Mobile Search Bar */}
               <form onSubmit={handleSearch} className="relative mb-4">
@@ -278,7 +282,7 @@ const Navbar = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search events, organizers..."
-                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#00E8D9] focus:border-transparent"
+                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm"
                 />
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
               </form>
@@ -291,11 +295,15 @@ const Navbar = () => {
                 <NavLink
                   key={link.path}
                   to={link.path}
-                  className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md"
+                  className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md transition-colors group"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {link.icon && <link.icon className="h-4 w-4 mr-2" />}
-                  {link.label}
+                  {link.icon && (
+                    <link.icon className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
+                  )}
+                  <span className="group-hover:text-[#FF6B35] transition-colors">
+                    {link.label}
+                  </span>
                 </NavLink>
               ))}
 
@@ -307,36 +315,42 @@ const Navbar = () => {
                     <NavLink
                       key={item.label}
                       to={item.path}
-                      className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md"
+                      className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md transition-colors group"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <item.icon className="h-4 w-4 mr-2" />
-                      {item.label}
+                      <item.icon className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
+                      <span className="group-hover:text-[#FF6B35] transition-colors">
+                        {item.label}
+                      </span>
                     </NavLink>
                   ))}
 
                   {/* Notifications */}
-                  <button className="flex items-center w-full px-3 py-2 text-white hover:bg-white/10 rounded-md">
-                    <Bell className="h-4 w-4 mr-2" />
-                    Notifications
+                  <button className="flex items-center w-full px-3 py-2 text-white hover:bg-white/10 rounded-md transition-colors group">
+                    <Bell className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
+                    <span className="group-hover:text-[#FF6B35] transition-colors">
+                      Notifications
+                    </span>
                   </button>
 
                   {/* Wallet */}
                   {user?.role === "organizer" && (
                     <NavLink
                       to="/dashboard/wallet"
-                      className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md"
+                      className="flex items-center px-3 py-2 text-white hover:bg-white/10 rounded-md transition-colors group"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <Wallet className="h-4 w-4 mr-2" />
-                      Wallet
+                      <Wallet className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
+                      <span className="group-hover:text-[#FF6B35] transition-colors">
+                        Wallet
+                      </span>
                     </NavLink>
                   )}
 
                   {/* Logout */}
                   <button
                     onClick={handleLogout}
-                    className="flex items-center w-full px-3 py-2 text-red-400 hover:bg-red-400/10 rounded-md"
+                    className="flex items-center w-full px-3 py-2 text-red-400 hover:bg-red-400/10 rounded-md transition-colors group"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign out
@@ -344,13 +358,23 @@ const Navbar = () => {
                 </>
               ) : (
                 /* Unauthenticated CTA */
-                <NavLink
-                  to="/signup"
-                  className="flex items-center justify-center px-3 py-2 bg-white text-[#006F6A] rounded-md font-medium hover:bg-[#00E8D9] hover:text-white transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Get Started
-                </NavLink>
+                <div className="space-y-2 pt-2 border-t border-white/10">
+                  <NavLink
+                    to="/login"
+                    className="flex items-center justify-center px-3 py-2 text-white hover:bg-white/10 rounded-md transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Sign In
+                  </NavLink>
+                  <NavLink
+                    to="/signup"
+                    className="flex items-center justify-center px-3 py-2 bg-[#FF6B35] text-white rounded-md font-semibold hover:bg-[#FF8535] transition-colors transform hover:scale-105"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Get Started
+                  </NavLink>
+                </div>
               )}
             </div>
           </div>
