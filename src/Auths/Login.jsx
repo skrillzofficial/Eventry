@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { Eye, EyeOff, Check, X, Loader2, ArrowRight, LogIn, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Check, X, Loader2, ArrowRight, LogIn, Mail, Lock, User, Sparkles } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import Brandlogo from "../assets/2.png";
 import google from "../assets/google.png";
@@ -187,10 +187,10 @@ const Login = () => {
 
   // Input field classes for consistency
   const inputClasses = (hasError) =>
-    `w-full px-4 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#006F6A]/50 ${
+    `w-full px-4 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/50 ${
       hasError
         ? "border-red-500 focus:border-red-500 bg-red-50"
-        : "border-gray-300 focus:border-[#006F6A] hover:border-gray-400"
+        : "border-gray-300 focus:border-[#FF6B35] hover:border-gray-400"
     }`;
 
   const labelClasses = "block text-sm font-semibold text-gray-700 mb-2";
@@ -217,31 +217,36 @@ const Login = () => {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center Homeimg p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center Homeimg Blend-overlay p-4 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#006F6A]/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#005a55]/10 rounded-full blur-3xl"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#FF6B35]/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FF8535]/10 rounded-full blur-3xl"></div>
       </div>
 
       {showSuccess && <SuccessAnimation />}
 
       <div className="relative w-full max-w-4xl">
         {/* Multi-step Form Container */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl transition-all">
           <div className="md:flex">
             {/* Left Side - Visual (Matching Signup) */}
-            <div className="md:w-2/5 bg-gradient-to-br from-[#006F6A] to-[#005a55] p-8 text-white relative hidden md:block">
+            <div className="md:w-2/5 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] p-8 text-white relative hidden md:block">
               <div className="relative z-10">
-                <Link to="/" className="flex items-center mb-8">
-                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventra Logo" />
-                  <span className="ml-2 text-2xl font-bold">Eventra</span>
+                <Link to="/" className="flex items-center mb-8 group">
+                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventry Logo" />
+                  <span className="ml-2 text-2xl font-bold group-hover:text-gray-100 transition-colors">Eventry</span>
                 </Link>
                 
-                <div className="mt-16">
-                  <h2 className="text-3xl font-bold mb-4">Welcome Back to Africa's Event Revolution</h2>
+                <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm mb-6">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Welcome Back!
+                </div>
+
+                <div className="mt-8">
+                  <h2 className="text-3xl font-bold mb-4">Continue Your Event Journey</h2>
                   <p className="text-white/80 text-lg">
-                    Continue your journey in the blockchain-powered event ecosystem
+                    Access your personalized event experience and discover what's next
                   </p>
                 </div>
 
@@ -249,12 +254,12 @@ const Login = () => {
                 <div className="mt-12 space-y-6">
                   {[1, 2].map((step) => (
                     <div key={step} className="flex items-center space-x-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-                        currentStep >= step ? 'bg-white text-[#006F6A] border-white' : 'border-white/30 text-white/30'
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                        currentStep >= step ? 'bg-white text-[#FF6B35] border-white transform scale-110' : 'border-white/30 text-white/30'
                       }`}>
                         {step}
                       </div>
-                      <span className={currentStep >= step ? 'text-white' : 'text-white/50'}>
+                      <span className={currentStep >= step ? 'text-white font-medium' : 'text-white/50'}>
                         {step === 1 && 'Account Type'}
                         {step === 2 && 'Login Details'}
                       </span>
@@ -269,9 +274,13 @@ const Login = () => {
               {/* Mobile Header */}
               <div className="md:hidden mb-6">
                 <Link to="/" className="flex items-center justify-center">
-                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventra Logo" />
-                  <span className="ml-2 text-2xl font-bold text-gray-900">Eventra</span>
+                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventry Logo" />
+                  <span className="ml-2 text-2xl font-bold text-gray-900">Eventry</span>
                 </Link>
+                <div className="inline-flex items-center px-4 py-2 bg-[#FF6B35]/10 rounded-full text-[#FF6B35] text-sm mt-4 justify-center mx-auto">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Welcome Back!
+                </div>
               </div>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -292,10 +301,10 @@ const Login = () => {
                         ].map((type) => (
                           <label
                             key={type.value}
-                            className={`relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                            className={`relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 group ${
                               userType === type.value
-                                ? "border-[#006F6A] bg-[#006F6A]/5"
-                                : "border-gray-200 hover:border-gray-300"
+                                ? "border-[#FF6B35] bg-[#FF6B35]/5 transform scale-105"
+                                : "border-gray-200 hover:border-gray-300 hover:shadow-lg"
                             }`}
                           >
                             <input
@@ -308,7 +317,7 @@ const Login = () => {
                             <span className="font-semibold text-gray-900">{type.label}</span>
                             <span className="text-sm text-gray-600 mt-1">{type.description}</span>
                             {userType === type.value && (
-                              <div className="absolute top-2 right-2 w-5 h-5 bg-[#006F6A] rounded-full flex items-center justify-center">
+                              <div className="absolute top-2 right-2 w-5 h-5 bg-[#FF6B35] rounded-full flex items-center justify-center transform scale-110">
                                 <Check className="w-3 h-3 text-white" />
                               </div>
                             )}
@@ -328,7 +337,7 @@ const Login = () => {
                       onClick={handleGoogleLogin}
                       disabled={!userType}
                       type="button"
-                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mb-4"
+                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mb-4 transform hover:scale-105"
                     >
                       <img src={google} alt="Google" className="w-5 h-5 mr-3" />
                       Continue with Google as {userType ? (userType === "organizer" ? "Organizer" : "Attendee") : "..."}
@@ -428,9 +437,9 @@ const Login = () => {
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <p className="text-sm text-blue-700 font-medium">Demo Accounts:</p>
                         <div className="text-xs text-blue-600 mt-1 space-y-1">
-                          <p>• Attendee: attendee@eventra.com / password123</p>
-                          <p>• Organizer: organizer@eventra.com / password123</p>
-                          <p>• Fallback: demo@eventra.com / password</p>
+                          <p>• Attendee: attendee@eventry.com / password123</p>
+                          <p>• Organizer: organizer@eventry.com / password123</p>
+                          <p>• Fallback: demo@eventry.com / password</p>
                         </div>
                       </div>
 
@@ -442,7 +451,7 @@ const Login = () => {
                               type="checkbox"
                               checked={rememberMe}
                               onChange={(e) => setRememberMe(e.target.checked)}
-                              className="w-5 h-5 text-[#006F6A] focus:ring-[#006F6A] border-gray-300 rounded transition-colors"
+                              className="w-5 h-5 text-[#FF6B35] focus:ring-[#FF6B35] border-gray-300 rounded transition-colors"
                               disabled={isLoading}
                             />
                             {rememberMe && (
@@ -455,7 +464,7 @@ const Login = () => {
                         </label>
                         <Link
                           to="/forgot-password"
-                          className="text-sm text-[#006F6A] hover:text-[#005a55] font-medium transition-colors"
+                          className="text-sm text-[#FF6B35] hover:text-[#E55A2B] font-medium transition-colors"
                         >
                           Forgot password?
                         </Link>
@@ -470,7 +479,7 @@ const Login = () => {
                     <button
                       type="button"
                       onClick={prevStep}
-                      className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors transform hover:scale-105"
                     >
                       Back
                     </button>
@@ -481,15 +490,16 @@ const Login = () => {
                       type="button"
                       onClick={nextStep}
                       disabled={!userType}
-                      className="flex-1 py-3 px-4 bg-[#006F6A] text-white rounded-lg font-medium hover:bg-[#005a55] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="flex-1 py-3 px-4 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105 flex items-center justify-center"
                     >
                       Continue with Email
+                      <ArrowRight className="w-4 h-4 ml-2" />
                     </button>
                   ) : (
                     <button
                       type="submit"
                       disabled={!isValid || isLoading || !isDirty}
-                      className="flex-1 py-3 px-4 bg-[#006F6A] text-white rounded-lg font-medium hover:bg-[#005a55] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="flex-1 py-3 px-4 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105 flex items-center justify-center"
                     >
                       {isLoading ? (
                         <span className="flex items-center justify-center">
@@ -497,7 +507,10 @@ const Login = () => {
                           Signing In...
                         </span>
                       ) : (
-                        "Sign In"
+                        <>
+                          Sign In
+                          <LogIn className="w-4 h-4 ml-2" />
+                        </>
                       )}
                     </button>
                   )}
@@ -510,7 +523,7 @@ const Login = () => {
                   Don't have an account?{" "}
                   <Link
                     to="/signup"
-                    className="text-[#006F6A] hover:text-[#005a55] font-semibold transition-colors underline"
+                    className="text-[#FF6B35] hover:text-[#E55A2B] font-semibold transition-colors underline"
                   >
                     Create an account
                   </Link>

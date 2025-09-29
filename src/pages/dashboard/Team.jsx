@@ -13,7 +13,8 @@ import {
   Heart,
   Users,
   Star,
-  ArrowRight
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
@@ -23,6 +24,7 @@ import ImgThree from "../../assets/Testimonial1.png"
 import ImgFour from "../../assets/Testimonial2.png"
 import ImgFive from "../../assets/Testimonial3.png"
 import ImgSix from "../../assets/busayo.jpg"
+
 const Team = () => {
   const teamMembers = [
     {
@@ -307,31 +309,36 @@ const Team = () => {
   ];
 
   return (
-    <div className="min-h-screen Homeimg Blend-overlay ">
+    <div className="min-h-screen Homeimg Blend-overlay">
       <Navbar />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header Section */}
         <div className="text-center mb-16">
+          <div className="inline-flex items-center px-4 py-2 bg-[#FF6B35]/10 rounded-full text-[#FF6B35] text-sm mb-4">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Meet the Team
+          </div>
           <h1 className="text-4xl font-bold text-gray-300 mb-4">
-            Meet Our Team
+            Our <span className="text-[#FF6B35]">Dream</span> Team
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
             We're a passionate team of innovators, builders, and visionaries dedicated to 
             transforming Africa's event ecosystem through blockchain technology.
           </p>
-          <div className="flex justify-center items-center space-x-6 text-sm text-gray-300">
+          <div className="flex justify-center items-center space-x-6 text-sm text-gray-500">
             <div className="flex items-center">
-              <Users className="h-4 w-4 mr-2" />
-              {teamMembers.length} Amazing People
+              <Users className="h-4 w-4 mr-2 text-[#FF6B35]" />
+              {teamMembers.length} 
+              <p className='text-gray-300'>Amazing People</p>
             </div>
             <div className="flex items-center">
-              <MapPin className="h-4 w-4 mr-2" />
-              Across Nigeria
+              <MapPin className="h-4 w-4 mr-2 text-[#FF6B35]" />
+              <p className='text-gray-300'>Across Nigeria</p>
             </div>
             <div className="flex items-center">
-              <Heart className="h-4 w-4 mr-2" />
-              Building for Africa
+              <Heart className="h-4 w-4 mr-2 text-[#FF6B35]" />
+              <p className='text-gray-300'>Building for Africa</p>
             </div>
           </div>
         </div>
@@ -344,7 +351,7 @@ const Team = () => {
         </div>
 
         {/* Values Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-16">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-16 hover:shadow-lg transition-all">
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">Our Values</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <ValueCard
@@ -374,19 +381,21 @@ const Team = () => {
             We're always looking for talented individuals who are passionate about 
             technology, events, and making an impact across Africa.
           </p>
-          <div className="flex justify-center space-x-4">
-            <button className="bg-[#006F6A] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#005a55] transition-colors flex items-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button className="bg-[#FF6B35] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors transform hover:scale-105 flex items-center justify-center">
               View Open Positions
-              <ArrowRight className="h-4 w-4 ml-2" />
+              <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
             </button>
-            <button className="border border-[#006F6A] text-[#006F6A] px-8 py-3 rounded-lg font-semibold hover:bg-[#006F6A] hover:text-white transition-colors">
+            <button className="border-2 border-[#FF6B35] text-[#FF6B35] px-8 py-3 rounded-lg font-semibold hover:bg-[#FF6B35] hover:text-white transition-colors transform hover:scale-105">
               Contact Us
             </button>
           </div>
         </div>
       </div>
       
-      <Footer />
+      <div className="bg-[#E55A2B]">
+        <Footer />
+      </div>
     </div>
   );
 };
@@ -397,18 +406,18 @@ const TeamMemberCard = ({ member }) => {
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-xl transition-all overflow-hidden group">
         {/* Member Image and Basic Info */}
         <div className="relative">
           <img
             src={member.image}
             alt={member.name}
-            className="w-full h-60 object-cover"
+            className="w-full h-60 object-cover group-hover:scale-105 transition-transform"
           />
           <div className="absolute inset-0" />
           <div className="absolute bottom-4 left-4 right-4">
             <h3 className="text-xl font-bold text-white mb-1">{member.name}</h3>
-            <p className="text-[#00E8D9] font-medium">{member.role}</p>
+            <p className="text-[#FF6B35] font-medium">{member.role}</p>
           </div>
         </div>
 
@@ -417,12 +426,12 @@ const TeamMemberCard = ({ member }) => {
           <p className="text-gray-600 text-sm mb-4 line-clamp-3">{member.bio}</p>
           
           <div className="flex items-center text-sm text-gray-500 mb-3">
-            <MapPin className="h-4 w-4 mr-2" />
+            <MapPin className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {member.location}
           </div>
           
           <div className="flex items-center text-sm text-gray-500 mb-4">
-            <Calendar className="h-4 w-4 mr-2" />
+            <Calendar className="h-4 w-4 mr-2 text-[#FF6B35]" />
             Joined {member.joinDate}
           </div>
 
@@ -432,13 +441,13 @@ const TeamMemberCard = ({ member }) => {
               {member.skills.slice(0, 3).map((skill, index) => (
                 <span
                   key={index}
-                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium"
+                  className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-medium"
                 >
                   {skill}
                 </span>
               ))}
               {member.skills.length > 3 && (
-                <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-medium">
+                <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium">
                   +{member.skills.length - 3} more
                 </span>
               )}
@@ -451,7 +460,7 @@ const TeamMemberCard = ({ member }) => {
               {member.social.twitter && (
                 <a
                   href={`https://twitter.com/${member.social.twitter}`}
-                  className="text-gray-400 hover:text-[#1DA1F2] transition-colors"
+                  className="text-gray-400 hover:text-[#1DA1F2] transition-colors transform hover:scale-110"
                 >
                   <Twitter className="h-5 w-5" />
                 </a>
@@ -459,7 +468,7 @@ const TeamMemberCard = ({ member }) => {
               {member.social.linkedin && (
                 <a
                   href={`https://linkedin.com/in/${member.social.linkedin}`}
-                  className="text-gray-400 hover:text-[#0077B5] transition-colors"
+                  className="text-gray-400 hover:text-[#0077B5] transition-colors transform hover:scale-110"
                 >
                   <Linkedin className="h-5 w-5" />
                 </a>
@@ -467,7 +476,7 @@ const TeamMemberCard = ({ member }) => {
               {member.social.github && (
                 <a
                   href={`https://github.com/${member.social.github}`}
-                  className="text-gray-400 hover:text-gray-700 transition-colors"
+                  className="text-gray-400 hover:text-gray-700 transition-colors transform hover:scale-110"
                 >
                   <Github className="h-5 w-5" />
                 </a>
@@ -475,7 +484,7 @@ const TeamMemberCard = ({ member }) => {
               {member.social.website && (
                 <a
                   href={`https://${member.social.website}`}
-                  className="text-gray-400 hover:text-[#006F6A] transition-colors"
+                  className="text-gray-400 hover:text-[#FF6B35] transition-colors transform hover:scale-110"
                 >
                   <Globe className="h-5 w-5" />
                 </a>
@@ -484,10 +493,10 @@ const TeamMemberCard = ({ member }) => {
 
             <button
               onClick={() => setShowPortfolio(true)}
-              className="text-[#006F6A] hover:text-[#005a55] text-sm font-medium flex items-center"
+              className="text-[#FF6B35] hover:text-[#E55A2B] text-sm font-medium flex items-center group"
             >
               View Portfolio
-              <ArrowRight className="h-4 w-4 ml-1" />
+              <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         </div>
@@ -516,13 +525,13 @@ const PortfolioModal = ({ member, onClose }) => {
           <div className="absolute inset-0 rounded-t-2xl" />
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 bg-green text-white p-2 rounded-full"
+            className="absolute top-4 right-4 bg-white text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
           >
             ✕
           </button>
           <div className="absolute bottom-6 left-6">
             <h2 className="text-3xl font-bold text-white mb-2">{member.name}</h2>
-            <p className="text-[#00E8D9] text-lg font-medium">{member.role}</p>
+            <p className="text-[#FF6B35] text-lg font-medium">{member.role}</p>
           </div>
         </div>
 
@@ -537,14 +546,14 @@ const PortfolioModal = ({ member, onClose }) => {
               <h4 className="font-semibold text-gray-900 mb-4">Contact & Links</h4>
               <div className="space-y-3">
                 <div className="flex items-center text-sm text-gray-600">
-                  <MapPin className="h-4 w-4 mr-3" />
+                  <MapPin className="h-4 w-4 mr-3 text-[#FF6B35]" />
                   {member.location}
                 </div>
                 <div className="flex space-x-4">
                   {member.social.twitter && (
                     <a
                       href={`https://twitter.com/${member.social.twitter}`}
-                      className="text-gray-400 hover:text-[#1DA1F2] transition-colors"
+                      className="text-gray-400 hover:text-[#1DA1F2] transition-colors transform hover:scale-110"
                     >
                       <Twitter className="h-5 w-5" />
                     </a>
@@ -552,7 +561,7 @@ const PortfolioModal = ({ member, onClose }) => {
                   {member.social.linkedin && (
                     <a
                       href={`https://linkedin.com/in/${member.social.linkedin}`}
-                      className="text-gray-400 hover:text-[#0077B5] transition-colors"
+                      className="text-gray-400 hover:text-[#0077B5] transition-colors transform hover:scale-110"
                     >
                       <Linkedin className="h-5 w-5" />
                     </a>
@@ -560,7 +569,7 @@ const PortfolioModal = ({ member, onClose }) => {
                   {member.social.github && (
                     <a
                       href={`https://github.com/${member.social.github}`}
-                      className="text-gray-400 hover:text-gray-700 transition-colors"
+                      className="text-gray-400 hover:text-gray-700 transition-colors transform hover:scale-110"
                     >
                       <Github className="h-5 w-5" />
                     </a>
@@ -568,7 +577,7 @@ const PortfolioModal = ({ member, onClose }) => {
                   {member.social.website && (
                     <a
                       href={`https://${member.social.website}`}
-                      className="text-gray-400 hover:text-[#006F6A] transition-colors"
+                      className="text-gray-400 hover:text-[#FF6B35] transition-colors transform hover:scale-110"
                     >
                       <Globe className="h-5 w-5" />
                     </a>
@@ -585,7 +594,7 @@ const PortfolioModal = ({ member, onClose }) => {
               {member.skills.map((skill, index) => (
                 <span
                   key={index}
-                  className="bg-[#006F6A] text-white px-3 py-2 rounded-lg text-sm font-medium"
+                  className="bg-[#FF6B35] text-white px-3 py-2 rounded-lg text-sm font-medium"
                 >
                   {skill}
                 </span>
@@ -596,19 +605,19 @@ const PortfolioModal = ({ member, onClose }) => {
           {/* Experience */}
           <div className="mb-8">
             <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-              <Briefcase className="h-6 w-6 mr-3" />
+              <Briefcase className="h-6 w-6 mr-3 text-[#FF6B35]" />
               Professional Experience
             </h3>
             <div className="space-y-6">
               {member.portfolio.experience.map((exp, index) => (
-                <div key={index} className="border-l-2 border-[#006F6A] pl-6 pb-6">
+                <div key={index} className="border-l-2 border-[#FF6B35] pl-6 pb-6">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-semibold text-gray-900">{exp.position}</h4>
                     <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-sm">
                       {exp.duration}
                     </span>
                   </div>
-                  <p className="font-medium text-[#006F6A] mb-2">{exp.company}</p>
+                  <p className="font-medium text-[#FF6B35] mb-2">{exp.company}</p>
                   <p className="text-gray-600">{exp.description}</p>
                 </div>
               ))}
@@ -618,17 +627,17 @@ const PortfolioModal = ({ member, onClose }) => {
           {/* Education */}
           <div className="mb-8">
             <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-              <GraduationCap className="h-6 w-6 mr-3" />
+              <GraduationCap className="h-6 w-6 mr-3 text-[#FF6B35]" />
               Education
             </h3>
             <div className="space-y-4">
               {member.portfolio.education.map((edu, index) => (
-                <div key={index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                <div key={index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div>
                     <h4 className="font-semibold text-gray-900">{edu.degree}</h4>
                     <p className="text-gray-600">{edu.institution}</p>
                   </div>
-                  <span className="bg-[#006F6A] text-white px-3 py-1 rounded-full text-sm">
+                  <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm">
                     {edu.year}
                   </span>
                 </div>
@@ -640,12 +649,12 @@ const PortfolioModal = ({ member, onClose }) => {
           {member.portfolio.achievements && (
             <div>
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                <Award className="h-6 w-6 mr-3" />
+                <Award className="h-6 w-6 mr-3 text-[#FF6B35]" />
                 Awards & Achievements
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {member.portfolio.achievements.map((achievement, index) => (
-                  <div key={index} className="flex items-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div key={index} className="flex items-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors">
                     <Star className="h-5 w-5 text-yellow-500 mr-3" />
                     <span className="text-gray-700">{achievement}</span>
                   </div>
@@ -661,11 +670,11 @@ const PortfolioModal = ({ member, onClose }) => {
 
 // Value Card Component
 const ValueCard = ({ icon, title, description }) => (
-  <div className="text-center">
-    <div className="bg-[#006F6A] w-16 h-16 rounded-full flex items-center justify-center text-white mx-auto mb-4">
+  <div className="text-center group">
+    <div className="bg-[#FF6B35] w-16 h-16 rounded-full flex items-center justify-center text-white mx-auto mb-4 group-hover:scale-110 transition-transform">
       {icon}
     </div>
-    <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
+    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-[#FF6B35] transition-colors">{title}</h3>
     <p className="text-gray-600 leading-relaxed">{description}</p>
   </div>
 );

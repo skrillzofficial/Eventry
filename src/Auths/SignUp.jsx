@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Check, X, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Check, X, ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import google from "../assets/google.png";
 import Brandlogo from "../assets/2.png";
 
@@ -177,10 +177,10 @@ export default function SignUp() {
 
   // Input field classes for consistency
   const inputClasses = (hasError) =>
-    `w-full px-4 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#006F6A]/50 ${
+    `w-full px-4 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/50 ${
       hasError
         ? "border-red-500 focus:border-red-500 bg-red-50"
-        : "border-gray-300 focus:border-[#006F6A] hover:border-gray-400"
+        : "border-gray-300 focus:border-[#FF6B35] hover:border-gray-400"
     }`;
 
   const labelClasses = "block text-sm font-semibold text-gray-700 mb-2";
@@ -192,7 +192,7 @@ export default function SignUp() {
         <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
           <Check className="w-8 h-8 text-white" />
         </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Welcome to Eventra!</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Welcome to Eventry!</h3>
         <p className="text-gray-600">Your account has been created successfully</p>
         <div className="mt-4 animate-pulse">
           <div className="inline-flex items-center text-sm text-gray-500">
@@ -205,26 +205,36 @@ export default function SignUp() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center Homeimg p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center Homeimg Blend-overlay p-4 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#FF6B35]/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FF8535]/10 rounded-full blur-3xl"></div>
+      </div>
 
       {showSuccessAnimation && <SuccessAnimation />}
 
       <div className="relative w-full max-w-4xl">
         {/* Multi-step Form Container */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl transition-all">
           <div className="md:flex">
             {/* Left Side - Visual */}
-            <div className="md:w-2/5 bg-gradient-to-br from-[#006F6A] to-[#005a55] p-8 text-white relative hidden md:block">
+            <div className="md:w-2/5 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] p-8 text-white relative hidden md:block">
               <div className="relative z-10">
-                <Link to="/" className="flex items-center mb-8">
-                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventra Logo" />
-                  <span className="ml-2 text-2xl font-bold">Eventra</span>
+                <Link to="/" className="flex items-center mb-8 group">
+                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventry Logo" />
+                  <span className="ml-2 text-2xl font-bold group-hover:text-gray-100 transition-colors">Eventry</span>
                 </Link>
                 
-                <div className="mt-16">
-                  <h2 className="text-3xl font-bold mb-4">Join Africa's Event Revolution</h2>
+                <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm mb-6">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Join the Revolution
+                </div>
+
+                <div className="mt-8">
+                  <h2 className="text-3xl font-bold mb-4">Create Amazing Experiences</h2>
                   <p className="text-white/80 text-lg">
-                    Create unforgettable experiences with blockchain-powered event management
+                    Join Africa's first blockchain-powered event ecosystem
                   </p>
                 </div>
 
@@ -232,12 +242,12 @@ export default function SignUp() {
                 <div className="mt-12 space-y-6">
                   {[1, 2, 3].map((step) => (
                     <div key={step} className="flex items-center space-x-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-                        currentStep >= step ? 'bg-white text-[#006F6A] border-white' : 'border-white/30 text-white/30'
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                        currentStep >= step ? 'bg-white text-[#FF6B35] border-white transform scale-110' : 'border-white/30 text-white/30'
                       }`}>
                         {step}
                       </div>
-                      <span className={currentStep >= step ? 'text-white' : 'text-white/50'}>
+                      <span className={currentStep >= step ? 'text-white font-medium' : 'text-white/50'}>
                         {step === 1 && 'Basic Information'}
                         {step === 2 && 'Account Type'}
                         {step === 3 && 'Security Setup'}
@@ -253,9 +263,13 @@ export default function SignUp() {
               {/* Mobile Header */}
               <div className="md:hidden mb-6">
                 <Link to="/" className="flex items-center justify-center">
-                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventra Logo" />
-                  <span className="ml-2 text-2xl font-bold text-gray-900">Eventra</span>
+                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventry Logo" />
+                  <span className="ml-2 text-2xl font-bold text-gray-900">Eventry</span>
                 </Link>
+                <div className="inline-flex items-center px-4 py-2 bg-[#FF6B35]/10 rounded-full text-[#FF6B35] text-sm mt-4 justify-center mx-auto">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Join the Revolution
+                </div>
               </div>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -263,7 +277,7 @@ export default function SignUp() {
                 {currentStep === 1 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
-                      <h1 className="text-3xl font-bold text-gray-900">Join Eventra</h1>
+                      <h1 className="text-3xl font-bold text-gray-900">Join <span className="text-[#FF6B35]">Eventry</span></h1>
                       <p className="text-gray-600 mt-2">Start your journey with us</p>
                     </div>
 
@@ -314,8 +328,8 @@ export default function SignUp() {
                 {currentStep === 2 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
-                      <h2 className="text-2xl font-bold text-gray-900">Choose Your Role</h2>
-                      <p className="text-gray-600 mt-2">How will you use Eventra?</p>
+                      <h2 className="text-2xl font-bold text-gray-900">Choose Your <span className="text-[#FF6B35]">Role</span></h2>
+                      <p className="text-gray-600 mt-2">How will you use Eventry?</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -335,10 +349,10 @@ export default function SignUp() {
                       ].map((type) => (
                         <label
                           key={type.value}
-                          className={`relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                          className={`relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 group ${
                             userTypeValue === type.value
-                              ? "border-[#006F6A] bg-[#006F6A]/5"
-                              : "border-gray-200 hover:border-gray-300"
+                              ? "border-[#FF6B35] bg-[#FF6B35]/5 transform scale-105"
+                              : "border-gray-200 hover:border-gray-300 hover:shadow-lg"
                           }`}
                         >
                           <input
@@ -351,7 +365,7 @@ export default function SignUp() {
                           <span className="font-semibold text-gray-900">{type.title}</span>
                           <span className="text-sm text-gray-600 mt-1">{type.description}</span>
                           {userTypeValue === type.value && (
-                            <div className="absolute top-2 right-2 w-5 h-5 bg-[#006F6A] rounded-full flex items-center justify-center">
+                            <div className="absolute top-2 right-2 w-5 h-5 bg-[#FF6B35] rounded-full flex items-center justify-center transform scale-110">
                               <Check className="w-3 h-3 text-white" />
                             </div>
                           )}
@@ -371,7 +385,7 @@ export default function SignUp() {
                 {currentStep === 3 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
-                      <h2 className="text-2xl font-bold text-gray-900">Secure Your Account</h2>
+                      <h2 className="text-2xl font-bold text-gray-900">Secure Your <span className="text-[#FF6B35]">Account</span></h2>
                       <p className="text-gray-600 mt-2">Create a strong password</p>
                     </div>
 
@@ -448,7 +462,7 @@ export default function SignUp() {
 
                       {/* Enhanced Password Strength Indicator */}
                       {passwordValue && (
-                        <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-sm font-medium text-gray-700">Password strength:</span>
                             <span className={`text-sm font-semibold ${
@@ -487,25 +501,25 @@ export default function SignUp() {
                       )}
 
                       {/* Terms Agreement */}
-                      <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <input
                           id="agreeToTerms"
                           type="checkbox"
                           {...register("agreeToTerms")}
-                          className="mt-1 accent-[#006F6A] focus:ring-2 focus:ring-[#006F6A]/50"
+                          className="mt-1 accent-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/50"
                         />
                         <label htmlFor="agreeToTerms" className="text-sm text-gray-700">
                           I agree to the{" "}
                           <Link
                             to="/terms"
-                            className="text-[#006F6A] hover:text-[#005a55] font-medium underline"
+                            className="text-[#FF6B35] hover:text-[#E55A2B] font-medium underline"
                           >
                             Terms of Service
                           </Link>{" "}
                           and{" "}
                           <Link
                             to="/privacy"
-                            className="text-[#006F6A] hover:text-[#005a55] font-medium underline"
+                            className="text-[#FF6B35] hover:text-[#E55A2B] font-medium underline"
                           >
                             Privacy Policy
                           </Link>
@@ -527,7 +541,7 @@ export default function SignUp() {
                     <button
                       type="button"
                       onClick={prevStep}
-                      className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center"
+                      className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors transform hover:scale-105 flex items-center justify-center"
                     >
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back
@@ -542,7 +556,7 @@ export default function SignUp() {
                         (currentStep === 1 && (!userNameValue || !emailValue || errors.userName || errors.email)) ||
                         (currentStep === 2 && !userTypeValue)
                       }
-                      className="flex-1 py-3 px-4 bg-[#006F6A] text-white rounded-lg font-medium hover:bg-[#005a55] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                      className="flex-1 py-3 px-4 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105 flex items-center justify-center"
                     >
                       Continue
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -551,7 +565,7 @@ export default function SignUp() {
                     <button
                       type="submit"
                       disabled={isSubmitting || isLoading || !isValid}
-                      className="flex-1 py-3 px-4 bg-[#006F6A] text-white rounded-lg font-medium hover:bg-[#005a55] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="flex-1 py-3 px-4 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105"
                     >
                       {isSubmitting || isLoading ? (
                         <span className="flex items-center justify-center">
@@ -578,7 +592,7 @@ export default function SignUp() {
                       onClick={handleGoogleSignUp}
                       disabled={isLoading}
                       type="button"
-                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105"
                     >
                       <img src={google} alt="Google" className="w-5 h-5 mr-3" />
                       {isLoading ? "Signing up..." : "Sign up with Google"}
@@ -593,7 +607,7 @@ export default function SignUp() {
                   Already have an account?{" "}
                   <Link
                     to="/login"
-                    className="text-[#006F6A] hover:text-[#005a55] font-semibold transition-colors underline"
+                    className="text-[#FF6B35] hover:text-[#E55A2B] font-semibold transition-colors underline"
                   >
                     Sign in
                   </Link>

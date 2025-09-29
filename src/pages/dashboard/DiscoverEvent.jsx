@@ -15,7 +15,8 @@ import {
   List,
   SlidersHorizontal,
   ChevronDown,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
@@ -23,6 +24,7 @@ import Footer from '../../components/layout/Footer';
 import eventOne from "../../assets/Vision one.png"
 import eventTwo from "../../assets/Vision 2.png"
 import eventThree from "../../assets/vision 3.png"
+
 const DiscoverEvents = () => {
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
@@ -279,7 +281,7 @@ const DiscoverEvents = () => {
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#006F6A]"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
           </div>
         </div>
         <Footer />
@@ -294,16 +296,20 @@ const DiscoverEvents = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">
+          <div className="inline-flex items-center px-4 py-2 bg-[#FF6B35]/10 rounded-full text-[#FF6B35] text-sm mb-4">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Discover Amazing Events
+          </div>
           <h1 className="text-4xl font-bold text-gray-300 mb-4">
-            Discover Amazing Events in Nigeria
+            Find Your Next <span className="text-[#FF6B35]">Experience</span>
           </h1>
-          <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-            Find and attend the best events happening across Nigeria. From tech conferences to cultural festivals.
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+            Explore the best events happening across Nigeria. From tech conferences to cultural festivals.
           </p>
         </div>
 
         {/* Search and Filters Bar */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Input */}
             <div className="flex-1 relative">
@@ -313,19 +319,19 @@ const DiscoverEvents = () => {
                 placeholder="Search events, categories, organizers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A] focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
               />
             </div>
 
             {/* Filter Toggle Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="lg:hidden flex items-center px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="lg:hidden flex items-center px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <SlidersHorizontal className="h-5 w-5 mr-2" />
               Filters
               {Object.values(filters).some(Boolean) && (
-                <span className="ml-2 bg-[#006F6A] text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                <span className="ml-2 bg-[#FF6B35] text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
                   {Object.values(filters).filter(Boolean).length}
                 </span>
               )}
@@ -335,20 +341,20 @@ const DiscoverEvents = () => {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg ${
+                className={`p-2 rounded-lg transition-colors ${
                   viewMode === 'grid' 
-                    ? 'bg-[#006F6A] text-white' 
-                    : 'text-gray-400 hover:text-gray-600'
+                    ? 'bg-[#FF6B35] text-white' 
+                    : 'text-gray-400 hover:text-gray-600 bg-gray-100'
                 }`}
               >
                 <Grid className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg ${
+                className={`p-2 rounded-lg transition-colors ${
                   viewMode === 'list' 
-                    ? 'bg-[#006F6A] text-white' 
-                    : 'text-gray-400 hover:text-gray-600'
+                    ? 'bg-[#FF6B35] text-white' 
+                    : 'text-gray-400 hover:text-gray-600 bg-gray-100'
                 }`}
               >
                 <List className="h-5 w-5" />
@@ -358,12 +364,12 @@ const DiscoverEvents = () => {
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="mt-6 p-6 border border-gray-200 rounded-lg bg-gray-50">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-gray-900">Filters</h3>
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-[#006F6A] hover:text-[#005a55]"
+                  className="text-sm text-[#FF6B35] hover:text-[#E55A2B] transition-colors"
                 >
                   Clear All
                 </button>
@@ -376,7 +382,7 @@ const DiscoverEvents = () => {
                   <select
                     value={filters.category}
                     onChange={(e) => handleFilterChange('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A]"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
                   >
                     {categories.map(category => (
                       <option key={category} value={category}>{category}</option>
@@ -390,7 +396,7 @@ const DiscoverEvents = () => {
                   <select
                     value={filters.city}
                     onChange={(e) => handleFilterChange('city', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A]"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
                   >
                     {cities.map(city => (
                       <option key={city} value={city}>{city}</option>
@@ -405,7 +411,7 @@ const DiscoverEvents = () => {
                     type="date"
                     value={filters.date}
                     onChange={(e) => handleFilterChange('date', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A]"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
                   />
                 </div>
 
@@ -415,7 +421,7 @@ const DiscoverEvents = () => {
                   <select
                     value={filters.priceRange}
                     onChange={(e) => handleFilterChange('priceRange', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A]"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
                   >
                     <option value="">Any Price</option>
                     <option value="free">Free</option>
@@ -440,9 +446,9 @@ const DiscoverEvents = () => {
                     <button
                       key={option.value}
                       onClick={() => handleFilterChange('sortBy', option.value)}
-                      className={`px-3 py-1 rounded-full text-sm ${
+                      className={`px-3 py-1 rounded-full text-sm transition-colors ${
                         filters.sortBy === option.value
-                          ? 'bg-[#006F6A] text-white'
+                          ? 'bg-[#FF6B35] text-white'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
                     >
@@ -458,30 +464,30 @@ const DiscoverEvents = () => {
         {/* Results Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-gray-300">
               {filteredEvents.length} Events Found
             </h2>
             {Object.values(filters).some(Boolean) && (
               <div className="flex items-center mt-2 space-x-2">
-                <span className="text-sm text-gray-600">Active filters:</span>
+                <span className="text-sm text-gray-300">Active filters:</span>
                 {filters.category && (
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-                    Category: {filters.category}
+                  <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm">
+                    {filters.category}
                   </span>
                 )}
                 {filters.city && filters.city !== 'All Cities' && (
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                    City: {filters.city}
+                  <span className="bg-[#FF8535] text-white px-3 py-1 rounded-full text-sm">
+                    {filters.city}
                   </span>
                 )}
                 {filters.priceRange && (
-                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm">
+                  <span className="bg-[#E55A2B] text-white px-3 py-1 rounded-full text-sm">
                     {getPriceRangeLabel(filters.priceRange)}
                   </span>
                 )}
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-red-600 hover:text-red-700 flex items-center"
+                  className="text-sm text-red-600 hover:text-red-700 transition-colors flex items-center"
                 >
                   <X className="h-3 w-3 mr-1" />
                   Clear
@@ -495,7 +501,7 @@ const DiscoverEvents = () => {
             <select
               value={filters.sortBy}
               onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A]"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
             >
               <option value="date">Sort by Date</option>
               <option value="price-low">Price: Low to High</option>
@@ -516,7 +522,7 @@ const DiscoverEvents = () => {
             <p className="text-gray-600 mb-4">Try adjusting your search criteria or filters</p>
             <button
               onClick={clearFilters}
-              className="bg-[#006F6A] text-white px-6 py-2 rounded-lg hover:bg-[#005a55] transition-colors"
+              className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg hover:bg-[#FF8535] transition-colors transform hover:scale-105"
             >
               Clear All Filters
             </button>
@@ -539,7 +545,7 @@ const DiscoverEvents = () => {
         )}
       </div>
       
-     <div className="bg-[#005a55]">
+      <div className="bg-[#E55A2B]">
         <Footer />
       </div>
     </div>
@@ -553,7 +559,7 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
   const isUpcoming = eventDate >= today;
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all ${
+    <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-xl transition-all group ${
       viewMode === 'list' ? 'flex' : ''
     }`}>
       {/* Event Image */}
@@ -563,11 +569,11 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
             src={event.image}
             alt={event.title}
             className={`w-full object-cover ${
-              viewMode === 'list' ? 'h-full rounded-l-xl' : 'h-48 rounded-t-xl'
-            }`}
+              viewMode === 'list' ? 'h-full rounded-l-2xl' : 'h-48 rounded-t-2xl'
+            } group-hover:scale-105 transition-transform`}
           />
           <div className="absolute top-3 left-3">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
               isUpcoming ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
             }`}>
               {isUpcoming ? 'Upcoming' : 'Past Event'}
@@ -575,7 +581,7 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
           </div>
           <button
             onClick={onToggleFavorite}
-            className="absolute top-3 right-3 p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
+            className="absolute top-3 right-3 p-2 bg-white/90 rounded-full hover:bg-white transition-colors shadow-sm"
           >
             <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
           </button>
@@ -583,21 +589,21 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
       </div>
 
       {/* Event Content */}
-      <div className={`p-4 ${viewMode === 'list' ? 'flex-1' : ''}`}>
-        <div className="flex justify-between items-start mb-2">
-          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+      <div className={`p-6 ${viewMode === 'list' ? 'flex-1' : ''}`}>
+        <div className="flex justify-between items-start mb-3">
+          <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-medium">
             {event.category}
           </span>
           <span className="text-lg font-bold text-gray-900">₦{event.price.toLocaleString()}</span>
         </div>
 
-        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{event.title}</h3>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{event.description}</p>
+        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">{event.title}</h3>
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{event.description}</p>
 
         {/* Event Details */}
-        <div className="space-y-2 mb-4">
+        <div className="space-y-3 mb-4">
           <div className="flex items-center text-sm text-gray-600">
-            <Calendar className="h-4 w-4 mr-2" />
+            <Calendar className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {eventDate.toLocaleDateString('en-NG', { 
               weekday: 'short', 
               year: 'numeric', 
@@ -606,15 +612,15 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
             })}
           </div>
           <div className="flex items-center text-sm text-gray-600">
-            <Clock className="h-4 w-4 mr-2" />
+            <Clock className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {event.time}
           </div>
           <div className="flex items-center text-sm text-gray-600">
-            <MapPin className="h-4 w-4 mr-2" />
+            <MapPin className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {event.venue}, {event.city}
           </div>
           <div className="flex items-center text-sm text-gray-600">
-            <Users className="h-4 w-4 mr-2" />
+            <Users className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {event.attendees.toLocaleString()} attendees
           </div>
         </div>
@@ -633,10 +639,10 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
             </button>
             <Link
               to={`/events/${event.id}`}
-              className="flex items-center px-3 py-2 bg-[#006F6A] text-white rounded-lg hover:bg-[#005a55] transition-colors text-sm"
+              className="flex items-center px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors transform hover:scale-105 text-sm font-medium group"
             >
               View Details
-              <ArrowRight className="h-4 w-4 ml-1" />
+              <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
         </div>

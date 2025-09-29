@@ -110,7 +110,7 @@ const ResetPassword = () => {
       <div className="max-w-md w-full space-y-8 bg-white rounded-2xl shadow-xl p-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-[#00E8D9] rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-[#FF6B35] rounded-full flex items-center justify-center">
             <Shield className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -135,7 +135,7 @@ const ResetPassword = () => {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     step >= stepNumber
-                      ? 'bg-[#00E8D9] text-white'
+                      ? 'bg-[#FF6B35] text-white'
                       : 'bg-gray-200 text-gray-500'
                   }`}
                 >
@@ -144,7 +144,7 @@ const ResetPassword = () => {
                 {stepNumber < 4 && (
                   <div
                     className={`w-12 h-1 ${
-                      step > stepNumber ? 'bg-[#00E8D9]' : 'bg-gray-200'
+                      step > stepNumber ? 'bg-[#FF6B35]' : 'bg-gray-200'
                     }`}
                   />
                 )}
@@ -182,7 +182,7 @@ const ResetPassword = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-[#00E8D9] focus:border-[#00E8D9] transition-colors"
+                  className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-colors"
                   placeholder="Enter your email address"
                 />
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -192,7 +192,7 @@ const ResetPassword = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#006F6A] hover:bg-[#005C57] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00E8D9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF6B35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? (
                 <Loader className="h-4 w-4 animate-spin" />
@@ -204,7 +204,7 @@ const ResetPassword = () => {
             <div className="text-center">
               <Link
                 to="/login"
-                className="inline-flex items-center text-sm text-[#006F6A] hover:text-[#005C57] font-medium"
+                className="inline-flex items-center text-sm text-[#FF6B35] hover:text-[#FF6B35] font-medium"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back to Login
@@ -229,7 +229,7 @@ const ResetPassword = () => {
                   required
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                  className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-center text-xl tracking-widest focus:outline-none focus:ring-[#00E8D9] focus:border-[#00E8D9] transition-colors"
+                  className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-center text-xl tracking-widest focus:outline-none focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-colors"
                   placeholder="000000"
                 />
               </div>
@@ -241,7 +241,7 @@ const ResetPassword = () => {
             <button
               type="submit"
               disabled={isLoading || verificationCode.length !== 6}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#006F6A] hover:bg-[#005C57] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00E8D9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF6B35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? (
                 <Loader className="h-4 w-4 animate-spin" />
@@ -254,7 +254,7 @@ const ResetPassword = () => {
               <button
                 type="button"
                 onClick={() => handleEmailSubmit({ preventDefault: () => {} })}
-                className="text-sm text-[#006F6A] hover:text-[#005C57] font-medium"
+                className="text-sm text-[#FF6B35] hover:text-[#FF6B35] font-medium"
               >
                 Didn't receive code? Resend
               </button>
@@ -262,7 +262,7 @@ const ResetPassword = () => {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+                  className="inline-flex items-center text-sm text-gray-600 hover:text-[#FF6B35]"
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Use different email
@@ -286,7 +286,7 @@ const ResetPassword = () => {
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-[#00E8D9] focus:border-[#00E8D9] transition-colors"
+                className="mt-1 appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-colors"
                 placeholder="Enter new password"
                 minLength="8"
               />
@@ -303,7 +303,7 @@ const ResetPassword = () => {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-[#00E8D9] focus:border-[#00E8D9] transition-colors"
+                className="mt-1 appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-colors"
                 placeholder="Confirm new password"
                 minLength="8"
               />
@@ -312,7 +312,7 @@ const ResetPassword = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#006F6A] hover:bg-[#005C57] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00E8D9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF6B35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? (
                 <Loader className="h-4 w-4 animate-spin" />
@@ -326,7 +326,7 @@ const ResetPassword = () => {
         {/* Step 4: Success */}
         {step === 4 && (
           <div className="text-center space-y-6">
-            <div className="mx-auto h-16 w-16 bg-green-100 rounded-full flex items-center justify-center">
+            <div className="mx-auto h-16 w-16 bg-[#FF6B35]rounded-full flex items-center justify-center">
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
             
@@ -340,14 +340,14 @@ const ResetPassword = () => {
             <div className="space-y-3">
               <Link
                 to="/login"
-                className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#006F6A] hover:bg-[#005C57] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00E8D9] transition-colors"
+                className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF6B35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] transition-colors"
               >
                 Go to Login
               </Link>
               
               <button
                 onClick={resetProcess}
-                className="w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00E8D9] transition-colors"
+                className="w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-[#FF6B35] hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] transition-colors"
               >
                 Reset Another Password
               </button>
