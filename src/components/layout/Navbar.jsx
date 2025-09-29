@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { Menu, X, User, LogOut, Settings, Bell, LayoutDashboard, Calendar, Wallet, Ticket } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  Menu,
+  X,
+  User,
+  LogOut,
+  Settings,
+  Bell,
+  LayoutDashboard,
+  Calendar,
+  Wallet,
+  Ticket,
+  Search,
+} from "lucide-react";
 import Brandlogo from "../../assets/1.png";
 
 const Navbar = () => {
@@ -8,7 +20,9 @@ const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Check authentication status on component mount and route change
   useEffect(() => {
@@ -16,9 +30,9 @@ const Navbar = () => {
     const userData = {
       name: localStorage.getItem("userName") || "User",
       email: localStorage.getItem("userEmail") || "",
-      role: localStorage.getItem("userRole") || "attendee"
+      role: localStorage.getItem("userRole") || "attendee",
     };
-    
+
     if (token) {
       setIsAuthenticated(true);
       setUser(userData);
@@ -43,33 +57,62 @@ const Navbar = () => {
     window.location.href = "/";
   };
 
-  // Authenticated user menu items
-  const userMenuItems = user?.role === "organizer" 
-  ? [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard/organizer" },
-      { icon: User, label: "Profile", path: "/dashboard/profile" },
-      { icon: Settings, label: "Settings", path: "/dashboard/settings" },
-    ]
-  : [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-      { icon: User, label: "Profile", path: "/dashboard/profile" },
-      { icon: Settings, label: "Settings", path: "/dashboard/settings" },
-    ];
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
 
-  // Navigation links for authenticated users 
+    // Determine the best route based on user authentication and role
+    let searchRoute = "/discover";
+
+    if (isAuthenticated) {
+      if (user?.role === "organizer") {
+        searchRoute = "/dashboard/organizer";
+      } else {
+        searchRoute = "/dashboard";
+      }
+    }
+
+    // Navigate to the appropriate route with search query
+    navigate(`${searchRoute}?search=${encodeURIComponent(searchQuery)}`);
+    setSearchQuery("");
+
+    // Close mobile menu if open
+    setIsMenuOpen(false);
+  };
+
+  // Authenticated user menu items
+  const userMenuItems =
+    user?.role === "organizer"
+      ? [
+          {
+            icon: LayoutDashboard,
+            label: "Dashboard",
+            path: "/dashboard/organizer",
+          },
+          { icon: User, label: "Profile", path: "/dashboard/profile" },
+          { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+        ]
+      : [
+          { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+          { icon: User, label: "Profile", path: "/dashboard/profile" },
+          { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+        ];
+
+  // Navigation links for authenticated users
   const authenticatedLinks = [
     { path: "/discover", label: "Discover Events", icon: null },
     { path: "/dashboard/events", label: "My Events", icon: Calendar },
-    ...(user?.role === "organizer" && !location.pathname.includes('/create-event') 
-      ? [{ path: "/create-event", label: "Create Event", icon: null }] 
+    ...(user?.role === "organizer" &&
+    !location.pathname.includes("/create-event")
+      ? [{ path: "/create-event", label: "Create Event", icon: null }]
       : []),
   ];
 
   // Navigation links for unauthenticated users
   const unauthenticatedLinks = [
     { path: "/discover", label: "Discover Events", icon: null },
-    ...(!location.pathname.includes('/create-event') 
-      ? [{ path: "/create-event", label: "Create Events", icon: null }] 
+    ...(!location.pathname.includes("/create-event")
+      ? [{ path: "/create-event", label: "Create Events", icon: null }]
       : []),
     { path: "/team", label: "Team", icon: null },
   ];
@@ -81,20 +124,46 @@ const Navbar = () => {
         <div className="w-11/12 mx-auto">
           <div className="flex justify-between items-center h-16">
             {/* Logo + Brand */}
-            <NavLink to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center">
+            <NavLink
+              to={isAuthenticated ? "/dashboard" : "/"}
+              className="flex items-center"
+            >
               <img className="h-10 w-auto" src={Brandlogo} alt="Logo" />
               <span className="ml-2 text-xl font-bold text-white tracking-wide">
                 Eventry
               </span>
             </NavLink>
 
+            {/* Desktop Search Bar */}
+            <div className="hidden md:flex flex-1 max-w-md mx-8">
+              <form onSubmit={handleSearch} className="relative w-full">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search events, organizers..."
+                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#00E8D9] focus:border-transparent"
+                />
+
+                <button
+                  type="submit"
+                  className="absolute right-2 top-1.5 p-1 text-white/70 hover:text-[#00E8D9] transition-colors"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              </form>
+            </div>
+
             {/* Desktop links */}
             <div className="hidden md:flex items-center space-x-6">
               {/* Navigation Links */}
-              {(isAuthenticated ? authenticatedLinks : unauthenticatedLinks).map((link) => (
-                <NavLink 
-                  key={link.path} 
-                  to={link.path} 
+              {(isAuthenticated
+                ? authenticatedLinks
+                : unauthenticatedLinks
+              ).map((link) => (
+                <NavLink
+                  key={link.path}
+                  to={link.path}
                   className={navLinkClasses}
                 >
                   {link.label}
@@ -112,8 +181,8 @@ const Navbar = () => {
 
                   {/* Wallet (for blockchain integration) */}
                   {user?.role === "organizer" && (
-                    <NavLink 
-                      to="/dashboard/wallet" 
+                    <NavLink
+                      to="/dashboard/wallet"
                       className="flex items-center px-3 py-2 text-sm font-medium text-white hover:text-[#00E8D9] transition-colors"
                     >
                       <Wallet className="h-4 w-4 mr-1" />
@@ -140,10 +209,14 @@ const Navbar = () => {
                       <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                         {/* User Info */}
                         <div className="px-4 py-2 border-b border-gray-100">
-                          <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                          <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {user?.name}
+                          </p>
+                          <p className="text-xs text-gray-500 capitalize">
+                            {user?.role}
+                          </p>
                         </div>
-                        
+
                         {/* Menu Items */}
                         {userMenuItems.map((item) => (
                           <NavLink
@@ -156,7 +229,7 @@ const Navbar = () => {
                             {item.label}
                           </NavLink>
                         ))}
-                        
+
                         {/* Logout */}
                         <button
                           onClick={handleLogout}
@@ -185,7 +258,11 @@ const Navbar = () => {
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-white/10 transition-colors"
             >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
         </div>
@@ -194,8 +271,23 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden border-t border-white/10">
             <div className="w-11/12 mx-auto px-4 pt-2 pb-4 space-y-2">
+              {/* Mobile Search Bar */}
+              <form onSubmit={handleSearch} className="relative mb-4">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search events, organizers..."
+                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#00E8D9] focus:border-transparent"
+                />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
+              </form>
+
               {/* Navigation Links */}
-              {(isAuthenticated ? authenticatedLinks : unauthenticatedLinks).map((link) => (
+              {(isAuthenticated
+                ? authenticatedLinks
+                : unauthenticatedLinks
+              ).map((link) => (
                 <NavLink
                   key={link.path}
                   to={link.path}
@@ -222,7 +314,7 @@ const Navbar = () => {
                       {item.label}
                     </NavLink>
                   ))}
-                  
+
                   {/* Notifications */}
                   <button className="flex items-center w-full px-3 py-2 text-white hover:bg-white/10 rounded-md">
                     <Bell className="h-4 w-4 mr-2" />

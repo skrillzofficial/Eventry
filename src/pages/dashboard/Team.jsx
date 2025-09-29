@@ -17,14 +17,19 @@ import {
 } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-
+import ImgOne from "../../assets/fedrick.jpg"
+import ImgTwo from "../../assets/gold.jpg"
+import ImgThree from "../../assets/Testimonial1.png"
+import ImgFour from "../../assets/Testimonial2.png"
+import ImgFive from "../../assets/Testimonial3.png"
+import ImgSix from "../../assets/busayo.jpg"
 const Team = () => {
   const teamMembers = [
     {
       id: 1,
       name: "Obazee Felix",
       role: "Founder & CEO",
-      image: "/api/placeholder/300/300",
+      image: ImgOne,
       bio: "Visionary leader with 10+ years in tech entrepreneurship. Passionate about bridging the digital divide in Africa through innovative event solutions.",
       location: "Lagos, Nigeria",
       joinDate: "2023",
@@ -73,7 +78,7 @@ const Team = () => {
       id: 2,
       name: "Obazee Samuel",
       role: "CTO & Blockchain Lead",
-      image: "/api/placeholder/300/300",
+      image: ImgTwo,
       bio: "Blockchain expert and full-stack developer with deep expertise in smart contracts and decentralized applications for the African market.",
       location: "Abuja, Nigeria",
       joinDate: "2023",
@@ -117,7 +122,7 @@ const Team = () => {
       id: 3,
       name: "Adetayo Mathew",
       role: "Head of Product Design",
-      image: "/api/placeholder/300/300",
+      image: ImgThree,
       bio: "User experience designer passionate about creating intuitive, accessible digital experiences that serve diverse African users.",
       location: "Ibadan, Nigeria",
       joinDate: "2023",
@@ -166,7 +171,7 @@ const Team = () => {
       id: 4,
       name: "Emeka Nwosu",
       role: "Lead Backend Engineer",
-      image: "/api/placeholder/300/300",
+      image: ImgFour,
       bio: "Backend specialist focused on building scalable, secure systems that can handle Africa's growing digital infrastructure demands.",
       location: "Port Harcourt, Nigeria",
       joinDate: "2023",
@@ -210,7 +215,7 @@ const Team = () => {
       id: 5,
       name: "Zainab Bello",
       role: "Marketing & Growth Lead",
-      image: "/api/placeholder/300/300",
+      image: ImgFive,
       bio: "Growth marketing expert with proven track record of building communities and driving user acquisition across African markets.",
       location: "Kano, Nigeria",
       joinDate: "2023",
@@ -259,7 +264,7 @@ const Team = () => {
       id: 6,
       name: "David Chukwuma",
       role: "Mobile Lead Engineer",
-      image: "/api/placeholder/300/300",
+      image: ImgSix,
       bio: "Mobile development specialist creating performant, user-friendly applications optimized for African network conditions and devices.",
       location: "Enugu, Nigeria",
       joinDate: "2023",
@@ -398,9 +403,9 @@ const TeamMemberCard = ({ member }) => {
           <img
             src={member.image}
             alt={member.name}
-            className="w-full h-64 object-cover"
+            className="w-full h-60 object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+          <div className="absolute inset-0" />
           <div className="absolute bottom-4 left-4 right-4">
             <h3 className="text-xl font-bold text-white mb-1">{member.name}</h3>
             <p className="text-[#00E8D9] font-medium">{member.role}</p>
@@ -506,12 +511,12 @@ const PortfolioModal = ({ member, onClose }) => {
           <img
             src={member.image}
             alt={member.name}
-            className="w-full h-64 object-cover rounded-t-2xl"
+            className="w-full h-80 object-cover rounded-t-2xl"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-t-2xl" />
+          <div className="absolute inset-0 rounded-t-2xl" />
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/30 transition-colors"
+            className="absolute top-4 right-4 bg-green text-white p-2 rounded-full"
           >
             ✕
           </button>

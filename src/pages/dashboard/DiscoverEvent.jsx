@@ -20,7 +20,9 @@ import {
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-
+import eventOne from "../../assets/Vision one.png"
+import eventTwo from "../../assets/Vision 2.png"
+import eventThree from "../../assets/vision 3.png"
 const DiscoverEvents = () => {
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
@@ -92,7 +94,7 @@ const DiscoverEvents = () => {
         price: 25000,
         capacity: 1500,
         attendees: 1247,
-        image: "/api/placeholder/400/250",
+        image: eventOne,
         organizer: "Tech Innovation NG",
         rating: 4.8,
         reviews: 124
@@ -109,7 +111,7 @@ const DiscoverEvents = () => {
         price: 15000,
         capacity: 5000,
         attendees: 3200,
-        image: "/api/placeholder/400/250",
+        image: eventTwo,
         organizer: "Naija Entertainment",
         rating: 4.6,
         reviews: 89
@@ -126,7 +128,7 @@ const DiscoverEvents = () => {
         price: 8000,
         capacity: 300,
         attendees: 247,
-        image: "/api/placeholder/400/250",
+        image: eventThree,
         organizer: "Startup Nigeria",
         rating: 4.9,
         reviews: 67
@@ -143,7 +145,7 @@ const DiscoverEvents = () => {
         price: 12000,
         capacity: 100,
         attendees: 78,
-        image: "/api/placeholder/400/250",
+        image: eventOne,
         organizer: "Wellness Nigeria",
         rating: 4.7,
         reviews: 45
@@ -160,7 +162,7 @@ const DiscoverEvents = () => {
         price: 18000,
         capacity: 200,
         attendees: 156,
-        image: "/api/placeholder/400/250",
+        image: eventTwo,
         organizer: "AI Nigeria",
         rating: 4.5,
         reviews: 34
@@ -170,14 +172,14 @@ const DiscoverEvents = () => {
         title: "Nigerian Food & Culture Festival",
         description: "Celebrate Nigerian cuisine and cultural heritage with food tasting and performances.",
         category: "Food & Drink",
-        date: "2024-12-01",
+        date: "2025-12-01",
         time: "12:00",
         venue: "Tafawa Balewa Square",
         city: "Lagos",
         price: 5000,
         capacity: 2000,
         attendees: 1890,
-        image: "/api/placeholder/400/250",
+        image: eventThree,
         organizer: "Culture NG",
         rating: 4.4,
         reviews: 156
@@ -537,7 +539,9 @@ const DiscoverEvents = () => {
         )}
       </div>
       
-      <Footer />
+     <div className="bg-[#005a55]">
+        <Footer />
+      </div>
     </div>
   );
 };

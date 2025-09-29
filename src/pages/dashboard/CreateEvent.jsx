@@ -63,8 +63,8 @@ const CreateEvent = () => {
     resolver: yupResolver(eventSchema),
     mode: 'onChange',
     defaultValues: {
-      country: 'nigeria', // Set Nigeria as default
-      city: '' // Empty by default
+      country: 'nigeria', 
+      city: '' 
     }
   });
 
@@ -145,13 +145,13 @@ const CreateEvent = () => {
   // Show authentication prompt for unauthenticated users
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
+      <div className="min-h-screen Homeimg Blend-overlay">
+        
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
-            <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+            <AlertCircle className="h-15 w-15 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Authentication Required</h2>
-            <p className="text-lg text-gray-600 mb-8">
+            <p className="text-lg text-gray-300 mb-8">
               You need to be logged in as an organizer to create events in Nigeria.
             </p>
             <div className="space-x-4">
@@ -170,7 +170,7 @@ const CreateEvent = () => {
             </div>
           </div>
         </div>
-        <Footer />
+       
       </div>
     );
   }
@@ -593,7 +593,11 @@ const CreateEvent = () => {
         </form>
       </div>
       
-      <Footer />
+    
+     <div className="bg-[#005a55]">
+        <Footer />
+      </div>
+   
     </div>
   );
 };

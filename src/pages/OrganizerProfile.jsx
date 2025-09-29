@@ -173,7 +173,9 @@ const OrganizerDashboard = () => {
         </div>
       </div>
       
-      <Footer />
+      <div className="bg-[#005a55]">
+        <Footer />
+      </div>
     </div>
   );
 };

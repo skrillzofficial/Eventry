@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import DiscoverEvents from "./pages/dashboard/DiscoverEvent";
 import Team from "./pages/dashboard/Team";
+import ResetPassword from "./Auths/ResetPassword";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ function App() {
       <div className="flex items-center justify-center h-screen Loading Blend-overrlay">
         <div className="flex flex-col items-center space-y-6">
           {/* Spinner */}
-          <div className="mt-6 w-40 h-15 border-4 border-[#00A89C] rounded-full animate-spin"></div>
+          <div className="mt-6 w-40 h-15 border-4 border-[#E55A2B] rounded-full animate-spin"></div>
         </div>
       </div>
     );
@@ -46,6 +47,7 @@ function App() {
         {/* Auth */}
         <Route path="/signup" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ResetPassword />} />
         {/* Event */}
         <Route path="/create-event" element={<CreateEvent />} />
         <Route path="/discover" element={<DiscoverEvents />} />

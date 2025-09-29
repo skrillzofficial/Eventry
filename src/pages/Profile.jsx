@@ -454,7 +454,9 @@ const Profile = () => {
         </div>
       </div>
       
-      <Footer />
+     <div className="bg-[#005a55]">
+        <Footer />
+      </div>
     </div>
   );
 };

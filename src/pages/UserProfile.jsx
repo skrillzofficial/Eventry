@@ -149,7 +149,9 @@ const UserProfile = () => {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <div className="bg-[#005a55]">
+        <Footer />
+      </div>
     </div>
   );
 };
