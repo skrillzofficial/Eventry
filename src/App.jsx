@@ -13,6 +13,9 @@ import Settings from "./pages/Settings";
 import DiscoverEvents from "./pages/dashboard/DiscoverEvent";
 import Team from "./pages/dashboard/Team";
 import ResetPassword from "./Auths/ResetPassword";
+import EventPage from "./pages/dashboard/EventPage";
+import Wallet from "./pages/dashboard/Wallet";
+import WalletComponent from "./pages/dashboard/Wallet";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -44,6 +47,7 @@ function App() {
         <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
         <Route path="/dashboard/profile" element={<Profile />} />
         <Route path="/dashboard/settings" element={<Settings />} />
+         <Route path="/dashboard/wallet" element={<WalletComponent />} />
         {/* Auth */}
         <Route path="/signup" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
@@ -51,6 +55,7 @@ function App() {
         {/* Event */}
         <Route path="/create-event" element={<CreateEvent />} />
         <Route path="/discover" element={<DiscoverEvents />} />
+        <Route path="/events" element={<EventPage />} />
       </Routes>
     </BrowserRouter>
   );

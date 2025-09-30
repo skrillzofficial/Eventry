@@ -17,7 +17,8 @@ import {
   CheckCircle,
   AlertCircle,
   Download,
-  Share2
+  Share2,
+  Sparkles
 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';    
@@ -100,16 +101,21 @@ const OrganizerDashboard = () => {
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-300">
-                Organizer Dashboard 🎪
-              </h1>
-              <p className="text-gray-500 mt-2">
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl font-bold text-white">
+                  Organizer Dashboard
+                </h1>
+                <div className="flex items-center gap-1 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
+                  <Sparkles className="w-4 h-4 text-[#FF6B35]" />
+                </div>
+              </div>
+              <p className="text-gray-300">
                 Manage your events and track performance with blockchain analytics
               </p>
             </div>
             <Link
               to="/create-event"
-              className="bg-[#006F6A] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#005a55] transition-colors flex items-center"
+              className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#E55A2B] transition-all duration-200 hover:scale-105 flex items-center"
             >
               <Plus className="w-5 h-5 mr-2" />
               Create New Event
@@ -124,27 +130,23 @@ const OrganizerDashboard = () => {
             value={stats.totalEvents} 
             icon={Calendar}
             change="+3 this month"
-            color="blue"
           />
           <StatCard 
             title="Active Events" 
             value={stats.activeEvents} 
             icon={Eye}
-            color="green"
           />
           <StatCard 
             title="Total Attendees" 
             value={stats.totalAttendees?.toLocaleString()} 
             icon={Users}
             change="+24% growth"
-            color="purple"
           />
           <StatCard 
             title="Total Revenue" 
             value={`₦${stats.totalRevenue?.toLocaleString()}`} 
             icon={DollarSign}
             change="+18% from last month"
-            color="orange"
           />
         </div>
 
@@ -173,7 +175,7 @@ const OrganizerDashboard = () => {
         </div>
       </div>
       
-      <div className="bg-[#005a55]">
+      <div className="bg-[#FF6B35]">
         <Footer />
       </div>
     </div>
@@ -181,63 +183,63 @@ const OrganizerDashboard = () => {
 };
 
 // Reusable Components
-const StatCard = ({ title, value, icon: Icon, change, color }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+const StatCard = ({ title, value, icon: Icon, change }) => (
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism hover:scale-105 transition-all duration-300">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className="text-sm font-medium text-gray-300">{title}</p>
+        <p className="text-2xl font-bold text-white mt-1">{value}</p>
         {change && (
-          <p className={`text-sm ${change.includes('+') ? 'text-green-600' : 'text-red-600'} flex items-center mt-1`}>
+          <p className={`text-sm ${change.includes('+') ? 'text-green-400' : 'text-red-400'} flex items-center mt-1`}>
             <TrendingUp className="h-4 w-4 mr-1" />
             {change}
           </p>
         )}
       </div>
-      <div className={`p-3 bg-${color}-100 rounded-lg`}>
-        <Icon className={`h-6 w-6 text-${color}-600`} />
+      <div className="p-3 bg-[#FF6B35]/20 rounded-lg">
+        <Icon className="h-6 w-6 text-[#FF6B35]" />
       </div>
     </div>
   </div>
 );
 
 const QuickActionsSection = () => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
+    <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <Link to="/create-event" className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-[#006F6A] transition-colors group">
-        <div className="p-3 bg-blue-100 rounded-lg mb-2">
-          <Plus className="h-6 w-6 text-blue-600" />
+      <Link to="/create-event" className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group">
+        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+          <Plus className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-gray-900">Create Event</span>
+        <span className="text-sm font-medium text-white">Create Event</span>
       </Link>
-      <Link to="/dashboard/analytics" className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-[#006F6A] transition-colors group">
-        <div className="p-3 bg-green-100 rounded-lg mb-2">
-          <BarChart3 className="h-6 w-6 text-green-600" />
+      <Link to="/dashboard/analytics" className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group">
+        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+          <BarChart3 className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-gray-900">Analytics</span>
+        <span className="text-sm font-medium text-white">Analytics</span>
       </Link>
-      <Link to="/dashboard/attendees" className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-[#006F6A] transition-colors group">
-        <div className="p-3 bg-purple-100 rounded-lg mb-2">
-          <Users className="h-6 w-6 text-purple-600" />
+      <Link to="/dashboard/attendees" className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group">
+        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+          <Users className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-gray-900">Attendees</span>
+        <span className="text-sm font-medium text-white">Attendees</span>
       </Link>
-      <Link to="/dashboard/wallet" className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-[#006F6A] transition-colors group">
-        <div className="p-3 bg-orange-100 rounded-lg mb-2">
-          <Wallet className="h-6 w-6 text-orange-600" />
+      <Link to="/dashboard/wallet" className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group">
+        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+          <Wallet className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-gray-900">Wallet</span>
+        <span className="text-sm font-medium text-white">Wallet</span>
       </Link>
     </div>
   </div>
 );
 
 const EventsManagementSection = ({ events }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900">Events Management</h3>
-      <Link to="/dashboard/events" className="text-sm text-[#006F6A] hover:text-[#005a55] flex items-center">
+      <h3 className="text-lg font-semibold text-white">Events Management</h3>
+      <Link to="/dashboard/events" className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center transition-all duration-200 hover:scale-105">
         View all <ArrowRight className="h-4 w-4 ml-1" />
       </Link>
     </div>
@@ -250,23 +252,23 @@ const EventsManagementSection = ({ events }) => (
 );
 
 const EventCard = ({ event }) => (
-  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-[#006F6A] transition-colors">
+  <div className="flex items-center justify-between p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-102">
     <div className="flex-1">
       <div className="flex items-center space-x-3">
         <div className={`p-2 rounded-full ${
-          event.status === 'active' ? 'bg-green-100 text-green-600' :
-          event.status === 'completed' ? 'bg-gray-100 text-gray-600' :
-          'bg-blue-100 text-blue-600'
+          event.status === 'active' ? 'bg-green-400/20 text-green-400' :
+          event.status === 'completed' ? 'bg-gray-400/20 text-gray-400' :
+          'bg-[#FF6B35]/20 text-[#FF6B35]'
         }`}>
           {event.status === 'active' ? <Eye className="h-4 w-4" /> :
            event.status === 'completed' ? <CheckCircle className="h-4 w-4" /> :
            <Clock className="h-4 w-4" />}
         </div>
         <div>
-          <h4 className="font-semibold text-gray-900">{event.title}</h4>
-          <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+          <h4 className="font-semibold text-white">{event.title}</h4>
+          <div className="flex items-center space-x-4 text-sm text-gray-300 mt-1">
             <span className="flex items-center">
-              <MapPin className="h-3 w-3 mr-1" />
+              <MapPin className="h-3 w-3 mr-1 text-[#FF6B35]" />
               {event.location}
             </span>
             <span>{new Date(event.date).toLocaleDateString()}</span>
@@ -277,14 +279,14 @@ const EventCard = ({ event }) => (
     <div className="text-right">
       <div className="flex items-center space-x-4">
         <div className="text-sm">
-          <div className="font-semibold text-gray-900">{event.ticketsSold} tickets</div>
-          <div className="text-gray-600">₦{event.revenue?.toLocaleString()}</div>
+          <div className="font-semibold text-white">{event.ticketsSold} tickets</div>
+          <div className="text-gray-300">₦{event.revenue?.toLocaleString()}</div>
         </div>
         <div className="flex space-x-2">
-          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <button className="p-2 text-gray-400 hover:text-[#FF6B35] transition-all duration-200 hover:scale-110">
             <Share2 className="h-4 w-4" />
           </button>
-          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <button className="p-2 text-gray-400 hover:text-[#FF6B35] transition-all duration-200 hover:scale-110">
             <Download className="h-4 w-4" />
           </button>
         </div>
@@ -294,42 +296,42 @@ const EventCard = ({ event }) => (
 );
 
 const RevenueSection = ({ revenueData }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Analytics</h3>
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
+    <h3 className="text-lg font-semibold text-white mb-4">Revenue Analytics</h3>
     <div className="h-48 flex items-end space-x-2">
       {revenueData.values?.map((value, index) => (
-        <div key={index} className="flex-1 flex flex-col items-center">
+        <div key={index} className="flex-1 flex flex-col items-center group">
           <div 
-            className="w-full bg-gradient-to-t from-[#006F6A] to-[#00E8D9] rounded-t transition-all hover:opacity-80"
+            className="w-full bg-[#FF6B35] rounded-t transition-all duration-300 hover:bg-[#FF8535] group-hover:scale-105"
             style={{ height: `${(value / 30000) * 100}%` }}
           />
-          <span className="text-xs text-gray-600 mt-2">{revenueData.labels?.[index]}</span>
+          <span className="text-xs text-gray-300 mt-2 group-hover:text-white transition-colors">{revenueData.labels?.[index]}</span>
         </div>
       ))}
     </div>
     <div className="flex justify-between items-center mt-4">
-      <span className="text-sm text-gray-600">Monthly revenue distribution</span>
-      <span className="text-sm font-semibold text-[#006F6A]">+18% growth</span>
+      <span className="text-sm text-gray-300">Monthly revenue distribution</span>
+      <span className="text-sm font-semibold text-[#FF6B35]">+18% growth</span>
     </div>
   </div>
 );
 
 const UpcomingEventsSection = ({ events }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900">Upcoming Events</h3>
-      <Link to="/dashboard/events" className="text-sm text-[#006F6A] hover:text-[#005a55] flex items-center">
+      <h3 className="text-lg font-semibold text-white">Upcoming Events</h3>
+      <Link to="/dashboard/events" className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center transition-all duration-200 hover:scale-105">
         View all <ArrowRight className="h-4 w-4 ml-1" />
       </Link>
     </div>
     <div className="space-y-3">
       {events.map((event) => (
-        <div key={event.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
+        <div key={event.id} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-all duration-200 hover:scale-102">
           <div>
-            <p className="font-medium text-gray-900 text-sm">{event.title}</p>
-            <p className="text-xs text-gray-600">{new Date(event.date).toLocaleDateString()} • {event.location}</p>
+            <p className="font-medium text-white text-sm">{event.title}</p>
+            <p className="text-xs text-gray-300">{new Date(event.date).toLocaleDateString()} • {event.location}</p>
           </div>
-          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+          <span className="text-xs bg-[#FF6B35]/20 text-[#FF6B35] px-2 py-1 rounded-full">
             {event.ticketsSold} sold
           </span>
         </div>
@@ -339,7 +341,7 @@ const UpcomingEventsSection = ({ events }) => (
 );
 
 const BlockchainWalletSection = ({ balance }) => (
-  <div className="bg-gradient-to-br from-[#006F6A] to-[#005a55] rounded-xl shadow-sm p-6 text-white">
+  <div className="bg-gradient-to-br from-[#FF6B35] to-[#E55A2B] rounded-xl shadow-sm p-6 text-white">
     <h3 className="text-lg font-semibold mb-3">Blockchain Wallet</h3>
     <div className="mb-4">
       <p className="text-2xl font-bold">₦{balance?.toLocaleString()}</p>
@@ -355,15 +357,15 @@ const BlockchainWalletSection = ({ balance }) => (
         <span>₦85,600.00</span>
       </div>
     </div>
-    <button className="w-full mt-4 bg-white/20 hover:bg-white/30 text-white py-2 rounded-lg transition-colors text-sm">
+    <button className="w-full mt-4 bg-white/20 hover:bg-white/30 text-white py-2 rounded-lg transition-all duration-200 hover:scale-105">
       Withdraw Funds
     </button>
   </div>
 );
 
 const PerformanceMetricsSection = ({ stats }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Metrics</h3>
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
+    <h3 className="text-lg font-semibold text-white mb-4">Performance Metrics</h3>
     <div className="space-y-4">
       <MetricItem label="Ticket Conversion Rate" value={`${stats.conversionRate}%`} trend="up" />
       <MetricItem label="Average Ticket Price" value="₦2,500" trend="up" />
@@ -374,14 +376,14 @@ const PerformanceMetricsSection = ({ stats }) => (
 );
 
 const MetricItem = ({ label, value, trend }) => (
-  <div className="flex items-center justify-between">
-    <span className="text-sm text-gray-600">{label}</span>
+  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-all duration-200">
+    <span className="text-sm text-gray-300">{label}</span>
     <div className="flex items-center space-x-2">
-      <span className="font-semibold text-gray-900">{value}</span>
+      <span className="font-semibold text-white">{value}</span>
       <div className={`p-1 rounded ${
-        trend === 'up' ? 'bg-green-100 text-green-600' :
-        trend === 'down' ? 'bg-red-100 text-red-600' :
-        'bg-gray-100 text-gray-600'
+        trend === 'up' ? 'bg-green-400/20 text-green-400' :
+        trend === 'down' ? 'bg-red-400/20 text-red-400' :
+        'bg-gray-400/20 text-gray-400'
       }`}>
         <TrendingUp className={`h-3 w-3 ${trend === 'down' ? 'rotate-180' : ''}`} />
       </div>

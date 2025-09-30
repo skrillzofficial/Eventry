@@ -25,7 +25,8 @@ import {
   Lock,
   Key,
   Smartphone,
-  Database
+  Database,
+  Sparkles
 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
@@ -148,7 +149,7 @@ const Settings = () => {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `eventra-data-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `eventry-data-${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -163,32 +164,32 @@ const Settings = () => {
   const notificationSettings = watch('notifications') || {};
 
   return (
-    <div className="Min-h-screen Homeimg Blend-overlay">
+    <div className="min-h-screen Homeimg Blend-overlay">
       <Navbar />
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-300">
-            Settings
+          <div className="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-white text-sm mb-4">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Account Settings
+          </div>
+          <h1 className="text-3xl font-bold text-white">
+            Settings & <span className="text-[#FF6B35]">Preferences</span>
           </h1>
-          <p className="text-gray-400 mt-2">
+          <p className="text-white/80 mt-2">
             Manage your account preferences and privacy settings
           </p>
         </div>
 
         {/* Save Status */}
         {saveStatus && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            saveStatus === 'success' ? 'bg-green-50 border border-green-200' :
-            saveStatus === 'error' ? 'bg-red-50 border border-red-200' :
-            'bg-blue-50 border border-blue-200'
+          <div className={`mb-6 p-4 rounded-lg backdrop-blur-sm ${
+            saveStatus === 'success' ? 'bg-green-500/20 border border-green-500/30 text-white' :
+            saveStatus === 'error' ? 'bg-red-500/20 border border-red-500/30 text-white' :
+            'bg-blue-500/20 border border-blue-500/30 text-white'
           }`}>
-            <p className={`flex items-center ${
-              saveStatus === 'success' ? 'text-green-700' :
-              saveStatus === 'error' ? 'text-red-700' :
-              'text-blue-700'
-            }`}>
+            <p className={`flex items-center`}>
               {saveStatus === 'success' ? (
                 <CheckCircle className="h-5 w-5 mr-2" />
               ) : saveStatus === 'error' ? (
@@ -206,9 +207,7 @@ const Settings = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
-            <div className={`rounded-xl shadow-sm border ${
-              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            } p-6`}>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
               <nav className="space-y-2">
                 {[
                   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -222,15 +221,13 @@ const Settings = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${
+                    className={`w-full flex items-center px-3 py-2 text-sm rounded-lg transition-all group ${
                       activeTab === tab.id
-                        ? 'bg-[#006F6A] text-white'
-                        : theme === 'dark' 
-                          ? 'text-gray-300 hover:bg-gray-700' 
-                          : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-[#FF6B35] text-white transform scale-105'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
                     }`}
                   >
-                    <tab.icon className="w-4 h-4 mr-3" />
+                    <tab.icon className="w-4 h-4 mr-3 group-hover:scale-110 transition-transform" />
                     {tab.label}
                   </button>
                 ))}
@@ -241,15 +238,13 @@ const Settings = () => {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <form onSubmit={handleSubmit(onSubmit)}>
-              <div className={`rounded-xl shadow-sm border ${
-                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              } p-6`}>
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
                 
                 {/* Notifications Tab */}
                 {activeTab === 'notifications' && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-6 flex items-center">
-                      <Bell className="w-5 h-5 mr-2" />
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                      <Bell className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Notification Preferences
                     </h3>
                     <div className="space-y-6">
@@ -307,8 +302,8 @@ const Settings = () => {
                 {/* Privacy Tab */}
                 {activeTab === 'privacy' && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-6 flex items-center">
-                      <Shield className="w-5 h-5 mr-2" />
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                      <Shield className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Privacy Settings
                     </h3>
                     <div className="space-y-6">
@@ -344,7 +339,7 @@ const Settings = () => {
                         <ToggleSetting
                           name="privacy.dataSharing"
                           label="Analytics Sharing"
-                          description="Help improve Eventra by sharing anonymous usage data"
+                          description="Help improve Eventry by sharing anonymous usage data"
                           icon={Database}
                           register={register}
                         />
@@ -356,8 +351,8 @@ const Settings = () => {
                 {/* Security Tab */}
                 {activeTab === 'security' && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-6 flex items-center">
-                      <Lock className="w-5 h-5 mr-2" />
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                      <Lock className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Security Settings
                     </h3>
                     <div className="space-y-6">
@@ -415,8 +410,8 @@ const Settings = () => {
                 {/* Appearance Tab */}
                 {activeTab === 'appearance' && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-6 flex items-center">
-                      <Palette className="w-5 h-5 mr-2" />
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                      <Palette className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Appearance
                     </h3>
                     <div className="space-y-6">
@@ -471,8 +466,8 @@ const Settings = () => {
                 {/* Language & Region Tab */}
                 {activeTab === 'language' && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-6 flex items-center">
-                      <Globe className="w-5 h-5 mr-2" />
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                      <Globe className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Language & Region
                     </h3>
                     <div className="space-y-6">
@@ -512,37 +507,37 @@ const Settings = () => {
                 {/* Data Management Tab */}
                 {activeTab === 'data' && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-6 flex items-center">
-                      <Database className="w-5 h-5 mr-2" />
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                      <Database className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Data Management
                     </h3>
                     <div className="space-y-6">
                       <SettingSection title="Export Data">
-                        <div className="p-4 border rounded-lg">
-                          <p className="text-sm text-gray-600 mb-4">
+                        <div className="p-4 border border-white/20 rounded-lg bg-white/5">
+                          <p className="text-sm text-white/80 mb-4">
                             Download a copy of your personal data including profile information, event history, and preferences.
                           </p>
                           <button
                             type="button"
                             onClick={handleExportData}
-                            className="flex items-center px-4 py-2 text-sm font-medium text-[#006F6A] hover:text-[#005a55] transition-colors"
+                            className="flex items-center px-4 py-2 text-sm font-medium text-[#FF6B35] hover:text-[#FF8535] transition-colors group"
                           >
-                            <Download className="w-4 h-4 mr-2" />
+                            <Download className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                             Export Data
                           </button>
                         </div>
                       </SettingSection>
 
                       <SettingSection title="Clear Data">
-                        <div className="p-4 border rounded-lg">
-                          <p className="text-sm text-gray-600 mb-4">
+                        <div className="p-4 border border-white/20 rounded-lg bg-white/5">
+                          <p className="text-sm text-white/80 mb-4">
                             Clear your event history and temporary data. This action cannot be undone.
                           </p>
                           <button
                             type="button"
-                            className="flex items-center px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                            className="flex items-center px-4 py-2 text-sm font-medium text-red-400 hover:text-red-300 transition-colors group"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
+                            <Trash2 className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                             Clear Event History
                           </button>
                         </div>
@@ -554,21 +549,21 @@ const Settings = () => {
                 {/* Account Tab */}
                 {activeTab === 'account' && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-6 flex items-center">
-                      <UserX className="w-5 h-5 mr-2" />
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                      <UserX className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Account Management
                     </h3>
                     <div className="space-y-6">
                       <SettingSection title="Danger Zone">
-                        <div className="p-4 border border-red-200 rounded-lg bg-red-50">
-                          <h4 className="font-semibold text-red-900 mb-2">Delete Account</h4>
-                          <p className="text-sm text-red-700 mb-4">
+                        <div className="p-4 border border-red-500/30 rounded-lg bg-red-500/10">
+                          <h4 className="font-semibold text-white mb-2">Delete Account</h4>
+                          <p className="text-sm text-white/80 mb-4">
                             Permanently delete your account and all associated data. This action cannot be undone.
                           </p>
                           <button
                             type="button"
                             onClick={handleDeleteAccount}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors transform hover:scale-105"
                           >
                             Delete Account
                           </button>
@@ -579,13 +574,13 @@ const Settings = () => {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex justify-between items-center pt-6 mt-6 border-t">
+                <div className="flex justify-between items-center pt-6 mt-6 border-t border-white/20">
                   <button
                     type="button"
                     onClick={handleResetSettings}
-                    className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-700 transition-colors"
+                    className="flex items-center px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors group"
                   >
-                    <RotateCcw className="w-4 h-4 mr-2" />
+                    <RotateCcw className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                     Reset to Default
                   </button>
                   
@@ -593,14 +588,14 @@ const Settings = () => {
                     <button
                       type="button"
                       onClick={() => reset()}
-                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      className="px-6 py-2 border border-white/20 text-white rounded-lg font-medium hover:bg-white/10 transition-colors transform hover:scale-105"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="flex items-center px-6 py-2 bg-[#006F6A] text-white rounded-lg font-medium hover:bg-[#005a55] disabled:opacity-50 transition-colors"
+                      className="flex items-center px-6 py-2 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] disabled:opacity-50 transition-colors transform hover:scale-105"
                     >
                       <Save className="w-4 h-4 mr-2" />
                       {isLoading ? 'Saving...' : 'Save Changes'}
@@ -613,7 +608,7 @@ const Settings = () => {
         </div>
       </div>
       
-      <div className="bg-[#005a55]">
+      <div className="bg-[#E55A2B]">
         <Footer />
       </div>
     </div>
@@ -623,7 +618,7 @@ const Settings = () => {
 // Reusable Components
 const SettingSection = ({ title, children }) => (
   <div>
-    <h4 className="font-semibold text-gray-900 mb-4">{title}</h4>
+    <h4 className="font-semibold text-white mb-4">{title}</h4>
     <div className="space-y-4">
       {children}
     </div>
@@ -631,31 +626,31 @@ const SettingSection = ({ title, children }) => (
 );
 
 const ToggleSetting = ({ name, label, description, icon: Icon, register }) => (
-  <div className="flex items-center justify-between p-3 border rounded-lg">
+  <div className="flex items-center justify-between p-3 border border-white/20 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
     <div className="flex items-center space-x-3">
-      <Icon className="w-4 h-4 text-gray-400" />
+      <Icon className="w-4 h-4 text-[#FF6B35] group-hover:scale-110 transition-transform" />
       <div>
-        <p className="font-medium text-gray-900">{label}</p>
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className="font-medium text-white">{label}</p>
+        <p className="text-sm text-white/80">{description}</p>
       </div>
     </div>
     <label className="relative inline-flex items-center cursor-pointer">
       <input type="checkbox" {...register(name)} className="sr-only peer" />
-      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#006F6A]"></div>
+      <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B35]"></div>
     </label>
   </div>
 );
 
 const SelectSetting = ({ name, label, description, options, register }) => (
   <div className="space-y-2">
-    <label className="font-medium text-gray-900">{label}</label>
-    <p className="text-sm text-gray-600">{description}</p>
+    <label className="font-medium text-white">{label}</label>
+    <p className="text-sm text-white/80">{description}</p>
     <select
       {...register(name)}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A]"
+      className="w-full px-3 py-2 border border-white/20 bg-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-all"
     >
       {options.map(option => (
-        <option key={option.value} value={option.value}>
+        <option key={option.value} value={option.value} className="text-gray-900">
           {option.label}
         </option>
       ))}
@@ -665,17 +660,17 @@ const SelectSetting = ({ name, label, description, options, register }) => (
 
 const PasswordInput = ({ label, name, showPassword, onToggleVisibility, register }) => (
   <div>
-    <label className="font-medium text-gray-900">{label}</label>
+    <label className="font-medium text-white">{label}</label>
     <div className="relative">
       <input
         type={showPassword ? "text" : "password"}
         {...register(name)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006F6A] pr-10"
+        className="w-full px-3 py-2 border border-white/20 bg-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] pr-10 transition-all"
       />
       <button
         type="button"
         onClick={onToggleVisibility}
-        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
       >
         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
       </button>
@@ -687,14 +682,14 @@ const ThemeOption = ({ icon: Icon, label, value, currentTheme, onClick }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`p-4 border-2 rounded-lg text-left transition-all ${
+    className={`p-4 border-2 rounded-lg text-left transition-all group ${
       currentTheme === value
-        ? 'border-[#006F6A] bg-[#006F6A]/5'
-        : 'border-gray-200 hover:border-gray-300'
+        ? 'border-[#FF6B35] bg-[#FF6B35]/20 transform scale-105'
+        : 'border-white/20 hover:border-[#FF6B35] hover:bg-white/10'
     }`}
   >
-    <Icon className="w-6 h-6 mb-2" />
-    <p className="font-medium">{label}</p>
+    <Icon className="w-6 h-6 mb-2 text-white group-hover:scale-110 transition-transform" />
+    <p className="font-medium text-white">{label}</p>
   </button>
 );
 

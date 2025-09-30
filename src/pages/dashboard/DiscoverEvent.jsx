@@ -434,8 +434,8 @@ const DiscoverEvents = () => {
 
               {/* Sort Options */}
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                <div className="flex flex-wrap gap-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
+                <div className="flex flex-wrap text-gray-300 gap-2">
                   {[
                     { value: 'date', label: 'Date' },
                     { value: 'price-low', label: 'Price: Low to High' },

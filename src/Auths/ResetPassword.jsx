@@ -120,7 +120,7 @@ const ResetPassword = () => {
             {step === 4 && 'Password Reset Successfully'}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {step === 1 && 'Enter your email address and we\'ll send you a verification code'}
+            {step === 1 && 'Enter your email address and we will send you a verification code'}
             {step === 2 && 'Enter the 6-digit code sent to your email'}
             {step === 3 && 'Create a new secure password for your account'}
             {step === 4 && 'Your password has been reset successfully'}
