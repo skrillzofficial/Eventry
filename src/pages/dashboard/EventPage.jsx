@@ -22,11 +22,20 @@ import {
 } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
+import CheckoutFlow from '../../checkout/Checkout';
+import { eventsApi } from '../../data/EventsApi';
 
 // Import sample images (you'll need to adjust these paths)
 import eventOne from "../../assets/Vision one.png";
 import eventTwo from "../../assets/Vision 2.png";
 import eventThree from "../../assets/vision 3.png";
+
+// Image mapping for demo purposes
+const imageMap = {
+  "/assets/Vision one.png": eventOne,
+  "/assets/Vision 2.png": eventTwo,
+  "/assets/vision 3.png": eventThree
+};
 
 const EventPage = () => {
   const { id } = useParams();
@@ -36,124 +45,54 @@ const EventPage = () => {
   const [ticketQuantity, setTicketQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('details');
   const [relatedEvents, setRelatedEvents] = useState([]);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadEventData();
-    loadRelatedEvents();
   }, [id]);
 
   const loadEventData = async () => {
-    // Simulate API call
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Load event data from API
+      const eventData = await eventsApi.getEventById(id);
+      
+      // Map image paths to actual imports
+      const eventWithImages = {
+        ...eventData,
+        images: eventData.images.map(img => imageMap[img] || img)
+      };
+      
+      setEvent(eventWithImages);
+      
+      // Load related events
+      const related = await eventsApi.getRelatedEvents(id);
+      const relatedWithImages = related.map(relEvent => ({
+        ...relEvent,
+        image: imageMap[relEvent.images[0]] || relEvent.images[0]
+      }));
+      
+      setRelatedEvents(relatedWithImages);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error loading event:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = (paymentResult) => {
+    console.log('Payment successful:', paymentResult);
+    setShowCheckout(false);
     
-    // Sample event data - this would typically come from an API
-    const eventData = {
-      id: parseInt(id),
-      title: "Blockchain & Web3 Conference Lagos 2024",
-      description: "Join industry leaders exploring the future of blockchain technology and decentralized applications in Africa. This premier conference brings together innovators, developers, investors, and enthusiasts to discuss the latest trends, challenges, and opportunities in the Web3 space.",
-      longDescription: `
-        <p>The Blockchain & Web3 Conference Lagos 2024 is set to be the largest gathering of blockchain enthusiasts in West Africa. This year's theme focuses on "Building the Future of Decentralized Africa."</p>
-        
-        <h3>What to Expect:</h3>
-        <ul>
-          <li>Keynote speeches from industry pioneers</li>
-          <li>Technical workshops on smart contracts and dApp development</li>
-          <li>Panel discussions on regulation and adoption</li>
-          <li>Networking sessions with top projects</li>
-          <li>Live coding sessions and hackathons</li>
-        </ul>
-
-        <h3>Who Should Attend:</h3>
-        <ul>
-          <li>Blockchain developers and engineers</li>
-          <li>Startup founders and entrepreneurs</li>
-          <li>Investors and venture capitalists</li>
-          <li>Policy makers and regulators</li>
-          <li>Students and blockchain enthusiasts</li>
-        </ul>
-      `,
-      category: "Technology",
-      date: "2024-12-15",
-      time: "09:00",
-      endTime: "18:00",
-      venue: "Eko Convention Center",
-      address: "Victoria Island, Lagos, Nigeria",
-      city: "Lagos",
-      price: 25000,
-      capacity: 1500,
-      attendees: 1247,
-      images: [eventOne, eventTwo, eventThree],
-      organizer: {
-        name: "Tech Innovation NG",
-        verified: true,
-        rating: 4.9,
-        eventsHosted: 47,
-        joinDate: "2020-03-15",
-        description: "Leading technology event organizers in Africa, specializing in blockchain, AI, and emerging technologies."
-      },
-      rating: 4.8,
-      reviews: 124,
-      tags: ["Blockchain", "Web3", "Cryptocurrency", "DeFi", "NFT", "Smart Contracts"],
-      includes: [
-        "Conference access",
-        "Lunch and refreshments",
-        "Networking session",
-        "Conference materials",
-        "Certificate of attendance"
-      ],
-      requirements: [
-        "Basic understanding of blockchain recommended",
-        "Laptop for workshops (optional)",
-        "Government-issued ID for registration"
-      ]
-    };
-
-    setEvent(eventData);
-    setLoading(false);
-  };
-
-  const loadRelatedEvents = async () => {
-    // Sample related events
-    const related = [
-      {
-        id: 2,
-        title: "AI & Machine Learning Workshop",
-        category: "Technology",
-        date: "2024-12-10",
-        price: 18000,
-        image: eventTwo,
-        city: "Lagos",
-        rating: 4.5
-      },
-      {
-        id: 3,
-        title: "Startup Investment Summit",
-        category: "Business",
-        date: "2024-12-05",
-        price: 8000,
-        image: eventThree,
-        city: "Ibadan",
-        rating: 4.9
-      },
-      {
-        id: 4,
-        title: "Web3 Developers Meetup",
-        category: "Technology",
-        date: "2024-11-30",
-        price: 5000,
-        image: eventOne,
-        city: "Lagos",
-        rating: 4.7
-      }
-    ];
-    setRelatedEvents(related);
-  };
-
-  const handleTicketPurchase = () => {
-    // Handle ticket purchase logic
-    const totalPrice = event.price * ticketQuantity;
-    alert(`Purchasing ${ticketQuantity} ticket(s) for ₦${totalPrice.toLocaleString()}`);
+    // Show success message
+    alert(`🎉 Payment Successful! 
+      ${paymentResult.tickets} tickets for ${paymentResult.event.title}
+      Transaction: ${paymentResult.transactionId}
+      Amount: ${paymentResult.amount} ${paymentResult.currency}`);
   };
 
   const toggleFavorite = () => {
@@ -188,15 +127,27 @@ const EventPage = () => {
     );
   }
 
-  if (!event) {
+  if (error || !event) {
     return (
       <div className="min-h-screen Homeimg Blend-overlay">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Event Not Found</h1>
-          <Link to="/discover" className="text-[#FF6B35] hover:text-[#FF8535] transition-colors">
-            Return to Discover Events
-          </Link>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-8 max-w-md mx-auto">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="h-8 w-8 text-red-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Event Not Found</h1>
+            <p className="text-gray-300 mb-6">
+              {error || "The event you're looking for doesn't exist or has been removed."}
+            </p>
+            <Link 
+              to="/discover" 
+              className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] transition-colors font-semibold"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Return to Discover Events
+            </Link>
+          </div>
         </div>
         <Footer />
       </div>
@@ -234,10 +185,12 @@ const EventPage = () => {
                     <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm font-medium">
                       {event.category}
                     </span>
-                    <div className="flex items-center gap-1 px-2 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                      <Sparkles className="w-3 h-3 text-[#FF6B35]" />
-                      <span className="text-xs font-medium text-white">Featured</span>
-                    </div>
+                    {event.featured && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
+                        <Sparkles className="w-3 h-3 text-[#FF6B35]" />
+                        <span className="text-xs font-medium text-white">Featured</span>
+                      </div>
+                    )}
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       isUpcoming ? 'bg-green-400/20 text-green-400' : 'bg-gray-400/20 text-gray-400'
                     }`}>
@@ -314,16 +267,18 @@ const EventPage = () => {
                   className="w-full h-64 lg:h-96 object-cover"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-1 p-1">
-                {event.images.slice(1).map((image, index) => (
-                  <img
-                    key={index}
-                    src={image}
-                    alt={`${event.title} ${index + 2}`}
-                    className="h-24 object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                  />
-                ))}
-              </div>
+              {event.images.length > 1 && (
+                <div className="grid grid-cols-3 gap-1 p-1">
+                  {event.images.slice(1).map((image, index) => (
+                    <img
+                      key={index}
+                      src={image}
+                      alt={`${event.title} ${index + 2}`}
+                      className="h-24 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Content Tabs */}
@@ -559,7 +514,7 @@ const EventPage = () => {
                   {relatedEvents.map(relatedEvent => (
                     <Link
                       key={relatedEvent.id}
-                      to={`/events/${relatedEvent.id}`}
+                      to={`/event/${relatedEvent.id}`}
                       className="flex items-center space-x-4 p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-all duration-200 hover:scale-102 group"
                     >
                       <img
@@ -633,7 +588,7 @@ const EventPage = () => {
                 </div>
 
                 <button
-                  onClick={handleTicketPurchase}
+                  onClick={() => setShowCheckout(true)}
                   className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-semibold hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 transform"
                 >
                   <Ticket className="h-5 w-5 inline mr-2" />
@@ -714,6 +669,16 @@ const EventPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Checkout Flow Modal */}
+      {showCheckout && (
+        <CheckoutFlow
+          event={event}
+          ticketQuantity={ticketQuantity}
+          onSuccess={handlePaymentSuccess}
+          onClose={() => setShowCheckout(false)}
+        />
+      )}
       
       <div className="bg-[#FF6B35]">
         <Footer />

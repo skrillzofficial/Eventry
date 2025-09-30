@@ -21,9 +21,19 @@ import {
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
+import { eventsApi } from '../../data/EventsApi';
+
+// Import sample images (you'll need to adjust these paths)
 import eventOne from "../../assets/Vision one.png"
 import eventTwo from "../../assets/Vision 2.png"
 import eventThree from "../../assets/vision 3.png"
+
+// Image mapping for demo purposes
+const imageMap = {
+  "/assets/Vision one.png": eventOne,
+  "/assets/Vision 2.png": eventTwo,
+  "/assets/vision 3.png": eventThree
+};
 
 const DiscoverEvents = () => {
   const [events, setEvents] = useState([]);
@@ -40,37 +50,12 @@ const DiscoverEvents = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
   const [favorites, setFavorites] = useState(new Set());
-
-  // Available categories and cities
-  const categories = [
-    'All Categories',
-    'Technology',
-    'Business',
-    'Music',
-    'Arts',
-    'Sports',
-    'Food & Drink',
-    'Health & Wellness',
-    'Education',
-    'Networking',
-    'Conference',
-    'Workshop'
-  ];
-
-  const cities = [
-    'All Cities',
-    'Lagos',
-    'Abuja',
-    'Ibadan',
-    'Osun',
-    'Port Harcourt',
-    'Kano',
-    'Benin City',
-    'Aba'
-  ];
+  const [categories, setCategories] = useState([]);
+  const [cities, setCities] = useState([]);
 
   useEffect(() => {
     loadEvents();
+    loadCategoriesAndCities();
   }, []);
 
   useEffect(() => {
@@ -78,126 +63,45 @@ const DiscoverEvents = () => {
   }, [events, searchTerm, filters]);
 
   const loadEvents = async () => {
-    // Simulate API call
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Sample events data
-    const sampleEvents = [
-      {
-        id: 1,
-        title: "Blockchain & Web3 Conference Lagos 2024",
-        description: "Join industry leaders exploring the future of blockchain technology and decentralized applications in Africa.",
-        category: "Technology",
-        date: "2024-12-15",
-        time: "09:00",
-        venue: "Eko Convention Center",
-        city: "Lagos",
-        price: 25000,
-        capacity: 1500,
-        attendees: 1247,
-        image: eventOne,
-        organizer: "Tech Innovation NG",
-        rating: 4.8,
-        reviews: 124
-      },
-      {
-        id: 2,
-        title: "Afrobeat Music Festival Abuja",
-        description: "Experience the best of Nigerian music with top artists performing live in the heart of Abuja.",
-        category: "Music",
-        date: "2024-11-20",
-        time: "18:00",
-        venue: "Eagle Square",
-        city: "Abuja",
-        price: 15000,
-        capacity: 5000,
-        attendees: 3200,
-        image: eventTwo,
-        organizer: "Naija Entertainment",
-        rating: 4.6,
-        reviews: 89
-      },
-      {
-        id: 3,
-        title: "Startup Investment Summit Ibadan",
-        description: "Connect with investors and pitch your startup idea to potential funding partners.",
-        category: "Business",
-        date: "2024-12-05",
-        time: "10:00",
-        venue: "University of Ibadan",
-        city: "Ibadan",
-        price: 8000,
-        capacity: 300,
-        attendees: 247,
-        image: eventThree,
-        organizer: "Startup Nigeria",
-        rating: 4.9,
-        reviews: 67
-      },
-      {
-        id: 4,
-        title: "Yoga & Wellness Retreat Osun",
-        description: "Rejuvenate your mind and body with expert-led yoga sessions in a serene environment.",
-        category: "Health & Wellness",
-        date: "2024-11-25",
-        time: "07:00",
-        venue: "Osun Grove Resort",
-        city: "Osun",
-        price: 12000,
-        capacity: 100,
-        attendees: 78,
-        image: eventOne,
-        organizer: "Wellness Nigeria",
-        rating: 4.7,
-        reviews: 45
-      },
-      {
-        id: 5,
-        title: "AI & Machine Learning Workshop",
-        description: "Hands-on workshop covering the latest developments in artificial intelligence.",
-        category: "Technology",
-        date: "2024-12-10",
-        time: "13:00",
-        venue: "Tech Hub Lagos",
-        city: "Lagos",
-        price: 18000,
-        capacity: 200,
-        attendees: 156,
-        image: eventTwo,
-        organizer: "AI Nigeria",
-        rating: 4.5,
-        reviews: 34
-      },
-      {
-        id: 6,
-        title: "Nigerian Food & Culture Festival",
-        description: "Celebrate Nigerian cuisine and cultural heritage with food tasting and performances.",
-        category: "Food & Drink",
-        date: "2025-12-01",
-        time: "12:00",
-        venue: "Tafawa Balewa Square",
-        city: "Lagos",
-        price: 5000,
-        capacity: 2000,
-        attendees: 1890,
-        image: eventThree,
-        organizer: "Culture NG",
-        rating: 4.4,
-        reviews: 156
-      }
-    ];
+    try {
+      setLoading(true);
+      const eventsData = await eventsApi.getAllEvents();
+      
+      // Map image paths to actual imports
+      const eventsWithImages = eventsData.map(event => ({
+        ...event,
+        image: imageMap[event.images[0]] || event.images[0]
+      }));
+      
+      setEvents(eventsWithImages);
+      setFilteredEvents(eventsWithImages);
+    } catch (error) {
+      console.error('Error loading events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    setEvents(sampleEvents);
-    setFilteredEvents(sampleEvents);
-    setLoading(false);
+  const loadCategoriesAndCities = async () => {
+    try {
+      const [categoriesData, citiesData] = await Promise.all([
+        eventsApi.getCategories(),
+        eventsApi.getCities()
+      ]);
+      
+      setCategories(['All Categories', ...categoriesData]);
+      setCities(['All Cities', ...citiesData]);
+    } catch (error) {
+      console.error('Error loading categories and cities:', error);
+    }
   };
 
   const filterEvents = () => {
     let results = events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.organizer.toLowerCase().includes(searchTerm.toLowerCase());
+                           event.organizer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesCategory = !filters.category || filters.category === 'All Categories' || 
                              event.category === filters.category;
@@ -275,9 +179,23 @@ const DiscoverEvents = () => {
     }
   };
 
+  const shareEvent = (event, platform) => {
+    const eventUrl = `${window.location.origin}/event/${event.id}`;
+    const text = `Check out this amazing event: ${event.title}`;
+    
+    const shareUrls = {
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(eventUrl)}`,
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(eventUrl)}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(eventUrl)}`,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(text + ' ' + eventUrl)}`
+    };
+
+    window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen Homeimg Blend-overlay">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
@@ -300,7 +218,7 @@ const DiscoverEvents = () => {
             <Sparkles className="h-4 w-4 mr-2" />
             Discover Amazing Events
           </div>
-          <h1 className="text-4xl font-bold text-gray-300 mb-4">
+          <h1 className="text-4xl font-bold text-white mb-4">
             Find Your Next <span className="text-[#FF6B35]">Experience</span>
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto">
@@ -309,7 +227,7 @@ const DiscoverEvents = () => {
         </div>
 
         {/* Search and Filters Bar */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-8 glass-morphism">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Input */}
             <div className="flex-1 relative">
@@ -319,14 +237,14 @@ const DiscoverEvents = () => {
                 placeholder="Search events, categories, organizers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white/5 text-white placeholder-gray-400"
               />
             </div>
 
             {/* Filter Toggle Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="lg:hidden flex items-center px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="lg:hidden flex items-center px-4 py-3 border border-white/20 rounded-lg text-gray-300 hover:bg-white/10 transition-colors"
             >
               <SlidersHorizontal className="h-5 w-5 mr-2" />
               Filters
@@ -344,7 +262,7 @@ const DiscoverEvents = () => {
                 className={`p-2 rounded-lg transition-colors ${
                   viewMode === 'grid' 
                     ? 'bg-[#FF6B35] text-white' 
-                    : 'text-gray-400 hover:text-gray-600 bg-gray-100'
+                    : 'text-gray-400 hover:text-gray-300 bg-white/5'
                 }`}
               >
                 <Grid className="h-5 w-5" />
@@ -354,7 +272,7 @@ const DiscoverEvents = () => {
                 className={`p-2 rounded-lg transition-colors ${
                   viewMode === 'list' 
                     ? 'bg-[#FF6B35] text-white' 
-                    : 'text-gray-400 hover:text-gray-600 bg-gray-100'
+                    : 'text-gray-400 hover:text-gray-300 bg-white/5'
                 }`}
               >
                 <List className="h-5 w-5" />
@@ -364,12 +282,12 @@ const DiscoverEvents = () => {
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="mt-6 p-6 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="mt-6 p-6 border border-white/20 rounded-lg bg-white/5 backdrop-blur-sm">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-gray-900">Filters</h3>
+                <h3 className="font-semibold text-white">Filters</h3>
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-[#FF6B35] hover:text-[#E55A2B] transition-colors"
+                  className="text-sm text-[#FF6B35] hover:text-[#FF8535] transition-colors"
                 >
                   Clear All
                 </button>
@@ -378,11 +296,11 @@ const DiscoverEvents = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Category Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
                   <select
                     value={filters.category}
                     onChange={(e) => handleFilterChange('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    className="w-full px-3 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] bg-white/5 text-white"
                   >
                     {categories.map(category => (
                       <option key={category} value={category}>{category}</option>
@@ -392,11 +310,11 @@ const DiscoverEvents = () => {
 
                 {/* City Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">City</label>
                   <select
                     value={filters.city}
                     onChange={(e) => handleFilterChange('city', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    className="w-full px-3 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] bg-white/5 text-white"
                   >
                     {cities.map(city => (
                       <option key={city} value={city}>{city}</option>
@@ -406,22 +324,22 @@ const DiscoverEvents = () => {
 
                 {/* Date Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Date</label>
                   <input
                     type="date"
                     value={filters.date}
                     onChange={(e) => handleFilterChange('date', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    className="w-full px-3 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] bg-white/5 text-white"
                   />
                 </div>
 
                 {/* Price Range Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price Range</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Price Range</label>
                   <select
                     value={filters.priceRange}
                     onChange={(e) => handleFilterChange('priceRange', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    className="w-full px-3 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] bg-white/5 text-white"
                   >
                     <option value="">Any Price</option>
                     <option value="free">Free</option>
@@ -435,7 +353,7 @@ const DiscoverEvents = () => {
               {/* Sort Options */}
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
-                <div className="flex flex-wrap text-gray-300 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {[
                     { value: 'date', label: 'Date' },
                     { value: 'price-low', label: 'Price: Low to High' },
@@ -449,7 +367,7 @@ const DiscoverEvents = () => {
                       className={`px-3 py-1 rounded-full text-sm transition-colors ${
                         filters.sortBy === option.value
                           ? 'bg-[#FF6B35] text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          : 'bg-white/5 text-gray-300 hover:bg-white/10'
                       }`}
                     >
                       {option.label}
@@ -464,7 +382,7 @@ const DiscoverEvents = () => {
         {/* Results Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-300">
+            <h2 className="text-2xl font-bold text-white">
               {filteredEvents.length} Events Found
             </h2>
             {Object.values(filters).some(Boolean) && (
@@ -487,7 +405,7 @@ const DiscoverEvents = () => {
                 )}
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-red-600 hover:text-red-700 transition-colors flex items-center"
+                  className="text-sm text-red-400 hover:text-red-300 transition-colors flex items-center"
                 >
                   <X className="h-3 w-3 mr-1" />
                   Clear
@@ -501,7 +419,7 @@ const DiscoverEvents = () => {
             <select
               value={filters.sortBy}
               onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+              className="px-3 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] bg-white/5 text-white"
             >
               <option value="date">Sort by Date</option>
               <option value="price-low">Price: Low to High</option>
@@ -518,8 +436,8 @@ const DiscoverEvents = () => {
             <div className="text-gray-400 mb-4">
               <Search className="h-16 w-16 mx-auto" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No events found</h3>
-            <p className="text-gray-600 mb-4">Try adjusting your search criteria or filters</p>
+            <h3 className="text-lg font-semibold text-white mb-2">No events found</h3>
+            <p className="text-gray-300 mb-4">Try adjusting your search criteria or filters</p>
             <button
               onClick={clearFilters}
               className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg hover:bg-[#FF8535] transition-colors transform hover:scale-105"
@@ -539,6 +457,7 @@ const DiscoverEvents = () => {
                 viewMode={viewMode}
                 isFavorite={favorites.has(event.id)}
                 onToggleFavorite={() => toggleFavorite(event.id)}
+                onShareEvent={shareEvent}
               />
             ))}
           </div>
@@ -553,15 +472,15 @@ const DiscoverEvents = () => {
 };
 
 // Event Card Component
-const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
+const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite, onShareEvent }) => {
   const eventDate = new Date(event.date);
   const today = new Date();
   const isUpcoming = eventDate >= today;
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-xl transition-all group ${
+    <div className={`bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:shadow-xl transition-all duration-300 group overflow-hidden ${
       viewMode === 'list' ? 'flex' : ''
-    }`}>
+    } hover:scale-105 hover:border-[#FF6B35]/30`}>
       {/* Event Image */}
       <div className={viewMode === 'list' ? 'w-48 flex-shrink-0' : ''}>
         <div className="relative">
@@ -569,21 +488,29 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
             src={event.image}
             alt={event.title}
             className={`w-full object-cover ${
-              viewMode === 'list' ? 'h-full rounded-l-2xl' : 'h-48 rounded-t-2xl'
-            } group-hover:scale-105 transition-transform`}
+              viewMode === 'list' ? 'h-full' : 'h-48'
+            } group-hover:scale-110 transition-transform duration-300`}
           />
           <div className="absolute top-3 left-3">
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              isUpcoming ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              isUpcoming ? 'bg-green-400/20 text-green-400' : 'bg-gray-400/20 text-gray-400'
             }`}>
               {isUpcoming ? 'Upcoming' : 'Past Event'}
             </span>
           </div>
+          {event.featured && (
+            <div className="absolute top-3 right-3">
+              <span className="px-2 py-1 bg-[#FF6B35] text-white rounded-full text-xs font-medium flex items-center">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Featured
+              </span>
+            </div>
+          )}
           <button
             onClick={onToggleFavorite}
-            className="absolute top-3 right-3 p-2 bg-white/90 rounded-full hover:bg-white transition-colors shadow-sm"
+            className="absolute top-12 right-3 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors border border-white/20"
           >
-            <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+            <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} />
           </button>
         </div>
       </div>
@@ -594,15 +521,15 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
           <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-medium">
             {event.category}
           </span>
-          <span className="text-lg font-bold text-gray-900">₦{event.price.toLocaleString()}</span>
+          <span className="text-lg font-bold text-white">₦{event.price.toLocaleString()}</span>
         </div>
 
-        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">{event.title}</h3>
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{event.description}</p>
+        <h3 className="font-semibold text-white mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">{event.title}</h3>
+        <p className="text-gray-300 text-sm mb-4 line-clamp-2">{event.description}</p>
 
         {/* Event Details */}
         <div className="space-y-3 mb-4">
-          <div className="flex items-center text-sm text-gray-600">
+          <div className="flex items-center text-sm text-gray-300">
             <Calendar className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {eventDate.toLocaleDateString('en-NG', { 
               weekday: 'short', 
@@ -611,15 +538,15 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
               day: 'numeric' 
             })}
           </div>
-          <div className="flex items-center text-sm text-gray-600">
+          <div className="flex items-center text-sm text-gray-300">
             <Clock className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {event.time}
           </div>
-          <div className="flex items-center text-sm text-gray-600">
+          <div className="flex items-center text-sm text-gray-300">
             <MapPin className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {event.venue}, {event.city}
           </div>
-          <div className="flex items-center text-sm text-gray-600">
+          <div className="flex items-center text-sm text-gray-300">
             <Users className="h-4 w-4 mr-2 text-[#FF6B35]" />
             {event.attendees.toLocaleString()} attendees
           </div>
@@ -629,17 +556,20 @@ const EventCard = ({ event, viewMode, isFavorite, onToggleFavorite }) => {
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <Star className="h-4 w-4 text-yellow-400 fill-current" />
-            <span className="text-sm font-medium text-gray-900 ml-1">{event.rating}</span>
-            <span className="text-sm text-gray-600 ml-1">({event.reviews})</span>
+            <span className="text-sm font-medium text-white ml-1">{event.rating}</span>
+            <span className="text-sm text-gray-300 ml-1">({event.reviews})</span>
           </div>
           
           <div className="flex items-center space-x-2">
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+            <button 
+              onClick={() => onShareEvent(event, 'twitter')}
+              className="p-2 text-gray-300 hover:text-white transition-colors hover:scale-110"
+            >
               <Share2 className="h-4 w-4" />
             </button>
             <Link
-              to={`/events/${event.id}`}
-              className="flex items-center px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors transform hover:scale-105 text-sm font-medium group"
+              to={`/event/${event.id}`}
+              className="flex items-center px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-all duration-200 transform hover:scale-105 text-sm font-medium group"
             >
               View Details
               <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />

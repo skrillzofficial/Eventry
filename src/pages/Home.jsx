@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Calendar,
@@ -13,8 +13,44 @@ import {
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import { eventsApi } from "../data/EventsApi";
 
 const Home = () => {
+  const [trendingEvents, setTrendingEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTrendingEvents();
+  }, []);
+
+  const loadTrendingEvents = async () => {
+    try {
+      setLoading(true);
+      const allEvents = await eventsApi.getAllEvents();
+      
+      // Filter and sort events to get trending ones
+      const trending = allEvents
+        .filter(event => {
+          const eventDate = new Date(event.date);
+          const today = new Date();
+          return eventDate <= today; 
+        })
+        .sort((a, b) => {
+          // Sort by attendees (popularity) and rating
+          const scoreA = (a.attendees / a.capacity) + (a.rating / 5);
+          const scoreB = (b.attendees / b.capacity) + (b.rating / 5);
+          return scoreB - scoreA;
+        })
+        .slice(0, 3);
+
+      setTrendingEvents(trending);
+    } catch (error) {
+      console.error('Error loading trending events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const features = [
     {
       icon: <Ticket className="h-8 w-8" />,
@@ -47,30 +83,6 @@ const Home = () => {
     { number: "1M+", label: "Happy Attendees" },
     { number: "200+", label: "Cities Covered" },
     { number: "98%", label: "Satisfaction Rate" },
-  ];
-
-  const upcomingEvents = [
-    {
-      title: "Tech Innovation Summit",
-      date: "Dec 15, 2024",
-      location: "Lagos",
-      attendees: "1.2K",
-      price: "₦25,000",
-    },
-    {
-      title: "Afrobeat Music Festival",
-      date: "Nov 20, 2024",
-      location: "Abuja",
-      attendees: "3.2K",
-      price: "₦15,000",
-    },
-    {
-      title: "Startup Investment Forum",
-      date: "Dec 5, 2024",
-      location: "Ibadan",
-      attendees: "500",
-      price: "₦8,000",
-    },
   ];
 
   return (
@@ -119,6 +131,7 @@ const Home = () => {
           </div>
         </div>
       </div>
+
       {/* Features Section */}
       <div className="bg-gray-50 py-20">
         <div className="w-11/12 mx-auto container">
@@ -152,14 +165,14 @@ const Home = () => {
       </div>
 
       {/* Upcoming Events Section */}
-      <div className="bg-white py-20">
+      <div className="Loading py-20">
         <div className="w-11/12 mx-auto container">
           <div className="flex justify-between items-center mb-12">
             <div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              <h2 className="text-4xl font-bold text-gray-300 mb-4">
                 Trending <span className="text-[#FF6B35]">Events</span>
               </h2>
-              <p className="text-xl text-gray-600">
+              <p className="text-xl text-gray-300">
                 Don't miss out on these amazing events happening across Nigeria
               </p>
             </div>
@@ -172,44 +185,51 @@ const Home = () => {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {upcomingEvents.map((event, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-xl transition-all group hover:border-[#FF6B35]/30 hover:translate-y-[-4px]"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
-                    {event.price}
-                  </span>
-                  <span className="bg-orange-100 text-[#FF6B35] px-3 py-1 rounded-full text-sm font-medium flex items-center shadow">
-                    <Users className="h-3 w-3 mr-1" />
-                    {event.attendees}
-                  </span>
-                </div>
-
-                <h3 className="text-xl font-semibold text-gray-900 mb-3 group-hover:text-[#FF6B35] transition-colors">
-                  {event.title}
-                </h3>
-
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-gray-600">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {event.date}
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="bg-white rounded-2xl p-6 border border-gray-200 animate-pulse"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="h-6 bg-gray-200 rounded w-20"></div>
+                    <div className="h-6 bg-gray-200 rounded w-16"></div>
                   </div>
-                  <div className="flex items-center text-gray-600">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    {event.location}
+                  <div className="h-6 bg-gray-200 rounded mb-3"></div>
+                  <div className="space-y-2 mb-4">
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
                   </div>
+                  <div className="h-12 bg-gray-200 rounded"></div>
                 </div>
-
-                <button className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#E55A2B] transition-colors flex items-center justify-center shadow-lg hover:shadow-xl group">
-                  <Ticket className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                  Get Tickets
-                </button>
+              ))}
+            </div>
+          ) : trendingEvents.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {trendingEvents.map((event, index) => (
+                <EventCard key={event.id} event={event} index={index} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4">
+                <Calendar className="h-16 w-16 mx-auto" />
               </div>
-            ))}
-          </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Upcoming Events
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Check back later for new events or create your own!
+              </p>
+              <Link
+                to="/create-event"
+                className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] font-semibold"
+              >
+                Create an Event
+              </Link>
+            </div>
+          )}
 
           {/* Mobile View All Button */}
           <div className="mt-8 text-center md:hidden">
@@ -220,6 +240,22 @@ const Home = () => {
               View All Events
               <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Section */}
+      <div className="bg-gray-900 py-16">
+        <div className="w-11/12 mx-auto container">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <div key={index} className="text-center text-white">
+                <div className="text-3xl md:text-4xl font-bold text-[#FF6B35] mb-2">
+                  {stat.number}
+                </div>
+                <div className="text-gray-300 font-medium">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -250,9 +286,90 @@ const Home = () => {
           </div>
         </div>
       </div>
+      
       <div className="bg-[#E55A2B]">
         <Footer />
       </div>
+    </div>
+  );
+};
+
+// Event Card Component
+const EventCard = ({ event, index }) => {
+  const eventDate = new Date(event.date);
+  const capacityPercentage = Math.round((event.attendees / event.capacity) * 100);
+
+  return (
+    <div className="bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-xl transition-all group hover:border-[#FF6B35]/30 hover:translate-y-[-4px]">
+      <div className="flex justify-between items-start mb-4">
+        <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+          ₦{event.price.toLocaleString()}
+        </span>
+        <div className="flex items-center space-x-2">
+          {event.featured && (
+            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium flex items-center shadow">
+              <Sparkles className="h-3 w-3 mr-1" />
+              Featured
+            </span>
+          )}
+          <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center shadow ${
+            capacityPercentage > 80 ? 'bg-red-100 text-red-800' :
+            capacityPercentage > 50 ? 'bg-orange-100 text-orange-800' :
+            'bg-green-100 text-green-800'
+          }`}>
+            <Users className="h-3 w-3 mr-1" />
+            {capacityPercentage}% full
+          </span>
+        </div>
+      </div>
+
+      <h3 className="text-xl font-semibold text-gray-900 mb-3 group-hover:text-[#FF6B35] transition-colors line-clamp-2">
+        {event.title}
+      </h3>
+
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center text-gray-600">
+          <Calendar className="h-4 w-4 mr-2 text-[#FF6B35]" />
+          {eventDate.toLocaleDateString('en-NG', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric' 
+          })}
+        </div>
+        <div className="flex items-center text-gray-600">
+          <MapPin className="h-4 w-4 mr-2 text-[#FF6B35]" />
+          {event.venue}, {event.city}
+        </div>
+        <div className="flex items-center text-gray-600">
+          <Star className="h-4 w-4 mr-2 text-[#FF6B35]" />
+          {event.rating} ({event.reviews} reviews)
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex justify-between text-sm text-gray-600 mb-1">
+          <span>Capacity</span>
+          <span>{event.attendees.toLocaleString()} / {event.capacity.toLocaleString()}</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className={`h-2 rounded-full transition-all duration-500 ${
+              capacityPercentage > 80 ? 'bg-red-500' :
+              capacityPercentage > 50 ? 'bg-orange-500' :
+              'bg-green-500'
+            }`}
+            style={{ width: `${capacityPercentage}%` }}
+          ></div>
+        </div>
+      </div>
+
+      <Link
+        to={`/event/${event.id}`}
+        className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#E55A2B] transition-colors flex items-center justify-center shadow-lg hover:shadow-xl group"
+      >
+        <Ticket className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+        View Details
+      </Link>
     </div>
   );
 };

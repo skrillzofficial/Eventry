@@ -9,40 +9,157 @@ import {
   ArrowRight,
   Plus,
   Eye,
-  Sparkles
+  Sparkles,
+  Clock,
+  MapPin,
+  Star
 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import { eventsApi } from '../data/EventsApi';
 
 const UserProfile = () => {
   const [userRole, setUserRole] = useState('attendee');
   const [stats, setStats] = useState({});
   const [recentActivity, setRecentActivity] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [userEvents, setUserEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get user data from localStorage/auth context
     const role = localStorage.getItem('userRole') || 'attendee';
     setUserRole(role);
     loadDashboardData(role);
   }, []);
 
   const loadDashboardData = async (role) => {
-    // Simulated data based on role
-    const data = role === 'organizer' ? {
-      totalEvents: 12,
-      upcomingEvents: 3,
-      totalAttendees: 1247,
-      revenue: 12560,
-      ticketsSold: 89
-    } : {
-      eventsAttended: 8,
-      upcomingEvents: 5,
-      tickets: 12,
-      walletBalance: 500
-    };
-    setStats(data);
+    try {
+      setLoading(true);
+      
+      // Load all events from API
+      const allEvents = await eventsApi.getAllEvents();
+      
+      // Filter upcoming events (events from today onwards)
+      const today = new Date();
+      const upcoming = allEvents.filter(event => new Date(event.date) >= today)
+                              .sort((a, b) => new Date(a.date) - new Date(b.date))
+                              .slice(0, 3);
+      
+      setUpcomingEvents(upcoming);
+
+      if (role === 'organizer') {
+        // For organizers, show their created events
+        const userCreatedEvents = allEvents.filter(event => 
+          event.organizer.name === (localStorage.getItem('userName') || 'Tech Innovation NG')
+        );
+        
+        const totalAttendees = userCreatedEvents.reduce((sum, event) => sum + event.attendees, 0);
+        const totalRevenue = userCreatedEvents.reduce((sum, event) => sum + (event.price * event.attendees), 0);
+        const upcomingUserEvents = userCreatedEvents.filter(event => new Date(event.date) >= today).length;
+
+        setStats({
+          totalEvents: userCreatedEvents.length,
+          upcomingEvents: upcomingUserEvents,
+          totalAttendees: totalAttendees,
+          revenue: totalRevenue,
+          ticketsSold: totalAttendees
+        });
+
+        setUserEvents(userCreatedEvents);
+
+        // Simulate organizer activity
+        setRecentActivity([
+          {
+            id: 1,
+            icon: Ticket,
+            title: "Event Created",
+            description: userCreatedEvents[0]?.title || "New Event",
+            time: "2 hours ago",
+            type: "creation"
+          },
+          {
+            id: 2,
+            icon: Users,
+            title: "New Attendees",
+            description: `${userCreatedEvents[0]?.attendees || 0} registered`,
+            time: "1 day ago",
+            type: "attendees"
+          },
+          {
+            id: 3,
+            icon: TrendingUp,
+            title: "Revenue Update",
+            description: `₦${totalRevenue.toLocaleString()} earned`,
+            time: "2 days ago",
+            type: "revenue"
+          }
+        ]);
+
+      } else {
+        // For attendees, simulate ticket purchases and attendance
+        const attendedEvents = allEvents.filter(event => 
+          new Date(event.date) < today
+        ).slice(0, 3);
+
+        const userTickets = Math.floor(Math.random() * 12) + 1;
+        const walletBalance = Math.floor(Math.random() * 1000) + 500;
+
+        setStats({
+          eventsAttended: attendedEvents.length,
+          upcomingEvents: upcoming.length,
+          tickets: userTickets,
+          walletBalance: walletBalance
+        });
+
+        setUserEvents(attendedEvents);
+
+        // Simulate attendee activity
+        setRecentActivity([
+          {
+            id: 1,
+            icon: Ticket,
+            title: "Ticket Purchased",
+            description: upcoming[0]?.title || "Blockchain Conference",
+            time: "2 hours ago",
+            type: "purchase"
+          },
+          {
+            id: 2,
+            icon: Calendar,
+            title: "Event Attended",
+            description: attendedEvents[0]?.title || "Tech Workshop",
+            time: "1 day ago",
+            type: "attendance"
+          },
+          {
+            id: 3,
+            icon: Wallet,
+            title: "Wallet Top-up",
+            description: "₦500 added to wallet",
+            time: "3 days ago",
+            type: "wallet"
+          }
+        ]);
+      }
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="Homeimg Blend-overlay min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="Homeimg Blend-overlay min-h-screen flex flex-col">
@@ -131,13 +248,16 @@ const UserProfile = () => {
             <QuickActionsSection userRole={userRole} />
             
             {/* Recent Activity */}
-            <ActivitySection userRole={userRole} />
+            <ActivitySection activities={recentActivity} userRole={userRole} />
+            
+            {/* User Events */}
+            <UserEventsSection events={userEvents} userRole={userRole} />
           </div>
 
           {/* Right Column - Sidebar Content */}
           <div className="space-y-6">
             {/* Upcoming Events */}
-            <UpcomingEventsSection />
+            <UpcomingEventsSection events={upcomingEvents} />
             
             {/* Blockchain Features */}
             <BlockchainFeaturesSection userRole={userRole} />
@@ -229,7 +349,7 @@ const QuickActionsSection = ({ userRole }) => (
 );
 
 // Activity Section
-const ActivitySection = ({ userRole }) => (
+const ActivitySection = ({ activities, userRole }) => (
   <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
     <div className="flex items-center justify-between mb-4">
       <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
@@ -238,26 +358,55 @@ const ActivitySection = ({ userRole }) => (
       </Link>
     </div>
     <div className="space-y-4">
-      <ActivityItem 
-        icon={Ticket}
-        title="Ticket Purchased"
-        description="Blockchain Conference 2024"
-        time="2 hours ago"
-        type="purchase"
-      />
-      <ActivityItem 
-        icon={Calendar}
-        title="Event Created"
-        description="Tech Summit Lagos"
-        time="1 day ago"
-        type="creation"
-      />
+      {activities.map(activity => (
+        <ActivityItem 
+          key={activity.id}
+          icon={activity.icon}
+          title={activity.title}
+          description={activity.description}
+          time={activity.time}
+          type={activity.type}
+        />
+      ))}
+    </div>
+  </div>
+);
+
+// User Events Section
+const UserEventsSection = ({ events, userRole }) => (
+  <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold text-white">
+        {userRole === 'organizer' ? 'My Events' : 'My Event History'}
+      </h3>
+      <Link to={userRole === 'organizer' ? "/dashboard/events" : "/dashboard/history"} 
+            className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center group">
+        View all <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+      </Link>
+    </div>
+    <div className="space-y-4">
+      {events.slice(0, 3).map(event => (
+        <UserEventItem 
+          key={event.id}
+          event={event}
+          userRole={userRole}
+        />
+      ))}
+      {events.length === 0 && (
+        <div className="text-center py-4 text-white/60">
+          <p>No {userRole === 'organizer' ? 'events created' : 'events attended'} yet</p>
+          <Link to={userRole === 'organizer' ? "/create-event" : "/discover"} 
+                className="text-[#FF6B35] hover:text-[#FF8535] text-sm">
+            {userRole === 'organizer' ? 'Create your first event' : 'Discover events'}
+          </Link>
+        </div>
+      )}
     </div>
   </div>
 );
 
 // Upcoming Events Section
-const UpcomingEventsSection = () => (
+const UpcomingEventsSection = ({ events }) => (
   <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
     <div className="flex items-center justify-between mb-4">
       <h3 className="text-lg font-semibold text-white">Upcoming Events</h3>
@@ -266,18 +415,17 @@ const UpcomingEventsSection = () => (
       </Link>
     </div>
     <div className="space-y-3">
-      <EventItem 
-        title="Blockchain Conference 2024"
-        date="Dec 15, 2024"
-        location="Lagos, Nigeria"
-        attendees="1.2k"
-      />
-      <EventItem 
-        title="Tech Innovation Summit"
-        date="Jan 20, 2025"
-        location="Accra, Ghana"
-        attendees="800"
-      />
+      {events.map(event => (
+        <EventItem 
+          key={event.id}
+          event={event}
+        />
+      ))}
+      {events.length === 0 && (
+        <div className="text-center py-4 text-white/60">
+          <p>No upcoming events</p>
+        </div>
+      )}
     </div>
   </div>
 );
@@ -314,8 +462,18 @@ const BlockchainFeaturesSection = ({ userRole }) => (
 // Reusable Components
 const ActivityItem = ({ icon: Icon, title, description, time, type }) => (
   <div className="flex items-start space-x-3 group hover:bg-white/5 p-3 rounded-lg transition-all">
-    <div className={`p-2 rounded-lg ${type === 'purchase' ? 'bg-green-500/20' : 'bg-[#FF6B35]/20'} group-hover:scale-110 transition-transform`}>
-      <Icon className={`h-4 w-4 ${type === 'purchase' ? 'text-green-300' : 'text-[#FF6B35]'}`} />
+    <div className={`p-2 rounded-lg ${
+      type === 'purchase' ? 'bg-green-500/20' : 
+      type === 'creation' ? 'bg-[#FF6B35]/20' : 
+      type === 'attendance' ? 'bg-blue-500/20' : 
+      'bg-purple-500/20'
+    } group-hover:scale-110 transition-transform`}>
+      <Icon className={`h-4 w-4 ${
+        type === 'purchase' ? 'text-green-300' : 
+        type === 'creation' ? 'text-[#FF6B35]' : 
+        type === 'attendance' ? 'text-blue-300' : 
+        'text-purple-300'
+      }`} />
     </div>
     <div className="flex-1">
       <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors">{title}</p>
@@ -325,16 +483,65 @@ const ActivityItem = ({ icon: Icon, title, description, time, type }) => (
   </div>
 );
 
-const EventItem = ({ title, date, location, attendees }) => (
-  <div className="flex items-center justify-between p-3 hover:bg-white/10 rounded-lg transition-all group transform hover:scale-105">
-    <div>
-      <p className="font-medium text-white text-sm group-hover:text-[#FF6B35] transition-colors">{title}</p>
-      <p className="text-xs text-white/80">{date} • {location}</p>
+const EventItem = ({ event }) => (
+  <Link to={`/event/${event.id}`}>
+    <div className="flex items-center justify-between p-3 hover:bg-white/10 rounded-lg transition-all group transform hover:scale-105">
+      <div>
+        <p className="font-medium text-white text-sm group-hover:text-[#FF6B35] transition-colors line-clamp-1">
+          {event.title}
+        </p>
+        <p className="text-xs text-white/80 flex items-center mt-1">
+          <Calendar className="h-3 w-3 mr-1" />
+          {new Date(event.date).toLocaleDateString('en-NG', { 
+            month: 'short', 
+            day: 'numeric' 
+          })}
+          <span className="mx-1">•</span>
+          <MapPin className="h-3 w-3 mr-1" />
+          {event.city}
+        </p>
+      </div>
+      <span className="text-xs bg-[#FF6B35] text-white px-2 py-1 rounded-full group-hover:bg-[#FF8535] transition-colors">
+        {event.attendees.toLocaleString()}
+      </span>
     </div>
-    <span className="text-xs bg-[#FF6B35] text-white px-2 py-1 rounded-full group-hover:bg-[#FF8535] transition-colors">
-      {attendees}
-    </span>
-  </div>
+  </Link>
+);
+
+const UserEventItem = ({ event, userRole }) => (
+  <Link to={`/event/${event.id}`}>
+    <div className="flex items-start space-x-3 group hover:bg-white/5 p-3 rounded-lg transition-all">
+      <img 
+        src={event.images && event.images[0]} 
+        alt={event.title}
+        className="w-12 h-12 rounded-lg object-cover group-hover:scale-110 transition-transform"
+      />
+      <div className="flex-1">
+        <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors text-sm">
+          {event.title}
+        </p>
+        <div className="flex items-center text-xs text-white/80 mt-1 space-x-2">
+          <span className="flex items-center">
+            <Calendar className="h-3 w-3 mr-1" />
+            {new Date(event.date).toLocaleDateString('en-NG', { 
+              month: 'short', 
+              day: 'numeric' 
+            })}
+          </span>
+          <span className="flex items-center">
+            <Users className="h-3 w-3 mr-1" />
+            {event.attendees.toLocaleString()} attendees
+          </span>
+          {userRole === 'organizer' && (
+            <span className="flex items-center">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              ₦{(event.price * event.attendees).toLocaleString()}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  </Link>
 );
 
 export default UserProfile;
