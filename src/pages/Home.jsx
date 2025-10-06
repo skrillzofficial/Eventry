@@ -77,13 +77,7 @@ const Home = () => {
         "Discover events tailored to your interests with AI-powered suggestions",
     },
   ];
-
-  const stats = [
-    { number: "50K+", label: "Events Hosted" },
-    { number: "1M+", label: "Happy Attendees" },
-    { number: "200+", label: "Cities Covered" },
-    { number: "98%", label: "Satisfaction Rate" },
-  ];
+;
 
   return (
     <div className="min-h-screen">
@@ -165,14 +159,14 @@ const Home = () => {
       </div>
 
       {/* Upcoming Events Section */}
-      <div className="Loading py-20">
+      <div className="bg-white py-20">
         <div className="w-11/12 mx-auto container">
           <div className="flex justify-between items-center mb-12">
             <div>
-              <h2 className="text-4xl font-bold text-gray-300 mb-4">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">
                 Trending <span className="text-[#FF6B35]">Events</span>
               </h2>
-              <p className="text-xl text-gray-300">
+              <p className="text-xl text-gray-600">
                 Don't miss out on these amazing events happening across Nigeria
               </p>
             </div>
@@ -244,21 +238,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Stats Section */}
-      <div className="bg-gray-900 py-16">
-        <div className="w-11/12 mx-auto container">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center text-white">
-                <div className="text-3xl md:text-4xl font-bold text-[#FF6B35] mb-2">
-                  {stat.number}
-                </div>
-                <div className="text-gray-300 font-medium">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+     
 
       {/* CTA Section */}
       <div className="Homeimg Blend-overlay py-20">

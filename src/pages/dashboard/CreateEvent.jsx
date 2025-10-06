@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -20,6 +20,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { eventsApi } from "../../data/EventsApi";
@@ -59,9 +60,7 @@ const eventSchema = yup.object().shape({
 });
 
 const CreateEvent = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isOrganizer, setIsOrganizer] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, isOrganizer, user, loading: authLoading } = useAuth();
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploadedImages, setUploadedImages] = useState([]);
   const [currentTag, setCurrentTag] = useState("");
@@ -95,24 +94,6 @@ const CreateEvent = () => {
   const tags = watch("tags") || [];
   const includes = watch("includes") || [];
   const requirements = watch("requirements") || [];
-
-  // Check authentication and organizer status
-  useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("authToken");
-      const userRole = localStorage.getItem("userRole");
-
-      if (token) {
-        setIsAuthenticated(true);
-        if (userRole === "organizer") {
-          setIsOrganizer(true);
-        }
-      }
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, []);
 
   // Available options from API structure
   const CATEGORIES = ["Technology", "Business", "Marketing", "Arts", "Health", "Education", "Music", "Food"];
@@ -180,9 +161,9 @@ const CreateEvent = () => {
 
   const onSubmit = async (data) => {
     try {
-      // Get organizer info from localStorage
-      const organizerName = localStorage.getItem("userName") || "Tech Innovation NG";
-      const userEmail = localStorage.getItem("userEmail") || "organizer@example.com";
+      // Get organizer info from Auth Context
+      const organizerName = user?.name || "Tech Innovation NG";
+      const userEmail = user?.email || "organizer@example.com";
 
       // Generate unique event ID
       const eventId = Math.max(...eventsApi.eventsData.events.map(e => e.id)) + 1;
@@ -242,7 +223,7 @@ const CreateEvent = () => {
   };
 
   // Show loading state
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen Homeimg flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
@@ -314,8 +295,6 @@ const CreateEvent = () => {
               </Link>
               <button
                 onClick={() => {
-                  localStorage.removeItem("authToken");
-                  localStorage.removeItem("userRole");
                   navigate("/signup?type=organizer");
                 }}
                 className="border-2 border-[#FF6B35] text-[#FF6B35] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B35] hover:text-white transition-colors transform hover:scale-105 inline-flex items-center justify-center"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { FadeLoader, PulseLoader, RingLoader } from "react-spinners";
+import { AuthProvider } from "./context/AuthContext"; 
 import "./App.css";
 import Home from "./pages/Home";
 import SignUp from "./Auths/SignUp";
@@ -39,27 +40,29 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/team" element={<Team />} />
-        {/* Auth pages */}
-        <Route path="/dashboard" element={<UserProfile />} />
-        <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
-        <Route path="/dashboard/profile" element={<Profile />} />
-        <Route path="/dashboard/settings" element={<Settings />} />
-         <Route path="/dashboard/wallet" element={<WalletComponent />} />
-         <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
-        {/* Auth */}
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ResetPassword />} />
-        {/* Event */}
-        <Route path="/create-event" element={<CreateEvent />} />
-        <Route path="/discover" element={<DiscoverEvents />} />
-        <Route path="/event/:id" element={<EventPage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider> 
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/team" element={<Team />} />
+          {/* Auth pages */}
+          <Route path="/dashboard" element={<UserProfile />} />
+          <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
+          <Route path="/dashboard/profile" element={<Profile />} />
+          <Route path="/dashboard/settings" element={<Settings />} />
+          <Route path="/dashboard/wallet" element={<WalletComponent />} />
+          <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
+          {/* Auth */}
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ResetPassword />} />
+          {/* Event */}
+          <Route path="/create-event" element={<CreateEvent />} />
+          <Route path="/discover" element={<DiscoverEvents />} />
+          <Route path="/event/:id" element={<EventPage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

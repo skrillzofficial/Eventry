@@ -18,14 +18,16 @@ import {
   Twitter,
   Linkedin,
   MessageCircle,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import CheckoutFlow from '../../checkout/Checkout';
 import { eventsApi } from '../../data/EventsApi';
 
-// Import sample images (you'll need to adjust these paths)
+// Import sample images 
 import eventOne from "../../assets/Vision one.png";
 import eventTwo from "../../assets/Vision 2.png";
 import eventThree from "../../assets/vision 3.png";
@@ -39,6 +41,7 @@ const imageMap = {
 
 const EventPage = () => {
   const { id } = useParams();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -111,6 +114,14 @@ const EventPage = () => {
     };
 
     window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+  };
+
+  const handleGetTickets = () => {
+    if (!isAuthenticated) {
+      // Optionally show a toast or message about needing to sign in
+      return;
+    }
+    setShowCheckout(true);
   };
 
   if (loading) {
@@ -557,6 +568,7 @@ const EventPage = () => {
                     <button
                       onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
                       className="p-3 text-gray-300 hover:text-white transition-colors"
+                      disabled={!isAuthenticated || authLoading}
                     >
                       -
                     </button>
@@ -564,6 +576,7 @@ const EventPage = () => {
                     <button
                       onClick={() => setTicketQuantity(ticketQuantity + 1)}
                       className="p-3 text-gray-300 hover:text-white transition-colors"
+                      disabled={!isAuthenticated || authLoading}
                     >
                       +
                     </button>
@@ -587,13 +600,40 @@ const EventPage = () => {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowCheckout(true)}
-                  className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-semibold hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 transform"
-                >
-                  <Ticket className="h-5 w-5 inline mr-2" />
-                  Get Tickets Now
-                </button>
+                {authLoading ? (
+                  <div className="w-full bg-gray-600 text-white py-4 rounded-lg font-semibold text-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
+                  </div>
+                ) : isAuthenticated ? (
+                  <button
+                    onClick={handleGetTickets}
+                    className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-semibold hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 transform"
+                  >
+                    <Ticket className="h-5 w-5 inline mr-2" />
+                    Get Tickets Now
+                  </button>
+                ) : (
+                  <div className="text-center space-y-3">
+                    <div className="p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                      <div className="flex items-center justify-center text-yellow-200 text-sm">
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        Please sign in to purchase tickets
+                      </div>
+                    </div>
+                    <Link
+                      to="/login"
+                      className="block w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-all duration-200 text-center"
+                    >
+                      Sign In to Continue
+                    </Link>
+                    <p className="text-xs text-gray-400">
+                      Don't have an account?{" "}
+                      <Link to="/signup" className="text-[#FF6B35] hover:underline">
+                        Sign up here
+                      </Link>
+                    </p>
+                  </div>
+                )}
 
                 <div className="text-center text-xs text-gray-400">
                   Secure payment • Instant confirmation • 24/7 support
@@ -652,6 +692,19 @@ const EventPage = () => {
                   <span className="text-gray-300">Available</span>
                   <span className="text-white font-medium">{(event.capacity - event.attendees).toLocaleString()}</span>
                 </div>
+                
+                {/* Authentication Status Indicator */}
+                {!authLoading && (
+                  <div className="flex justify-between items-center pt-2 border-t border-white/20">
+                    <span className="text-gray-300">Your Access</span>
+                    <span className={`text-sm font-medium ${
+                      isAuthenticated ? 'text-green-400' : 'text-yellow-400'
+                    }`}>
+                      {isAuthenticated ? 'Ready to book' : 'Sign in required'}
+                    </span>
+                  </div>
+                )}
+                
                 <div className="pt-3 border-t border-white/20">
                   <div className="w-full bg-white/10 rounded-full h-2">
                     <div 
