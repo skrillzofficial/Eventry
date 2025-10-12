@@ -18,6 +18,7 @@ import EventPage from "./pages/dashboard/EventPage";
 import Wallet from "./pages/dashboard/Wallet";
 import WalletComponent from "./pages/dashboard/Wallet";
 import CheckoutFlow from "./checkout/Checkout";
+import VerifyEmail from "./Auths/VerifyEmail";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -56,6 +57,8 @@ function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+
           {/* Event */}
           <Route path="/create-event" element={<CreateEvent />} />
           <Route path="/discover" element={<DiscoverEvents />} />
