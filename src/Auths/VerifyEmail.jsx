@@ -20,7 +20,7 @@ const VerifyEmail = () => {
 
       try {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/auth/verify-email?token=${token}`
+          `https://ecommerce-backend-tb8u.onrender.com/api/v1/verify-email?token=${token}`
         );
 
         if (response.data.success) {
@@ -52,7 +52,7 @@ const VerifyEmail = () => {
 
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/auth/resend-verification`,
+        `https://ecommerce-backend-tb8u.onrender.com/api/v1/resend-verification`,
         { email }
       );
 
