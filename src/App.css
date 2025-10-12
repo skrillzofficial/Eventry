@@ -24,7 +24,7 @@ body {
   background-repeat: no-repeat;
 }
 .Loading {
-  background-image: url("../src/assets/Hero.jpg");
+  background-image: url("../src/assets/image-hero.jpg");
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;

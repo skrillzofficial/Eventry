@@ -1,124 +1,131 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { 
-  MapPin, 
-  Calendar, 
-  Clock, 
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import {
+  MapPin,
+  Calendar,
+  Clock,
   Users,
   Ticket,
   Star,
   Heart,
   Share2,
   ArrowLeft,
-  User,
   Shield,
   CheckCircle,
   TrendingUp,
-  Facebook,
   Twitter,
-  Linkedin,
   MessageCircle,
   Sparkles,
-  AlertCircle
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import Navbar from '../../components/layout/Navbar';
-import Footer from '../../components/layout/Footer';
-import CheckoutFlow from '../../checkout/Checkout';
-import { eventsApi } from '../../data/EventsApi';
+  AlertCircle,
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
+import CheckoutFlow from "../../checkout/Checkout";
+import { eventsApi } from "../../data/EventsApi";
 
-// Import sample images 
+// Local images (adjust paths as needed)
 import eventOne from "../../assets/Vision one.png";
 import eventTwo from "../../assets/Vision 2.png";
 import eventThree from "../../assets/vision 3.png";
 
-// Image mapping for demo purposes
+// map potential stored paths to actual imports
 const imageMap = {
+  "/src/assets/Vision one.png": eventOne,
+  "/src/assets/Vision 2.png": eventTwo,
+  "/src/assets/vision 3.png": eventThree,
   "/assets/Vision one.png": eventOne,
   "/assets/Vision 2.png": eventTwo,
-  "/assets/vision 3.png": eventThree
+  "/assets/vision 3.png": eventThree,
 };
 
-const EventPage = () => {
+const fallbackImage = eventOne;
+
+export default function EventPage() {
   const { id } = useParams();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [event, setEvent] = useState(null);
+  const [related, setRelated] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [ticketQuantity, setTicketQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState('details');
-  const [relatedEvents, setRelatedEvents] = useState([]);
+  const [activeTab, setActiveTab] = useState("details");
   const [showCheckout, setShowCheckout] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadEventData();
+    loadEvent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const loadEventData = async () => {
+  const loadEvent = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Load event data from API
-      const eventData = await eventsApi.getEventById(id);
-      
-      // Map image paths to actual imports
+      const e = await eventsApi.getEventById(id);
+
+      // normalize images: event.images or event.image (array)
+      const rawImages =
+        (e.images && Array.isArray(e.images) && e.images) ||
+        (e.image && Array.isArray(e.image) && e.image) ||
+        [];
+
+      const mappedImages =
+        rawImages.length > 0
+          ? rawImages.map((img) => imageMap[img] || img)
+          : [fallbackImage];
+
       const eventWithImages = {
-        ...eventData,
-        images: eventData.images.map(img => imageMap[img] || img)
+        ...e,
+        images: mappedImages,
+        organizer: e.organizer || { name: "Unknown Organizer" },
+        tags: e.tags || [],
+        includes: e.includes || [],
+        requirements: e.requirements || [],
       };
-      
+
       setEvent(eventWithImages);
-      
-      // Load related events
-      const related = await eventsApi.getRelatedEvents(id);
-      const relatedWithImages = related.map(relEvent => ({
-        ...relEvent,
-        image: imageMap[relEvent.images[0]] || relEvent.images[0]
-      }));
-      
-      setRelatedEvents(relatedWithImages);
+
+      // load related events and map images (safe)
+      const relatedEvents = await eventsApi.getRelatedEvents(id, 4);
+      const mapRel = relatedEvents.map((r) => {
+        const img =
+          (r.images && r.images[0]) || (r.image && r.image[0]) || null;
+        return { ...r, image: imageMap[img] || img || fallbackImage };
+      });
+      setRelated(mapRel);
     } catch (err) {
-      setError(err.message);
-      console.error('Error loading event:', err);
+      console.error("Error loading event:", err);
+      setError(err?.message || "Failed to load event");
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePaymentSuccess = (paymentResult) => {
-    console.log('Payment successful:', paymentResult);
+  const handlePaymentSuccess = (result) => {
     setShowCheckout(false);
-    
-    // Show success message
-    alert(`🎉 Payment Successful! 
-      ${paymentResult.tickets} tickets for ${paymentResult.event.title}
-      Transaction: ${paymentResult.transactionId}
-      Amount: ${paymentResult.amount} ${paymentResult.currency}`);
+    // You may replace this alert with a toast
+    alert(
+      `Payment successful — ${result.tickets} tickets for ${result.event.title}. Transaction: ${result.transactionId}`
+    );
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-  };
+  const toggleFavorite = () => setIsFavorite((s) => !s);
 
   const shareEvent = (platform) => {
-    const eventUrl = window.location.href;
-    const text = `Check out this amazing event: ${event.title}`;
-    
-    const shareUrls = {
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(eventUrl)}`,
-      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(eventUrl)}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(eventUrl)}`,
-      whatsapp: `https://wa.me/?text=${encodeURIComponent(text + ' ' + eventUrl)}`
+    const url = window.location.href;
+    const text = `Check out this event: ${event?.title}`;
+    const urls = {
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+        text
+      )}&url=${encodeURIComponent(url)}`,
     };
-
-    window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+    window.open(urls[platform], "_blank", "width=600,height=400");
   };
 
   const handleGetTickets = () => {
     if (!isAuthenticated) {
-      // Optionally show a toast or message about needing to sign in
+      // optionally show a toast
       return;
     }
     setShowCheckout(true);
@@ -126,604 +133,559 @@ const EventPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen Homeimg Blend-overlay">
+      <div className="min-h-screen bg-white">
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
+        <div className="max-w-5xl mx-auto px-4 py-24">
+          <div className="flex justify-center">
+            <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
           </div>
         </div>
-        <Footer />
+        <div className="bg-black">
+          <Footer />
+        </div>
       </div>
     );
   }
 
   if (error || !event) {
     return (
-      <div className="min-h-screen Homeimg Blend-overlay">
+      <div className="min-h-screen bg-white">
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-8 max-w-md mx-auto">
-            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="max-w-4xl mx-auto px-4 py-20">
+          <div className="bg-white border border-red-100 rounded-2xl p-8 shadow-sm text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="h-8 w-8 text-red-500" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Event Not Found</h1>
-            <p className="text-gray-300 mb-6">
-              {error || "The event you're looking for doesn't exist or has been removed."}
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Event Not Found
+            </h2>
+            <p className="text-gray-600 mb-4">
+              {error || "The event you're looking for doesn't exist."}
             </p>
-            <Link 
-              to="/discover" 
-              className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] transition-colors font-semibold"
+            <Link
+              to="/discover"
+              className="inline-flex items-center text-[#FF6B35] font-semibold"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Return to Discover Events
+              Return to Discover
             </Link>
           </div>
         </div>
-        <Footer />
+        <div className="bg-black">
+          <Footer />
+        </div>
       </div>
     );
   }
 
-  const eventDate = new Date(event.date);
-  const today = new Date();
-  const isUpcoming = eventDate >= today;
+  // Subcomponents (kept inside file for easy paste)
+  const EventHeader = ({ ev }) => {
+    const eventDate = new Date(ev.date);
+    const isUpcoming = eventDate >= new Date();
 
-  return (
-    <div className="min-h-screen Homeimg Blend-overlay">
-      <Navbar />
-      
-      {/* Back Navigation */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        <Link 
-          to="/discover" 
-          className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] transition-colors mb-6 group"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-          Back to Discover Events
-        </Link>
-      </div>
+    return (
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+        <div className="flex justify-between items-start flex-col lg:flex-row gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm font-medium">
+                {ev.category}
+              </span>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Event Header */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 glass-morphism">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm font-medium">
-                      {event.category}
-                    </span>
-                    {event.featured && (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                        <Sparkles className="w-3 h-3 text-[#FF6B35]" />
-                        <span className="text-xs font-medium text-white">Featured</span>
-                      </div>
-                    )}
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      isUpcoming ? 'bg-green-400/20 text-green-400' : 'bg-gray-400/20 text-gray-400'
-                    }`}>
-                      {isUpcoming ? 'Upcoming' : 'Past Event'}
-                    </span>
-                  </div>
-                  
-                  <h1 className="text-3xl lg:text-4xl font-bold text-white mb-4">
-                    {event.title}
-                  </h1>
-
-                  <div className="flex items-center flex-wrap gap-4 text-gray-300">
-                    <div className="flex items-center">
-                      <Calendar className="h-5 w-5 mr-2 text-[#FF6B35]" />
-                      <span>{eventDate.toLocaleDateString('en-NG', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="h-5 w-5 mr-2 text-[#FF6B35]" />
-                      <span>{event.time} - {event.endTime}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <MapPin className="h-5 w-5 mr-2 text-[#FF6B35]" />
-                      <span>{event.city}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={toggleFavorite}
-                    className="p-3 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 hover:bg-white/20 transition-all duration-200 hover:scale-110"
-                  >
-                    <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-300'}`} />
-                  </button>
-                  <button className="p-3 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 hover:bg-white/20 transition-all duration-200 hover:scale-110">
-                    <Share2 className="h-5 w-5 text-gray-300" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Rating and Attendees */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-6">
-                  <div className="flex items-center">
-                    <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                    <span className="text-white font-medium ml-2">{event.rating}</span>
-                    <span className="text-gray-300 ml-1">({event.reviews} reviews)</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Users className="h-5 w-5 text-[#FF6B35]" />
-                    <span className="text-white font-medium ml-2">{event.attendees.toLocaleString()}</span>
-                    <span className="text-gray-300 ml-1">attendees</span>
-                  </div>
-                </div>
-                
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-white">₦{event.price.toLocaleString()}</div>
-                  <div className="text-sm text-gray-300">per ticket</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Image Gallery */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 overflow-hidden glass-morphism">
-              <div className="aspect-w-16 aspect-h-9">
-                <img
-                  src={event.images[0]}
-                  alt={event.title}
-                  className="w-full h-64 lg:h-96 object-cover"
-                />
-              </div>
-              {event.images.length > 1 && (
-                <div className="grid grid-cols-3 gap-1 p-1">
-                  {event.images.slice(1).map((image, index) => (
-                    <img
-                      key={index}
-                      src={image}
-                      alt={`${event.title} ${index + 2}`}
-                      className="h-24 object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                    />
-                  ))}
+              {ev.featured && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-[#FFF6F2] border border-[#FFE6D8] rounded-full text-sm text-[#FF6B35]">
+                  <Sparkles className="w-4 h-4" />
+                  Featured
                 </div>
               )}
+
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  isUpcoming
+                    ? "bg-green-50 text-green-600"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {isUpcoming ? "Upcoming" : "Past event"}
+              </span>
             </div>
 
-            {/* Content Tabs */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 glass-morphism">
-              {/* Tab Navigation */}
-              <div className="border-b border-white/20">
-                <nav className="flex space-x-8 px-6">
-                  {['details', 'organizer', 'location', 'reviews'].map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 ${
-                        activeTab === tab
-                          ? 'border-[#FF6B35] text-white scale-105'
-                          : 'border-transparent text-gray-300 hover:text-white hover:scale-102'
-                      }`}
-                    >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
-                  ))}
-                </nav>
+            <h1 className="text-2xl lg:text-3xl font-semibold text-gray-900 mb-3">
+              {ev.title}
+            </h1>
+
+            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-[#FF6B35]" />
+                <span>
+                  {eventDate.toLocaleDateString("en-NG", {
+                    weekday: "short",
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
               </div>
 
-              {/* Tab Content */}
-              <div className="p-6">
-                {activeTab === 'details' && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-xl font-semibold text-white mb-4">About This Event</h3>
-                      <div 
-                        className="text-gray-300 prose prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: event.longDescription }}
-                      />
-                    </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-[#FF6B35]" />
+                <span>
+                  {ev.time} - {ev.endTime}
+                </span>
+              </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="font-semibold text-white mb-3 flex items-center">
-                          <CheckCircle className="h-5 w-5 text-[#FF6B35] mr-2" />
-                          What's Included
-                        </h4>
-                        <ul className="space-y-2">
-                          {event.includes.map((item, index) => (
-                            <li key={index} className="flex items-center text-gray-300">
-                              <div className="w-2 h-2 bg-[#FF6B35] rounded-full mr-3"></div>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold text-white mb-3 flex items-center">
-                          <Shield className="h-5 w-5 text-[#FF6B35] mr-2" />
-                          Requirements
-                        </h4>
-                        <ul className="space-y-2">
-                          {event.requirements.map((item, index) => (
-                            <li key={index} className="flex items-center text-gray-300">
-                              <div className="w-2 h-2 bg-[#FF6B35] rounded-full mr-3"></div>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Tags */}
-                    <div>
-                      <h4 className="font-semibold text-white mb-3">Tags</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {event.tags.map(tag => (
-                          <span
-                            key={tag}
-                            className="px-3 py-1 bg-[#FF6B35]/20 text-[#FF6B35] rounded-full text-sm border border-[#FF6B35]/30"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'organizer' && (
-                  <div className="space-y-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-[#FF6B35] rounded-full flex items-center justify-center text-white font-bold text-xl">
-                        {event.organizer.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="text-xl font-semibold text-white">{event.organizer.name}</h3>
-                          {event.organizer.verified && (
-                            <Shield className="h-5 w-5 text-green-400" />
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-4 text-gray-300 mt-1">
-                          <span className="flex items-center">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                            {event.organizer.rating}
-                          </span>
-                          <span>{event.organizer.eventsHosted} events hosted</span>
-                          <span>Since {new Date(event.organizer.joinDate).getFullYear()}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="text-gray-300">{event.organizer.description}</p>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                      <div className="text-center p-4 bg-white/5 rounded-lg">
-                        <div className="text-2xl font-bold text-white">{event.organizer.eventsHosted}</div>
-                        <div className="text-sm text-gray-300">Events</div>
-                      </div>
-                      <div className="text-center p-4 bg-white/5 rounded-lg">
-                        <div className="text-2xl font-bold text-white">{event.organizer.rating}</div>
-                        <div className="text-sm text-gray-300">Rating</div>
-                      </div>
-                      <div className="text-center p-4 bg-white/5 rounded-lg">
-                        <div className="text-2xl font-bold text-white">98%</div>
-                        <div className="text-sm text-gray-300">Satisfaction</div>
-                      </div>
-                      <div className="text-center p-4 bg-white/5 rounded-lg">
-                        <div className="text-2xl font-bold text-white">4.2K</div>
-                        <div className="text-sm text-gray-300">Attendees</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'location' && (
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-semibold text-white">Event Location</h3>
-                    
-                    <div className="space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <MapPin className="h-5 w-5 text-[#FF6B35] mt-1" />
-                        <div>
-                          <h4 className="font-semibold text-white">{event.venue}</h4>
-                          <p className="text-gray-300">{event.address}</p>
-                        </div>
-                      </div>
-
-                      {/* Map Placeholder */}
-                      <div className="h-64 bg-white/5 rounded-lg flex items-center justify-center border border-white/20">
-                        <div className="text-center">
-                          <MapPin className="h-12 w-12 text-[#FF6B35] mx-auto mb-2" />
-                          <p className="text-gray-300">Interactive Map</p>
-                          <p className="text-sm text-gray-400">Map would be integrated here</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div className="p-4 bg-white/5 rounded-lg">
-                          <h5 className="font-semibold text-white mb-2">Parking Information</h5>
-                          <p className="text-gray-300">Ample parking available at the venue. Additional parking at adjacent buildings.</p>
-                        </div>
-                        <div className="p-4 bg-white/5 rounded-lg">
-                          <h5 className="font-semibold text-white mb-2">Public Transport</h5>
-                          <p className="text-gray-300">Easily accessible via public transportation. Bus stops within 5-minute walk.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'reviews' && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-semibold text-white">Event Reviews</h3>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-white">{event.rating}</div>
-                        <div className="text-sm text-gray-300">from {event.reviews} reviews</div>
-                      </div>
-                    </div>
-
-                    {/* Review Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        {[5, 4, 3, 2, 1].map(stars => (
-                          <div key={stars} className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-300 w-8">{stars}</span>
-                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                            <div className="flex-1 bg-white/10 rounded-full h-2">
-                              <div 
-                                className="bg-[#FF6B35] h-2 rounded-full"
-                                style={{ width: `${(stars / 5) * 100}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-300 w-12">{(stars / 5 * 100).toFixed(0)}%</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="p-4 bg-white/5 rounded-lg">
-                        <h4 className="font-semibold text-white mb-2">What attendees say:</h4>
-                        <ul className="space-y-1 text-sm text-gray-300">
-                          <li>• "Excellent organization and content"</li>
-                          <li>• "Great networking opportunities"</li>
-                          <li>• "Knowledgeable speakers"</li>
-                          <li>• "Well worth the investment"</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Sample Reviews */}
-                    <div className="space-y-4">
-                      <div className="p-4 bg-white/5 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-semibold text-white">Chinedu O.</span>
-                          <div className="flex items-center">
-                            {[1,2,3,4,5].map(star => (
-                              <Star key={star} className="h-4 w-4 text-yellow-400 fill-current" />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-gray-300 text-sm">
-                          "One of the best blockchain conferences I've attended in Nigeria. The speakers were top-notch and the networking opportunities were incredible."
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-[#FF6B35]" />
+                <span>
+                  {ev.venue}, {ev.city}
+                </span>
               </div>
             </div>
-
-            {/* Related Events */}
-            {relatedEvents.length > 0 && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 glass-morphism">
-                <h3 className="text-xl font-semibold text-white mb-6">Related Events</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {relatedEvents.map(relatedEvent => (
-                    <Link
-                      key={relatedEvent.id}
-                      to={`/event/${relatedEvent.id}`}
-                      className="flex items-center space-x-4 p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-all duration-200 hover:scale-102 group"
-                    >
-                      <img
-                        src={relatedEvent.image}
-                        alt={relatedEvent.title}
-                        className="w-16 h-16 object-cover rounded-lg"
-                      />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-white group-hover:text-[#FF6B35] transition-colors line-clamp-1">
-                          {relatedEvent.title}
-                        </h4>
-                        <div className="flex items-center space-x-2 text-sm text-gray-300 mt-1">
-                          <span>{relatedEvent.category}</span>
-                          <span>•</span>
-                          <span>₦{relatedEvent.price.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Sidebar - Ticket Purchase */}
-          <div className="space-y-6">
-            {/* Ticket Card */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 glass-morphism sticky top-6">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-white">₦{event.price.toLocaleString()}</div>
-                <div className="text-gray-300">per ticket</div>
+          <div className="w-full lg:w-56 flex-shrink-0">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center shadow-sm">
+              <div className="text-lg text-gray-700 font-semibold">
+                ₦{ev.price.toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-500 mb-4">per ticket</div>
+
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <button
+                  onClick={toggleFavorite}
+                  className="p-2 rounded-md border border-gray-200 hover:bg-gray-50"
+                >
+                  <Heart
+                    className={
+                      isFavorite
+                        ? "h-4 w-4 text-red-500"
+                        : "h-4 w-4 text-gray-600"
+                    }
+                  />
+                </button>
+                <button
+                  onClick={() => shareEvent("twitter")}
+                  className="p-2 rounded-md border border-gray-200 hover:bg-gray-50"
+                >
+                  <Share2 className="h-4 w-4 text-gray-600" />
+                </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <Star className="h-4 w-4 text-yellow-400" />
+                <span className="font-medium text-gray-800">{ev.rating}</span>
+                <span className="text-gray-500">({ev.reviews})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const EventGallery = ({ ev }) => (
+    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="w-full h-72 bg-gray-100">
+        <img
+          src={ev.images[0] || fallbackImage}
+          alt={ev.title}
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {ev.images.length > 1 && (
+        <div className="grid grid-cols-3 gap-1 p-2 bg-white">
+          {ev.images.slice(1).map((img, i) => (
+            <img
+              key={i}
+              src={img}
+              alt={`${ev.title} ${i + 2}`}
+              className="h-24 w-full object-cover rounded-md cursor-pointer"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const DetailsTabs = ({ ev }) => {
+    return (
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+        <div className="border-b border-gray-100">
+          <nav className="flex px-4">
+            {["details", "organizer", "location", "reviews"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className={`py-3 px-2 text-sm font-medium ${
+                  activeTab === t
+                    ? "text-gray-900 border-b-2 border-[#FF6B35]"
+                    : "text-gray-600"
+                }`}
+              >
+                {t[0].toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {activeTab === "details" && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                About this event
+              </h3>
+              <div
+                className="prose max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    ev.longDescription ||
+                    ev.description ||
+                    "<p>No description</p>",
+                }}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Number of Tickets
-                  </label>
-                  <div className="flex items-center border border-white/20 rounded-lg">
-                    <button
-                      onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-                      className="p-3 text-gray-300 hover:text-white transition-colors"
-                      disabled={!isAuthenticated || authLoading}
-                    >
-                      -
-                    </button>
-                    <span className="flex-1 text-center text-white font-medium">{ticketQuantity}</span>
-                    <button
-                      onClick={() => setTicketQuantity(ticketQuantity + 1)}
-                      className="p-3 text-gray-300 hover:text-white transition-colors"
-                      disabled={!isAuthenticated || authLoading}
-                    >
-                      +
-                    </button>
-                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-[#FF6B35]" /> What's
+                    included
+                  </h4>
+                  <ul className="list-disc pl-5 text-gray-700">
+                    {ev.includes.length ? (
+                      ev.includes.map((inc, i) => <li key={i}>{inc}</li>)
+                    ) : (
+                      <li>Standard event access</li>
+                    )}
+                  </ul>
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-300">
-                    <span>Price per ticket</span>
-                    <span>₦{event.price.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-300">
-                    <span>Quantity</span>
-                    <span>{ticketQuantity}</span>
-                  </div>
-                  <div className="border-t border-white/20 pt-2">
-                    <div className="flex justify-between text-white font-semibold">
-                      <span>Total</span>
-                      <span>₦{(event.price * ticketQuantity).toLocaleString()}</span>
-                    </div>
-                  </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
+                  </h4>
+                  <ul className="list-disc pl-5 text-gray-700">
+                    {ev.requirements.length ? (
+                      ev.requirements.map((r, i) => <li key={i}>{r}</li>)
+                    ) : (
+                      <li>No special requirements</li>
+                    )}
+                  </ul>
                 </div>
+              </div>
 
-                {authLoading ? (
-                  <div className="w-full bg-gray-600 text-white py-4 rounded-lg font-semibold text-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
+              <div className="mt-6">
+                <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
+                <div className="flex flex-wrap gap-2">
+                  {ev.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-full border border-gray-200"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "organizer" && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                Organizer
+              </h3>
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-full bg-[#FF6B35] flex items-center justify-center text-white font-semibold text-lg">
+                  {ev.organizer.name?.charAt(0) || "O"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-gray-900">
+                      {ev.organizer.name}
+                    </h4>
+                    {ev.organizer.verified && (
+                      <Shield className="h-4 w-4 text-green-600" />
+                    )}
                   </div>
-                ) : isAuthenticated ? (
-                  <button
-                    onClick={handleGetTickets}
-                    className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-semibold hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 transform"
-                  >
-                    <Ticket className="h-5 w-5 inline mr-2" />
-                    Get Tickets Now
-                  </button>
-                ) : (
-                  <div className="text-center space-y-3">
-                    <div className="p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-                      <div className="flex items-center justify-center text-yellow-200 text-sm">
-                        <AlertCircle className="h-4 w-4 mr-2" />
-                        Please sign in to purchase tickets
+                  <p className="text-gray-600 mt-1">
+                    {ev.organizer.description}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    <div className="p-3 bg-gray-50 border border-gray-100 rounded">
+                      <div className="text-sm text-gray-500">Events hosted</div>
+                      <div className="font-semibold text-gray-900">
+                        {ev.organizer.eventsHosted || "-"}
                       </div>
                     </div>
-                    <Link
-                      to="/login"
-                      className="block w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-all duration-200 text-center"
-                    >
-                      Sign In to Continue
-                    </Link>
-                    <p className="text-xs text-gray-400">
-                      Don't have an account?{" "}
-                      <Link to="/signup" className="text-[#FF6B35] hover:underline">
-                        Sign up here
-                      </Link>
-                    </p>
+                    <div className="p-3 bg-gray-50 border border-gray-100 rounded">
+                      <div className="text-sm text-gray-500">Rating</div>
+                      <div className="font-semibold text-gray-900">
+                        {ev.organizer.rating || "-"}
+                      </div>
+                    </div>
                   </div>
-                )}
-
-                <div className="text-center text-xs text-gray-400">
-                  Secure payment • Instant confirmation • 24/7 support
                 </div>
               </div>
-            </div>
+            </>
+          )}
 
-            {/* Share Card */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 glass-morphism">
-              <h4 className="font-semibold text-white mb-4">Share This Event</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => shareEvent('facebook')}
-                  className="flex items-center justify-center p-3 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 hover:scale-105"
-                >
-                  <Facebook className="h-5 w-5 mr-2" />
-                  Facebook
-                </button>
-                <button
-                  onClick={() => shareEvent('twitter')}
-                  className="flex items-center justify-center p-3 bg-blue-400/20 text-blue-300 rounded-lg hover:bg-blue-400/30 transition-all duration-200 hover:scale-105"
-                >
-                  <Twitter className="h-5 w-5 mr-2" />
-                  Twitter
-                </button>
-                <button
-                  onClick={() => shareEvent('linkedin')}
-                  className="flex items-center justify-center p-3 bg-blue-700/20 text-blue-400 rounded-lg hover:bg-blue-700/30 transition-all duration-200 hover:scale-105"
-                >
-                  <Linkedin className="h-5 w-5 mr-2" />
-                  LinkedIn
-                </button>
-                <button
-                  onClick={() => shareEvent('whatsapp')}
-                  className="flex items-center justify-center p-3 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 hover:scale-105"
-                >
-                  <MessageCircle className="h-5 w-5 mr-2" />
-                  WhatsApp
-                </button>
+          {activeTab === "location" && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                Location
+              </h3>
+              <div className="bg-gray-50 border border-gray-100 rounded p-4">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-[#FF6B35] mt-1" />
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      {ev.venue}
+                    </div>
+                    <div className="text-gray-600">{ev.address}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 h-48 bg-white border border-gray-100 rounded flex items-center justify-center text-gray-500">
+                  Map placeholder
+                </div>
               </div>
+            </>
+          )}
+
+          {activeTab === "reviews" && (
+            <>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Reviews</h3>
+                <div className="text-right">
+                  <div className="text-xl font-semibold">{ev.rating}</div>
+                  <div className="text-sm text-gray-600">
+                    {ev.reviews} reviews
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {[5, 4, 3, 2, 1].map((s) => (
+                  <div key={s} className="flex items-center gap-3">
+                    <div className="w-8 text-sm text-gray-600">{s}</div>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-[#FF6B35] h-2"
+                        style={{ width: `${(s / 5) * 100}%` }}
+                      />
+                    </div>
+                    <div className="w-12 text-sm text-gray-600 text-right">
+                      {Math.round((s / 5) * 100)}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4">
+                <div className="p-4 bg-gray-50 border border-gray-100 rounded">
+                  <div className="font-semibold text-gray-900">Chinedu O.</div>
+                  <div className="text-sm text-gray-600">
+                    "One of the best blockchain conferences I've attended."
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const RelatedEvents = ({ list }) => {
+    if (!list || list.length === 0) return null;
+    return (
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+          Related events
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {list.map((r) => (
+            <Link
+              key={r.id}
+              to={`/event/${r.id}`}
+              className="flex items-center gap-3 border border-gray-100 rounded p-3 hover:shadow-sm transition"
+            >
+              <img
+                src={r.image}
+                alt={r.title}
+                className="w-16 h-16 object-cover rounded"
+              />
+              <div>
+                <div className="font-medium text-gray-900">{r.title}</div>
+                <div className="text-sm text-gray-600">
+                  {r.category} • ₦{r.price?.toLocaleString()}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const TicketCard = ({ ev }) => {
+    const available = Math.max(0, ev.capacity - ev.attendees);
+    const total = ev.price * ticketQuantity;
+    return (
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+        <div className="space-y-4">
+          <label className="block text-sm text-gray-700">
+            Number of tickets
+          </label>
+          <div className="flex items-center border border-gray-100 rounded">
+            <button
+              onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
+              disabled={!isAuthenticated || authLoading}
+              className="px-4 py-2 text-gray-700 disabled:opacity-50"
+            >
+              -
+            </button>
+
+            <div className="flex-1 text-center text-gray-900 font-medium">
+              {ticketQuantity}
             </div>
 
-            {/* Event Stats */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 glass-morphism">
-              <h4 className="font-semibold text-white mb-4">Event Statistics</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Capacity</span>
-                  <span className="text-white font-medium">{event.capacity.toLocaleString()}</span>
+            <button
+              onClick={() => setTicketQuantity(ticketQuantity + 1)}
+              disabled={!isAuthenticated || authLoading}
+              className="px-4 py-2 text-gray-700 disabled:opacity-50"
+            >
+              +
+            </button>
+          </div>
+
+          <div className="text-sm text-gray-600">
+            <div className="flex justify-between">
+              <span>Price</span>
+              <span>₦{ev.price.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Quantity</span>
+              <span>{ticketQuantity}</span>
+            </div>
+            <div className="flex justify-between font-semibold text-gray-900 mt-2">
+              <span>Total</span>
+              <span>₦{total.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {authLoading ? (
+            <div className="py-3 bg-gray-50 rounded text-center">
+              Checking auth...
+            </div>
+          ) : isAuthenticated ? (
+            <button
+              onClick={handleGetTickets}
+              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#FF8535]"
+            >
+              <Ticket className="inline-block h-4 w-4 mr-2" /> Get tickets now
+            </button>
+          ) : (
+            <div className="space-y-3 text-center">
+              <div className="text-sm text-yellow-700 flex items-center justify-center gap-2">
+                <AlertCircle className="h-4 w-4" /> Please sign in to purchase
+              </div>
+              <Link
+                to="/login"
+                className="block w-[20] bg-[#FF6B35] text-white py-2 rounded"
+              >
+                Sign in
+              </Link>
+            </div>
+          )}
+
+          <div className="text-xs text-gray-500 text-center mt-2">
+            Secure payment • Instant confirmation
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Page layout
+  return (
+    <div className="min-h-screen bg-white text-gray-800">
+      <Navbar />
+
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <Link
+          to="/discover"
+          className="inline-flex items-center text-[#FF6B35] mb-6"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Discover
+        </Link>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <EventHeader ev={event} />
+            <EventGallery ev={event} />
+            <DetailsTabs ev={event} />
+            <RelatedEvents list={related} />
+          </div>
+
+          <div className="space-y-6">
+            <TicketCard ev={event} />
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+              <h4 className="font-semibold text-gray-900 mb-2">
+                Event statistics
+              </h4>
+              <div className="text-sm text-gray-700 grid gap-2">
+                <div className="flex justify-between">
+                  <span>Capacity</span>
+                  <span>{event.capacity.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Attendees</span>
-                  <span className="text-white font-medium">{event.attendees.toLocaleString()}</span>
+                <div className="flex justify-between">
+                  <span>Attendees</span>
+                  <span>{event.attendees.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Available</span>
-                  <span className="text-white font-medium">{(event.capacity - event.attendees).toLocaleString()}</span>
+                <div className="flex justify-between">
+                  <span>Available</span>
+                  <span>
+                    {(event.capacity - event.attendees).toLocaleString()}
+                  </span>
                 </div>
-                
-                {/* Authentication Status Indicator */}
+                <div className="pt-2">
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-2 bg-[#FF6B35]"
+                      style={{
+                        width: `${(event.attendees / event.capacity) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-600 mt-1">
+                    <span>
+                      {Math.round((event.attendees / event.capacity) * 100)}%
+                      booked
+                    </span>
+                    <span>{event.capacity - event.attendees} left</span>
+                  </div>
+                </div>
                 {!authLoading && (
-                  <div className="flex justify-between items-center pt-2 border-t border-white/20">
-                    <span className="text-gray-300">Your Access</span>
-                    <span className={`text-sm font-medium ${
-                      isAuthenticated ? 'text-green-400' : 'text-yellow-400'
-                    }`}>
-                      {isAuthenticated ? 'Ready to book' : 'Sign in required'}
+                  <div className="pt-2 text-sm text-gray-700">
+                    Your access:{" "}
+                    <span
+                      className={
+                        isAuthenticated ? "text-green-600" : "text-yellow-600"
+                      }
+                    >
+                      {isAuthenticated ? "Ready to book" : "Sign in required"}
                     </span>
                   </div>
                 )}
-                
-                <div className="pt-3 border-t border-white/20">
-                  <div className="w-full bg-white/10 rounded-full h-2">
-                    <div 
-                      className="bg-[#FF6B35] h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${(event.attendees / event.capacity) * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-300 mt-1">
-                    <span>{Math.round((event.attendees / event.capacity) * 100)}% booked</span>
-                    <span>Hurry! Only {event.capacity - event.attendees} left</span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Checkout Flow Modal */}
       {showCheckout && (
         <CheckoutFlow
           event={event}
@@ -732,12 +694,11 @@ const EventPage = () => {
           onClose={() => setShowCheckout(false)}
         />
       )}
-      
-      <div className="bg-[#FF6B35]">
+
+      {/* Footer kept dark as requested */}
+      <div className="bg-black">
         <Footer />
       </div>
     </div>
   );
-};
-
-export default EventPage;
+}

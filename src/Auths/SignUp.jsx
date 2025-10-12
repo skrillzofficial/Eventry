@@ -5,7 +5,7 @@ import * as yup from "yup";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Check, X, ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import google from "../assets/google.png";
-import Brandlogo from "../assets/2.png";
+import Brandlogo from "../assets/1.png";
 
 // Constants
 const PASSWORD_MIN_LENGTH = 8;

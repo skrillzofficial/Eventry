@@ -16,7 +16,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import Brandlogo from "../assets/2.png";
+import Brandlogo from "../assets/1.png";
 import google from "../assets/google.png";
 
 // Validation schema

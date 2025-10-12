@@ -4,7 +4,7 @@ import { Facebook, Twitter, Linkedin } from "lucide-react";
 
 const Footer = () => {
   return (
-    <footer className=" text-[#C9E9E7]">
+    <footer className=" bg-black text-[#C9E9E7]">
       <div className="w-11/12 mx-auto container py-8">
         {/* Brand + Tagline */}
         <div className="flex flex-col items-center md:items-start space-y-3">
