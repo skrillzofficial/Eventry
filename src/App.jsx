@@ -21,8 +21,9 @@ import CheckoutFlow from "./checkout/Checkout";
 import SignUp from "./Auths/SignUp";
 import Login from "./Auths/Login";
 import VerifyEmail from "./Auths/VerifyEmail";
-import ResendVerification from "./Auths/ResendVerification"; 
+import ResendVerification from "./Auths/ResendVerification";
 import ForgotPassword from "./Auths/ForgotPassword";
+import ResetPassword from "./Auths/ResetPassword";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,8 @@ function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          
+          <Route path="/reset-password" element={<ResetPassword />} />
+
           {/* Email Verification Routes */}
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/resend-verification" element={<ResendVerification />} />
