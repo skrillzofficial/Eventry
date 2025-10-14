@@ -151,9 +151,9 @@ const UserProfile = () => {
 
   if (loading) {
     return (
-      <div className="Homeimg Blend-overlay min-h-screen flex flex-col">
+      <div className="min-h-screen bg-white flex flex-col">
         <Navbar />
-        <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex items-center justify-center">
+        <div className="flex-1 w-11/12 mx-auto container py-8 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
         </div>
         <Footer />
@@ -162,22 +162,22 @@ const UserProfile = () => {
   }
 
   return (
-    <div className="Homeimg Blend-overlay min-h-screen flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* Navbar */}
       <Navbar />
       
       {/* Dashboard Content */}
-      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <div className="flex-1 w-11/12 mx-auto container py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <div className="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-white text-sm mb-4">
+          <div className="inline-flex items-center px-4 py-2 bg-[#FF6B35]/10 rounded-full text-[#FF6B35] text-sm mb-4">
             <Sparkles className="h-4 w-4 mr-2" />
             Welcome Back!
           </div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900">
             Hello, <span className="text-[#FF6B35]">{localStorage.getItem('userName') || 'User'}</span>! 👋
           </h1>
-          <p className="text-white/80 mt-2">
+          <p className="text-gray-600 mt-2">
             {userRole === 'organizer' 
               ? 'Manage your events and track your blockchain-powered event ecosystem'
               : 'Discover amazing events and manage your tickets seamlessly'
@@ -266,22 +266,20 @@ const UserProfile = () => {
       </div>
 
       {/* Footer */}
-      <div className="bg-[#E55A2B]">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 };
 
 // Reusable Stat Card Component
 const StatCard = ({ title, value, icon: Icon, change }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all group hover:border-[#FF6B35]/30">
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-xl transition-all group">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-white/80">{title}</p>
-        <p className="text-2xl font-bold text-white mt-1 group-hover:text-[#FF6B35] transition-colors">{value}</p>
+        <p className="text-sm font-medium text-gray-600">{title}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1 group-hover:text-[#FF6B35] transition-colors">{value}</p>
         {change && (
-          <p className={`text-sm ${change.includes('+') ? 'text-green-300' : 'text-red-300'} flex items-center mt-1`}>
+          <p className={`text-sm ${change.includes('+') ? 'text-green-600' : 'text-red-600'} flex items-center mt-1`}>
             <TrendingUp className="h-4 w-4 mr-1" />
             {change}
           </p>
@@ -296,50 +294,50 @@ const StatCard = ({ title, value, icon: Icon, change }) => (
 
 // Quick Actions Section
 const QuickActionsSection = ({ userRole }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-xl transition-all">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {userRole === 'organizer' ? (
         <>
-          <Link to="/create-event" className="flex items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] hover:bg-white/5 transition-all group transform hover:scale-105">
+          <Link to="/create-event" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-gray-50 transition-all group transform hover:scale-105">
             <div className="p-2 bg-[#FF6B35] rounded-lg mr-4 group-hover:scale-110 transition-transform">
               <Plus className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors">Create Event</p>
-              <p className="text-sm text-white/80">Start a new event</p>
+              <p className="font-medium text-gray-900 group-hover:text-[#FF6B35] transition-colors">Create Event</p>
+              <p className="text-sm text-gray-600">Start a new event</p>
             </div>
           </Link>
-          <Link to="/dashboard/analytics" className="flex items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] hover:bg-white/5 transition-all group transform hover:scale-105">
+          <Link to="/dashboard/analytics" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-gray-50 transition-all group transform hover:scale-105">
             <div className="p-2 bg-[#FF6B35] rounded-lg mr-4 group-hover:scale-110 transition-transform">
               <TrendingUp className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors">View Analytics</p>
-              <p className="text-sm text-white/80">Event performance</p>
+              <p className="font-medium text-gray-900 group-hover:text-[#FF6B35] transition-colors">View Analytics</p>
+              <p className="text-sm text-gray-600">Event performance</p>
             </div>
           </Link>
         </>
       ) : (
         <>
-          <Link to="/discover" className="flex items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] hover:bg-white/5 transition-all group transform hover:scale-105">
+          <Link to="/discover" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-gray-50 transition-all group transform hover:scale-105">
             <div className="p-2 bg-[#FF6B35] rounded-lg mr-4 group-hover:scale-110 transition-transform">
               <Eye className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors">Discover Events</p>
-              <p className="text-sm text-white/80">Find new experiences</p>
+              <p className="font-medium text-gray-900 group-hover:text-[#FF6B35] transition-colors">Discover Events</p>
+              <p className="text-sm text-gray-600">Find new experiences</p>
             </div>
           </Link>
-          <Link to="/dashboard/tickets" className="flex items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] hover:bg-white/5 transition-all group transform hover:scale-105">
+          <Link to="/dashboard/tickets" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-gray-50 transition-all group transform hover:scale-105">
             <div className="p-2 bg-[#FF6B35] rounded-lg mr-4 group-hover:scale-110 transition-transform">
               <Ticket className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors">My Tickets</p>
-              <p className="text-sm text-white/80">View your tickets</p>
+              <p className="font-medium text-gray-900 group-hover:text-[#FF6B35] transition-colors">My Tickets</p>
+              <p className="text-sm text-gray-600">View your tickets</p>
             </div>
           </Link>
         </>
@@ -350,9 +348,9 @@ const QuickActionsSection = ({ userRole }) => (
 
 // Activity Section
 const ActivitySection = ({ activities, userRole }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-xl transition-all">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
       <Link to="/dashboard/activity" className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center group">
         View all <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
       </Link>
@@ -374,9 +372,9 @@ const ActivitySection = ({ activities, userRole }) => (
 
 // User Events Section
 const UserEventsSection = ({ events, userRole }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-xl transition-all">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-white">
+      <h3 className="text-lg font-semibold text-gray-900">
         {userRole === 'organizer' ? 'My Events' : 'My Event History'}
       </h3>
       <Link to={userRole === 'organizer' ? "/dashboard/events" : "/dashboard/history"} 
@@ -393,7 +391,7 @@ const UserEventsSection = ({ events, userRole }) => (
         />
       ))}
       {events.length === 0 && (
-        <div className="text-center py-4 text-white/60">
+        <div className="text-center py-4 text-gray-500">
           <p>No {userRole === 'organizer' ? 'events created' : 'events attended'} yet</p>
           <Link to={userRole === 'organizer' ? "/create-event" : "/discover"} 
                 className="text-[#FF6B35] hover:text-[#FF8535] text-sm">
@@ -407,9 +405,9 @@ const UserEventsSection = ({ events, userRole }) => (
 
 // Upcoming Events Section
 const UpcomingEventsSection = ({ events }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-xl transition-all">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-white">Upcoming Events</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Upcoming Events</h3>
       <Link to="/discover" className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center group">
         View all <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
       </Link>
@@ -422,7 +420,7 @@ const UpcomingEventsSection = ({ events }) => (
         />
       ))}
       {events.length === 0 && (
-        <div className="text-center py-4 text-white/60">
+        <div className="text-center py-4 text-gray-500">
           <p>No upcoming events</p>
         </div>
       )}
@@ -461,7 +459,7 @@ const BlockchainFeaturesSection = ({ userRole }) => (
 
 // Reusable Components
 const ActivityItem = ({ icon: Icon, title, description, time, type }) => (
-  <div className="flex items-start space-x-3 group hover:bg-white/5 p-3 rounded-lg transition-all">
+  <div className="flex items-start space-x-3 group hover:bg-gray-50 p-3 rounded-lg transition-all">
     <div className={`p-2 rounded-lg ${
       type === 'purchase' ? 'bg-green-500/20' : 
       type === 'creation' ? 'bg-[#FF6B35]/20' : 
@@ -469,28 +467,28 @@ const ActivityItem = ({ icon: Icon, title, description, time, type }) => (
       'bg-purple-500/20'
     } group-hover:scale-110 transition-transform`}>
       <Icon className={`h-4 w-4 ${
-        type === 'purchase' ? 'text-green-300' : 
+        type === 'purchase' ? 'text-green-600' : 
         type === 'creation' ? 'text-[#FF6B35]' : 
-        type === 'attendance' ? 'text-blue-300' : 
-        'text-purple-300'
+        type === 'attendance' ? 'text-blue-600' : 
+        'text-purple-600'
       }`} />
     </div>
     <div className="flex-1">
-      <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors">{title}</p>
-      <p className="text-sm text-white/80">{description}</p>
-      <p className="text-xs text-white/60 mt-1">{time}</p>
+      <p className="font-medium text-gray-900 group-hover:text-[#FF6B35] transition-colors">{title}</p>
+      <p className="text-sm text-gray-600">{description}</p>
+      <p className="text-xs text-gray-500 mt-1">{time}</p>
     </div>
   </div>
 );
 
 const EventItem = ({ event }) => (
   <Link to={`/event/${event.id}`}>
-    <div className="flex items-center justify-between p-3 hover:bg-white/10 rounded-lg transition-all group transform hover:scale-105">
+    <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all group transform hover:scale-105">
       <div>
-        <p className="font-medium text-white text-sm group-hover:text-[#FF6B35] transition-colors line-clamp-1">
+        <p className="font-medium text-gray-900 text-sm group-hover:text-[#FF6B35] transition-colors line-clamp-1">
           {event.title}
         </p>
-        <p className="text-xs text-white/80 flex items-center mt-1">
+        <p className="text-xs text-gray-600 flex items-center mt-1">
           <Calendar className="h-3 w-3 mr-1" />
           {new Date(event.date).toLocaleDateString('en-NG', { 
             month: 'short', 
@@ -510,17 +508,17 @@ const EventItem = ({ event }) => (
 
 const UserEventItem = ({ event, userRole }) => (
   <Link to={`/event/${event.id}`}>
-    <div className="flex items-start space-x-3 group hover:bg-white/5 p-3 rounded-lg transition-all">
+    <div className="flex items-start space-x-3 group hover:bg-gray-50 p-3 rounded-lg transition-all">
       <img 
         src={event.images && event.images[0]} 
         alt={event.title}
         className="w-12 h-12 rounded-lg object-cover group-hover:scale-110 transition-transform"
       />
       <div className="flex-1">
-        <p className="font-medium text-white group-hover:text-[#FF6B35] transition-colors text-sm">
+        <p className="font-medium text-gray-900 group-hover:text-[#FF6B35] transition-colors text-sm">
           {event.title}
         </p>
-        <div className="flex items-center text-xs text-white/80 mt-1 space-x-2">
+        <div className="flex items-center text-xs text-gray-600 mt-1 space-x-2">
           <span className="flex items-center">
             <Calendar className="h-3 w-3 mr-1" />
             {new Date(event.date).toLocaleDateString('en-NG', { 

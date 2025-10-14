@@ -1,37 +1,37 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft, CheckCircle, Loader, Shield } from 'lucide-react';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { Mail, ArrowLeft, CheckCircle, Loader, Shield } from "lucide-react";
 
 const ResetPassword = () => {
-  const [email, setEmail] = useState('');
-  const [step, setStep] = useState(1); // 1: Email input, 2: Code verification, 3: New password, 4: Success
-  const [verificationCode, setVerificationCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [step, setStep] = useState(1);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
       // Mock validation
-      if (!email || !email.includes('@')) {
-        throw new Error('Please enter a valid email address');
+      if (!email || !email.includes("@")) {
+        throw new Error("Please enter a valid email address");
       }
 
       // Simulate successful email submission
       setStep(2);
-      setSuccess('Verification code sent to your email');
-      
+      setSuccess("Verification code sent to your email");
+
       // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -41,19 +41,20 @@ const ResetPassword = () => {
 
   const handleCodeVerification = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       if (!verificationCode || verificationCode.length !== 6) {
-        throw new Error('Please enter a valid 6-digit code');
+        throw new Error("Please enter a valid 6-digit code");
       }
 
       // Mock code verification
-      if (verificationCode !== '123456') { // In real app, this would come from your backend
-        throw new Error('Invalid verification code');
+      if (verificationCode !== "123456") {
+        // In real app, this would come from your backend
+        throw new Error("Invalid verification code");
       }
 
       setStep(3);
@@ -66,30 +67,30 @@ const ResetPassword = () => {
 
   const handlePasswordReset = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
 
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long');
+      setError("Password must be at least 8 characters long");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
       // Simulate successful password reset
       setStep(4);
-      
+
       // In a real app, you would call your API here
-      console.log('Password reset successful for:', email);
+      console.log("Password reset successful for:", email);
     } catch (err) {
-      setError('Failed to reset password. Please try again.');
+      setError("Failed to reset password. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -97,12 +98,12 @@ const ResetPassword = () => {
 
   const resetProcess = () => {
     setStep(1);
-    setEmail('');
-    setVerificationCode('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setError('');
-    setSuccess('');
+    setEmail("");
+    setVerificationCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+    setSuccess("");
   };
 
   return (
@@ -114,16 +115,17 @@ const ResetPassword = () => {
             <Shield className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            {step === 1 && 'Reset Your Password'}
-            {step === 2 && 'Verify Your Email'}
-            {step === 3 && 'Create New Password'}
-            {step === 4 && 'Password Reset Successfully'}
+            {step === 1 && "Reset Your Password"}
+            {step === 2 && "Verify Your Email"}
+            {step === 3 && "Create New Password"}
+            {step === 4 && "Password Reset Successfully"}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {step === 1 && 'Enter your email address and we will send you a verification code'}
-            {step === 2 && 'Enter the 6-digit code sent to your email'}
-            {step === 3 && 'Create a new secure password for your account'}
-            {step === 4 && 'Your password has been reset successfully'}
+            {step === 1 &&
+              "Enter your email address and we will send you a verification code"}
+            {step === 2 && "Enter the 6-digit code sent to your email"}
+            {step === 3 && "Create a new secure password for your account"}
+            {step === 4 && "Your password has been reset successfully"}
           </p>
         </div>
 
@@ -135,16 +137,20 @@ const ResetPassword = () => {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     step >= stepNumber
-                      ? 'bg-[#FF6B35] text-white'
-                      : 'bg-gray-200 text-gray-500'
+                      ? "bg-[#FF6B35] text-white"
+                      : "bg-gray-200 text-gray-500"
                   }`}
                 >
-                  {step > stepNumber ? <CheckCircle className="h-4 w-4" /> : stepNumber}
+                  {step > stepNumber ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    stepNumber
+                  )}
                 </div>
                 {stepNumber < 4 && (
                   <div
                     className={`w-12 h-1 ${
-                      step > stepNumber ? 'bg-[#FF6B35]' : 'bg-gray-200'
+                      step > stepNumber ? "bg-[#FF6B35]" : "bg-gray-200"
                     }`}
                   />
                 )}
@@ -169,8 +175,11 @@ const ResetPassword = () => {
         {/* Step 1: Email Input */}
         {step === 1 && (
           <form className="space-y-6" onSubmit={handleEmailSubmit}>
-            <div className=""flex items-center justify-center>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Email Address
               </label>
               <div className="mt-1 relative">
@@ -192,19 +201,19 @@ const ResetPassword = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF6B35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF8535] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? (
                 <Loader className="h-4 w-4 animate-spin" />
               ) : (
-                'Send Verification Code'
+                "Send Verification Code"
               )}
             </button>
 
             <div className="text-center">
               <Link
                 to="/login"
-                className="inline-flex items-center text-sm text-[#FF6B35] hover:text-[#FF6B35] font-medium"
+                className="inline-flex items-center text-sm text-[#FF6B35] hover:text-[#FF8535] font-medium"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back to Login
@@ -212,12 +221,14 @@ const ResetPassword = () => {
             </div>
           </form>
         )}
-
         {/* Step 2: Code Verification */}
         {step === 2 && (
           <form className="space-y-6" onSubmit={handleCodeVerification}>
             <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="code"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Verification Code
               </label>
               <div className="mt-1">
@@ -228,7 +239,9 @@ const ResetPassword = () => {
                   maxLength="6"
                   required
                   value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) =>
+                    setVerificationCode(e.target.value.replace(/\D/g, ""))
+                  }
                   className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-center text-xl tracking-widest focus:outline-none focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-colors"
                   placeholder="000000"
                 />
@@ -246,7 +259,7 @@ const ResetPassword = () => {
               {isLoading ? (
                 <Loader className="h-4 w-4 animate-spin" />
               ) : (
-                'Verify Code'
+                "Verify Code"
               )}
             </button>
 
@@ -276,7 +289,10 @@ const ResetPassword = () => {
         {step === 3 && (
           <form className="space-y-6" onSubmit={handlePasswordReset}>
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="newPassword"
+                className="block text-sm font-medium text-gray-700"
+              >
                 New Password
               </label>
               <input
@@ -293,7 +309,10 @@ const ResetPassword = () => {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Confirm New Password
               </label>
               <input
@@ -317,7 +336,7 @@ const ResetPassword = () => {
               {isLoading ? (
                 <Loader className="h-4 w-4 animate-spin" />
               ) : (
-                'Reset Password'
+                "Reset Password"
               )}
             </button>
           </form>
@@ -326,28 +345,31 @@ const ResetPassword = () => {
         {/* Step 4: Success */}
         {step === 4 && (
           <div className="text-center space-y-6">
-            <div className="mx-auto h-16 w-16 bg-[#FF6B35]rounded-full flex items-center justify-center">
+            <div className="mx-auto h-16 w-16 bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            
+
             <div>
-              <h3 className="text-lg font-medium text-gray-900">Password Reset Successful!</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Password Reset Successful!
+              </h3>
               <p className="mt-2 text-sm text-gray-600">
-                Your password has been reset successfully. You can now login with your new password.
+                Your password has been reset successfully. You can now login
+                with your new password.
               </p>
             </div>
 
             <div className="space-y-3">
               <Link
                 to="/login"
-                className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF6B35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] transition-colors"
+                className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF8535] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] transition-colors"
               >
                 Go to Login
               </Link>
-              
+
               <button
                 onClick={resetProcess}
-                className="w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-[#FF6B35] hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] transition-colors"
+                className="w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B35] transition-colors"
               >
                 Reset Another Password
               </button>

@@ -14,45 +14,48 @@ import {
   Search,
 } from "lucide-react";
 import Brandlogo from "../../assets/Orange-logo.jpeg";
+import { useAuth } from "../../context/AuthContext";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Use AuthContext for authentication state
+  const { isAuthenticated, user, logout, loading } = useAuth();
+
+  // Debug: Log auth state changes
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    const userData = {
-      name: localStorage.getItem("userName") || "User",
-      email: localStorage.getItem("userEmail") || "",
-      role: localStorage.getItem("userRole") || "attendee",
+    console.log("Navbar - Auth State Changed:", {
+      isAuthenticated,
+      user,
+      userRole: user?.role,
+      loading,
+    });
+  }, [isAuthenticated, user, loading]);
+
+  // Close dropdown menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isUserMenuOpen && !event.target.closest(".user-menu-container")) {
+        setIsUserMenuOpen(false);
+      }
     };
 
-    if (token) {
-      setIsAuthenticated(true);
-      setUser(userData);
-    } else {
-      setIsAuthenticated(false);
-      setUser(null);
-    }
-  }, [location]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isUserMenuOpen]);
 
   const navLinkClasses =
     "px-3 py-2 text-sm font-medium text-white hover:text-[#FF6B35] relative after:content-[''] after:block after:h-0.5 after:w-0 after:bg-[#FF6B35] after:transition-all hover:after:w-full";
 
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userName");
-    setIsAuthenticated(false);
-    setUser(null);
+  const handleLogout = async () => {
+    await logout();
     setIsUserMenuOpen(false);
-    window.location.href = "/";
+    setIsMenuOpen(false);
+    navigate("/");
   };
 
   const handleSearch = (e) => {
@@ -74,6 +77,7 @@ const Navbar = () => {
     setIsMenuOpen(false);
   };
 
+  // User menu items based on role
   const userMenuItems =
     user?.role === "organizer"
       ? [
@@ -91,6 +95,7 @@ const Navbar = () => {
           { icon: Settings, label: "Settings", path: "/dashboard/settings" },
         ];
 
+  // Navigation links based on authentication
   const authenticatedLinks = [
     { path: "/discover", label: "Discover Events", icon: Ticket },
     { path: "/dashboard/events", label: "My Events", icon: Calendar },
@@ -108,11 +113,29 @@ const Navbar = () => {
     { path: "/team", label: "Team", icon: null },
   ];
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="relative">
+        <nav className="fixed top-0 left-0 right-0 z-30 bg-gradient-to-r from-black/20 to-black/10 backdrop-blur-md border-b border-white/10 h-16">
+          <div className="flex justify-center items-center h-full">
+            <div className="text-white">Loading...</div>
+          </div>
+        </nav>
+        <div className="h-16"></div>
+      </div>
+    );
+  }
+
+  // Determine which links to show
+  const navLinks = isAuthenticated ? authenticatedLinks : unauthenticatedLinks;
+
   return (
     <div className="relative">
       <nav className="top-0 left-0 fixed right-0 z-30 bg-gradient-to-r from-black/20 to-black/10 backdrop-blur-md border-b border-white/10">
         <div className="w-11/12 mx-auto">
           <div className="flex justify-between items-center h-16">
+            {/* Logo */}
             <NavLink
               to={isAuthenticated ? "/dashboard" : "/"}
               className="flex items-center group"
@@ -123,6 +146,7 @@ const Navbar = () => {
               </span>
             </NavLink>
 
+            {/* Search Bar - Desktop */}
             <div className="hidden lg:flex flex-1 max-w-md mx-8">
               <form onSubmit={handleSearch} className="relative w-full">
                 <input
@@ -136,11 +160,10 @@ const Navbar = () => {
               </form>
             </div>
 
+            {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center space-x-6">
-              {(isAuthenticated
-                ? authenticatedLinks
-                : unauthenticatedLinks
-              ).map((link) => (
+              {/* Navigation Links */}
+              {navLinks.map((link) => (
                 <NavLink
                   key={link.path}
                   to={link.path}
@@ -150,13 +173,16 @@ const Navbar = () => {
                 </NavLink>
               ))}
 
+              {/* Authenticated User Section */}
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4 ml-4">
+                  {/* Notifications */}
                   <button className="relative p-2 text-white hover:text-[#FF6B35] transition-colors group">
                     <Bell className="h-5 w-5 group-hover:scale-110 transition-transform" />
                     <span className="absolute top-1 right-1 block h-2 w-2 bg-[#FF6B35] rounded-full"></span>
                   </button>
 
+                  {/* Wallet - Organizer Only */}
                   {user?.role === "organizer" && (
                     <NavLink
                       to="/dashboard/wallet"
@@ -167,7 +193,8 @@ const Navbar = () => {
                     </NavLink>
                   )}
 
-                  <div className="relative">
+                  {/* User Menu */}
+                  <div className="relative user-menu-container">
                     <button
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                       className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/10 transition-colors group"
@@ -176,21 +203,26 @@ const Navbar = () => {
                         <User className="h-4 w-4 text-white" />
                       </div>
                       <span className="text-white text-sm font-medium">
-                        {user?.name}
+                        {user?.userName || user?.firstName || "User"}
                       </span>
                     </button>
 
+                    {/* Dropdown Menu */}
                     {isUserMenuOpen && (
                       <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+                        {/* User Info */}
                         <div className="px-4 py-2 border-b border-gray-100">
                           <p className="text-sm font-medium text-gray-900">
-                            {user?.name}
+                            {user?.userName ||
+                              `${user?.firstName} ${user?.lastName}` ||
+                              "User"}
                           </p>
                           <p className="text-xs text-gray-500 capitalize">
-                            {user?.role}
+                            {user?.role || "attendee"}
                           </p>
                         </div>
 
+                        {/* Menu Items */}
                         {userMenuItems.map((item) => (
                           <NavLink
                             key={item.label}
@@ -203,6 +235,7 @@ const Navbar = () => {
                           </NavLink>
                         ))}
 
+                        {/* Logout */}
                         <button
                           onClick={handleLogout}
                           className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100 group"
@@ -215,6 +248,7 @@ const Navbar = () => {
                   </div>
                 </div>
               ) : (
+                // Unauthenticated User Section
                 <div className="flex items-center space-x-4">
                   <NavLink
                     to="/login"
@@ -232,6 +266,7 @@ const Navbar = () => {
               )}
             </div>
 
+            {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-white/10 transition-colors"
@@ -245,9 +280,11 @@ const Navbar = () => {
           </div>
         </div>
 
+        {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="lg:hidden border-t border-white/10 bg-black/20 backdrop-blur-lg">
             <div className="w-11/12 mx-auto px-4 pt-2 pb-4 space-y-2">
+              {/* Mobile Search */}
               <form onSubmit={handleSearch} className="relative mb-4">
                 <input
                   type="text"
@@ -259,10 +296,8 @@ const Navbar = () => {
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
               </form>
 
-              {(isAuthenticated
-                ? authenticatedLinks
-                : unauthenticatedLinks
-              ).map((link) => (
+              {/* Mobile Navigation Links */}
+              {navLinks.map((link) => (
                 <NavLink
                   key={link.path}
                   to={link.path}
@@ -278,6 +313,7 @@ const Navbar = () => {
                 </NavLink>
               ))}
 
+              {/* Mobile Authenticated Menu */}
               {isAuthenticated ? (
                 <>
                   {userMenuItems.map((item) => (
@@ -323,6 +359,7 @@ const Navbar = () => {
                   </button>
                 </>
               ) : (
+                // Mobile Unauthenticated Menu
                 <div className="space-y-2 pt-2 border-t border-white/10">
                   <NavLink
                     to="/login"
@@ -345,6 +382,7 @@ const Navbar = () => {
         )}
       </nav>
 
+      {/* Spacer */}
       <div className="h-16"></div>
     </div>
   );

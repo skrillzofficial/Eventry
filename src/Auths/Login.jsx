@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
+import axios from "axios";
 import {
   Eye,
   EyeOff,
@@ -12,14 +13,13 @@ import {
   LogIn,
   Mail,
   Lock,
-  User,
   Sparkles,
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 import Brandlogo from "../assets/1.png";
 import google from "../assets/google.png";
 
-// Validation schema
 const loginSchema = yup.object().shape({
   email: yup
     .string()
@@ -35,16 +35,19 @@ const loginSchema = yup.object().shape({
     .required("Account type is required"),
 });
 
+const BACKEND_URL = "https://ecommerce-backend-tb8u.onrender.com/api/v1";
+
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  
   const navigate = useNavigate();
   const location = useLocation();
+  const { setAuthState } = useContext(AuthContext);
 
-  // Get redirect path from location state or default to dashboard
   const from = location.state?.from?.pathname || "/dashboard";
 
   const {
@@ -53,7 +56,6 @@ const Login = () => {
     formState: { errors, isValid, isDirty },
     setError,
     watch,
-    setValue,
   } = useForm({
     resolver: yupResolver(loginSchema),
     mode: "onChange",
@@ -70,52 +72,25 @@ const Login = () => {
     try {
       setIsLoading(true);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Demo authentication
-      const demoUsers = {
-        "attendee@eventra.com": {
-          password: "password123",
-          role: "attendee",
-          name: "Event Attendee",
-        },
-        "user@eventra.com": {
-          password: "password123",
-          role: "attendee",
-          name: "Event Enthusiast",
-        },
-        "organizer@eventra.com": {
-          password: "password123",
-          role: "organizer",
-          name: "Event Organizer",
-        },
-        "events@eventra.com": {
-          password: "password123",
-          role: "organizer",
-          name: "Professional Organizer",
-        },
-        "demo@eventra.com": {
-          password: "password",
-          role: data.userType,
-          name:
-            data.userType === "organizer"
-              ? "Event Organizer"
-              : "Event Attendee",
-        },
+      const loginData = {
+        email: data.email,
+        password: data.password,
+        userType: data.userType,
       };
 
-      const user = demoUsers[data.email];
+      console.log("Sending login request with:", loginData);
 
-      if (user && data.password === user.password) {
-        if (
-          data.email.includes("@eventra.com") &&
-          user.role !== data.userType
-        ) {
-          throw new Error(
-            `Please select "${user.role}" account type for this email`
-          );
-        }
+      const response = await axios.post(`${BACKEND_URL}/login`, loginData, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      });
+
+      console.log("Login response:", response.data);
+
+      if (response.data.success) {
+        const { token, user } = response.data;
 
         if (rememberMe) {
           localStorage.setItem("rememberedEmail", data.email);
@@ -123,25 +98,60 @@ const Login = () => {
           localStorage.removeItem("rememberedEmail");
         }
 
-        localStorage.setItem("authToken", "demo-token");
-        localStorage.setItem("userEmail", data.email);
-        localStorage.setItem("userRole", user.role);
-        localStorage.setItem("userName", user.name);
-        localStorage.setItem("userType", data.userType);
+        // setAuthState to set user and token directly
+        await setAuthState(user, token);
 
         setShowSuccess(true);
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
+        // Navigate based on role
         const redirectPath =
           user.role === "organizer" ? "/dashboard/organizer" : "/dashboard";
+        
+        console.log("Navigating to:", redirectPath);
         navigate(redirectPath, { replace: true });
       } else {
-        throw new Error("Invalid email or password");
+        throw new Error(response.data.message || "Login failed");
       }
     } catch (error) {
+      console.error("Login error:", error);
+
+      let errorMessage = "Login failed. Please try again.";
+
+      if (error.response) {
+        const { status, data } = error.response;
+        
+        switch (status) {
+          case 400:
+            errorMessage = data.message || "Invalid request data";
+            break;
+          case 401:
+            errorMessage = data.message || "Invalid email or password";
+            break;
+          case 403:
+            errorMessage = data.message || "Account suspended or deactivated";
+            break;
+          case 404:
+            errorMessage = data.message || "User not found";
+            break;
+          case 422:
+            errorMessage = data.message || "Validation failed";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          default:
+            errorMessage = data.message || "Login failed";
+        }
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = "Request timeout. Please try again.";
+      }
+
       setError("root.serverError", {
         type: "server",
-        message: error.message || "Login failed. Please try again.",
+        message: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -160,28 +170,21 @@ const Login = () => {
         return;
       }
 
+      // Demo implementation 
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      localStorage.setItem("userType", userType);
+      const demoUser = {
+        _id: "google-demo-id",
+        email: `google-${userType}@eventra.com`,
+        firstName: "Google",
+        lastName: userType === "organizer" ? "Organizer" : "Attendee",
+        userName: `google_${userType}`,
+        role: userType,
+      };
+
+      // setAuthState for Google login too
+      await setAuthState(demoUser, "google-demo-token");
       localStorage.setItem("authMethod", "google");
-
-      const demoUser =
-        userType === "organizer"
-          ? {
-              email: "google-organizer@eventra.com",
-              name: "Google Organizer",
-              role: "organizer",
-            }
-          : {
-              email: "google-attendee@eventra.com",
-              name: "Google Attendee",
-              role: "attendee",
-            };
-
-      localStorage.setItem("authToken", "google-demo-token");
-      localStorage.setItem("userEmail", demoUser.email);
-      localStorage.setItem("userRole", demoUser.role);
-      localStorage.setItem("userName", demoUser.name);
 
       setShowSuccess(true);
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -210,7 +213,6 @@ const Login = () => {
     setCurrentStep(currentStep - 1);
   };
 
-  // Input field classes for consistency
   const inputClasses = (hasError) =>
     `w-full px-4 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/50 ${
       hasError
@@ -220,7 +222,6 @@ const Login = () => {
 
   const labelClasses = "block text-sm font-semibold text-gray-700 mb-2";
 
-  // Success Animation Component
   const SuccessAnimation = () => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl p-8 text-center animate-scale-in">
@@ -243,7 +244,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center Homeimg Blend-overlay p-4 relative overflow-hidden">
-      {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#FF6B35]/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FF8535]/10 rounded-full blur-3xl"></div>
@@ -252,10 +252,8 @@ const Login = () => {
       {showSuccess && <SuccessAnimation />}
 
       <div className="relative w-full max-w-4xl">
-        {/* Multi-step Form Container */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl transition-all">
           <div className="md:flex">
-            {/* Left Side - Visual (Matching Signup) */}
             <div className="md:w-2/5 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] p-8 text-white relative hidden md:block">
               <div className="relative z-10">
                 <Link to="/" className="flex items-center mb-8 group">
@@ -284,7 +282,6 @@ const Login = () => {
                   </p>
                 </div>
 
-                {/* Step Indicators */}
                 <div className="mt-12 space-y-6">
                   {[1, 2].map((step) => (
                     <div key={step} className="flex items-center space-x-4">
@@ -313,9 +310,7 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Right Side - Form */}
             <div className="md:w-3/5 p-8">
-              {/* Mobile Header */}
               <div className="md:hidden mb-6">
                 <Link to="/" className="flex items-center justify-center">
                   <img
@@ -334,7 +329,6 @@ const Login = () => {
               </div>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Step 1: Account Type Selection */}
                 {currentStep === 1 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
@@ -356,13 +350,13 @@ const Login = () => {
                             value: "attendee",
                             label: "Event Attendee",
                             description: "Discover and attend events",
-                            icon: "",
+                            
                           },
                           {
                             value: "organizer",
                             label: "Event Organizer",
                             description: "Create and manage events",
-                            icon: "",
+                           
                           },
                         ].map((type) => (
                           <label
@@ -402,20 +396,24 @@ const Login = () => {
                       )}
                     </div>
 
-                    {/* Quick Google Login */}
                     <button
                       onClick={handleGoogleLogin}
-                      disabled={!userType}
+                      disabled={!userType || isLoading}
                       type="button"
                       className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mb-4 transform hover:scale-105"
                     >
                       <img src={google} alt="Google" className="w-5 h-5 mr-3" />
-                      Continue with Google as{" "}
-                      {userType
-                        ? userType === "organizer"
-                          ? "Organizer"
-                          : "Attendee"
-                        : "..."}
+                      {isLoading ? (
+                        <Loader2 className="animate-spin w-5 h-5" />
+                      ) : (
+                        `Continue with Google as ${
+                          userType
+                            ? userType === "organizer"
+                              ? "Organizer"
+                              : "Attendee"
+                            : "..."
+                        }`
+                      )}
                     </button>
 
                     <div className="flex items-center my-6">
@@ -428,7 +426,6 @@ const Login = () => {
                   </div>
                 )}
 
-                {/* Step 2: Login Details */}
                 {currentStep === 2 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
@@ -441,7 +438,6 @@ const Login = () => {
                       </p>
                     </div>
 
-                    {/* Server Error */}
                     {errors.root?.serverError && (
                       <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-red-600 text-sm font-medium flex items-center">
@@ -521,21 +517,6 @@ const Login = () => {
                         )}
                       </div>
 
-                      {/* Demo Accounts Hint */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <p className="text-sm text-blue-700 font-medium">
-                          Demo Accounts:
-                        </p>
-                        <div className="text-xs text-blue-600 mt-1 space-y-1">
-                          <p>• Attendee: attendee@eventry.com / password123</p>
-                          <p>
-                            • Organizer: organizer@eventry.com / password123
-                          </p>
-                          <p>• Fallback: demo@eventry.com / password</p>
-                        </div>
-                      </div>
-
-                      {/* Remember Me */}
                       <div className="flex items-center justify-between">
                         <label className="flex items-center space-x-3 cursor-pointer group">
                           <div className="relative">
@@ -565,13 +546,13 @@ const Login = () => {
                   </div>
                 )}
 
-                {/* Navigation Buttons */}
                 <div className="flex space-x-4 pt-4">
                   {currentStep > 1 && (
                     <button
                       type="button"
                       onClick={prevStep}
-                      className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors transform hover:scale-105"
+                      disabled={isLoading}
+                      className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105"
                     >
                       Back
                     </button>
@@ -581,7 +562,7 @@ const Login = () => {
                     <button
                       type="button"
                       onClick={nextStep}
-                      disabled={!userType}
+                      disabled={!userType || isLoading}
                       className="flex-1 py-3 px-4 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105 flex items-center justify-center"
                     >
                       Continue with Email
@@ -609,7 +590,6 @@ const Login = () => {
                 </div>
               </form>
 
-              {/* Sign Up Link */}
               <div className="text-center mt-8 pt-6 border-t border-gray-200">
                 <p className="text-sm text-gray-600">
                   Don't have an account?{" "}

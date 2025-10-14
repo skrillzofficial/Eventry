@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -6,11 +6,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Check, X, ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import google from "../assets/google.png";
 import Brandlogo from "../assets/1.png";
+import { AuthContext } from "../context/AuthContext";
 
-// Constants
-const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MIN_LENGTH = 6;
 
-// Validation Schema
 const schema = yup
   .object({
     userName: yup
@@ -34,13 +33,6 @@ const schema = yup
         PASSWORD_MIN_LENGTH,
         `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
       )
-      .matches(/[a-z]/, "Password must contain at least one lowercase letter")
-      .matches(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .matches(/\d/, "Password must contain at least one number")
-      .matches(
-        /[@$!%*?&]/,
-        "Password must contain at least one special character"
-      )
       .required("Password is required"),
     confirmPassword: yup
       .string()
@@ -58,11 +50,10 @@ const schema = yup
 
 export default function SignUp() {
   const {
-    register,
+    register: formRegister,
     handleSubmit,
     formState: { errors, isSubmitting, isValid, touchedFields },
     setError,
-    reset,
     watch,
   } = useForm({
     resolver: yupResolver(schema),
@@ -82,9 +73,10 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Creating your account...");
   const navigate = useNavigate();
+  const { register: registerUser } = useContext(AuthContext);
 
-  // Watch fields for real-time validation feedback
   const [passwordValue, emailValue, userNameValue, userTypeValue] = watch([
     "password",
     "email",
@@ -92,29 +84,21 @@ export default function SignUp() {
     "userType",
   ]);
 
-  // Password strength calculator
   const calculatePasswordStrength = (password) => {
     if (!password) return 0;
-    
     let strength = 0;
-    if (password.length >= PASSWORD_MIN_LENGTH) strength += 25;
-    if (/[a-z]/.test(password)) strength += 25;
-    if (/[A-Z]/.test(password)) strength += 25;
-    if (/[\d@$!%*?&]/.test(password)) strength += 25;
-    
+    if (password.length >= PASSWORD_MIN_LENGTH) strength += 100;
     return strength;
   };
 
   const getPasswordStrengthColor = (strength) => {
-    if (strength < 50) return "bg-red-500";
-    if (strength < 75) return "bg-yellow-500";
+    if (strength < 100) return "bg-red-500";
     return "bg-green-500";
   };
 
   const getPasswordStrengthText = (strength) => {
-    if (strength < 50) return "Weak";
-    if (strength < 75) return "Good";
-    return "Strong";
+    if (strength < 100) return "Too Short";
+    return "Good";
   };
 
   const passwordStrength = calculatePasswordStrength(passwordValue);
@@ -123,24 +107,50 @@ export default function SignUp() {
     try {
       setIsLoading(true);
       
-      // Simulate API call with progress
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Show success animation
-      setShowSuccessAnimation(true);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Redirect to login with success message
-      navigate("/login", { 
-        state: { 
-          message: "Account created successfully! Please sign in.",
-          email: data.email 
-        } 
-      });
+      const userData = {
+        userName: data.userName,
+        email: data.email,
+        password: data.password,
+        userType: data.userType,
+      };
+
+      console.log("Registering user with data:", userData);
+
+      // Use the register function from AuthContext
+      const result = await registerUser(userData);
+
+      console.log("Registration result:", result);
+
+      if (result.success) {
+        setShowSuccessAnimation(true);
+        
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        
+        if (result.requiresVerification) {
+          // Email verification required
+          navigate("/login", { 
+            state: { 
+              message: result.message || "Registration successful! Please check your email to verify your account.",
+              email: data.email,
+              type: "success"
+            } 
+          });
+        } else {
+          // Auto-logged in, redirect to dashboard
+          const user = result.data?.user;
+          const redirectPath = user?.role === "organizer" ? "/dashboard/organizer" : "/dashboard";
+          navigate(redirectPath, { replace: true });
+        }
+      } else {
+        setError("root.serverError", { 
+          message: result.error || "Registration failed. Please try again." 
+        });
+      }
       
     } catch (err) {
-      setError("root.serverError", {
-        message: "Registration failed. Please try again.",
+      console.error("Registration error:", err);
+      setError("root.serverError", { 
+        message: err.message || "Registration failed. Please try again." 
       });
     } finally {
       setIsLoading(false);
@@ -152,8 +162,11 @@ export default function SignUp() {
     try {
       setIsLoading(true);
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      // In a real app, this would redirect to Google OAuth
-      navigate("/dashboard");
+      
+      setError("root.serverError", {
+        message: "Google OAuth integration required",
+      });
+      
     } catch (error) {
       setError("root.serverError", {
         message: "Google sign-up failed. Please try again.",
@@ -175,7 +188,6 @@ export default function SignUp() {
     setCurrentStep(currentStep - 1);
   };
 
-  // Input field classes for consistency
   const inputClasses = (hasError) =>
     `w-full px-4 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/50 ${
       hasError
@@ -185,7 +197,6 @@ export default function SignUp() {
 
   const labelClasses = "block text-sm font-semibold text-gray-700 mb-2";
 
-  // Success Animation Component
   const SuccessAnimation = () => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl p-8 text-center animate-scale-in">
@@ -196,7 +207,7 @@ export default function SignUp() {
         <p className="text-gray-600">Your account has been created successfully</p>
         <div className="mt-4 animate-pulse">
           <div className="inline-flex items-center text-sm text-gray-500">
-            <span>Redirecting to login</span>
+            <span>Processing...</span>
             <span className="ml-2 animate-bounce">...</span>
           </div>
         </div>
@@ -206,7 +217,6 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen flex items-center justify-center Homeimg Blend-overlay p-4 relative overflow-hidden">
-      {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#FF6B35]/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FF8535]/10 rounded-full blur-3xl"></div>
@@ -214,11 +224,18 @@ export default function SignUp() {
 
       {showSuccessAnimation && <SuccessAnimation />}
 
+      {errors.root?.serverError && (
+        <div className="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in max-w-md">
+          <div className="flex items-center">
+            <X className="w-5 h-5 mr-2 flex-shrink-0" />
+            <span className="text-sm">{errors.root.serverError.message}</span>
+          </div>
+        </div>
+      )}
+
       <div className="relative w-full max-w-4xl">
-        {/* Multi-step Form Container */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl transition-all">
           <div className="md:flex">
-            {/* Left Side - Visual */}
             <div className="md:w-2/5 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] p-8 text-white relative hidden md:block">
               <div className="relative z-10">
                 <Link to="/" className="flex items-center mb-8 group">
@@ -238,7 +255,6 @@ export default function SignUp() {
                   </p>
                 </div>
 
-                {/* Step Indicators */}
                 <div className="mt-12 space-y-6">
                   {[1, 2, 3].map((step) => (
                     <div key={step} className="flex items-center space-x-4">
@@ -258,9 +274,7 @@ export default function SignUp() {
               </div>
             </div>
 
-            {/* Right Side - Form */}
             <div className="md:w-3/5 p-8">
-              {/* Mobile Header */}
               <div className="md:hidden mb-6">
                 <Link to="/" className="flex items-center justify-center">
                   <img className="h-8 w-auto" src={Brandlogo} alt="Eventry Logo" />
@@ -273,7 +287,6 @@ export default function SignUp() {
               </div>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Step 1: Basic Information */}
                 {currentStep === 1 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
@@ -288,7 +301,7 @@ export default function SignUp() {
                         </label>
                         <input
                           id="userName"
-                          {...register("userName")}
+                          {...formRegister("userName")}
                           placeholder="Choose a username"
                           className={inputClasses(!!errors.userName)}
                           aria-invalid={!!errors.userName}
@@ -308,7 +321,7 @@ export default function SignUp() {
                         <input
                           id="email"
                           type="email"
-                          {...register("email")}
+                          {...formRegister("email")}
                           placeholder="Enter your email"
                           className={inputClasses(!!errors.email)}
                           aria-invalid={!!errors.email}
@@ -324,7 +337,6 @@ export default function SignUp() {
                   </div>
                 )}
 
-                {/* Step 2: Account Type */}
                 {currentStep === 2 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
@@ -358,7 +370,7 @@ export default function SignUp() {
                           <input
                             type="radio"
                             value={type.value}
-                            {...register("userType")}
+                            {...formRegister("userType")}
                             className="sr-only"
                           />
                           <div className="text-2xl mb-2">{type.icon}</div>
@@ -381,7 +393,6 @@ export default function SignUp() {
                   </div>
                 )}
 
-                {/* Step 3: Security Setup */}
                 {currentStep === 3 && (
                   <div className="animate-fade-in">
                     <div className="text-center mb-8">
@@ -397,7 +408,7 @@ export default function SignUp() {
                         <input
                           id="password"
                           type={showPassword ? "text" : "password"}
-                          {...register("password")}
+                          {...formRegister("password")}
                           placeholder="Create a strong password"
                           className={`${inputClasses(!!errors.password)} pr-10`}
                           aria-invalid={!!errors.password}
@@ -405,14 +416,10 @@ export default function SignUp() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-800 transition-colors p-1"
+                          className="absolute right-3 top-10 text-gray-600 hover:text-gray-800 transition-colors p-1"
                           aria-label={showPassword ? "Hide password" : "Show password"}
                         >
-                          {showPassword ? (
-                            <EyeOff className="w-5 h-5" />
-                          ) : (
-                            <Eye className="w-5 h-5" />
-                          )}
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                         {errors.password && (
                           <p className="text-red-600 text-sm mt-1 flex items-center" role="alert">
@@ -429,7 +436,7 @@ export default function SignUp() {
                         <input
                           id="confirmPassword"
                           type={showConfirmPassword ? "text" : "password"}
-                          {...register("confirmPassword")}
+                          {...formRegister("confirmPassword")}
                           placeholder="Confirm your password"
                           className={`${inputClasses(!!errors.confirmPassword)} pr-10`}
                           aria-invalid={!!errors.confirmPassword}
@@ -437,14 +444,10 @@ export default function SignUp() {
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-800 transition-colors p-1"
+                          className="absolute right-3 top-10 text-gray-600 hover:text-gray-800 transition-colors p-1"
                           aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                         >
-                          {showConfirmPassword ? (
-                            <EyeOff className="w-5 h-5" />
-                          ) : (
-                            <Eye className="w-5 h-5" />
-                          )}
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                         {errors.confirmPassword && (
                           <p className="text-red-600 text-sm mt-1 flex items-center" role="alert">
@@ -460,14 +463,12 @@ export default function SignUp() {
                         )}
                       </div>
 
-                      {/* Enhanced Password Strength Indicator */}
                       {passwordValue && (
                         <div className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-sm font-medium text-gray-700">Password strength:</span>
                             <span className={`text-sm font-semibold ${
-                              passwordStrength < 50 ? "text-red-600" :
-                              passwordStrength < 75 ? "text-yellow-600" : "text-green-600"
+                              passwordStrength < 100 ? "text-red-600" : "text-green-600"
                             }`}>
                               {getPasswordStrengthText(passwordStrength)}
                             </span>
@@ -478,34 +479,19 @@ export default function SignUp() {
                               style={{ width: `${passwordStrength}%` }}
                             />
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                            {[
-                              { label: "8+ characters", met: passwordValue.length >= 8 },
-                              { label: "Lowercase letter", met: /[a-z]/.test(passwordValue) },
-                              { label: "Uppercase letter", met: /[A-Z]/.test(passwordValue) },
-                              { label: "Number or special", met: /[\d@$!%*?&]/.test(passwordValue) },
-                            ].map((req, index) => (
-                              <div key={index} className="flex items-center space-x-2">
-                                {req.met ? (
-                                  <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                ) : (
-                                  <X className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                )}
-                                <span className={`text-xs ${req.met ? "text-green-600" : "text-gray-500"}`}>
-                                  {req.label}
-                                </span>
-                              </div>
-                            ))}
+                          <div className="mt-2">
+                            <p className="text-xs text-gray-600">
+                              Password must be at least {PASSWORD_MIN_LENGTH} characters long
+                            </p>
                           </div>
                         </div>
                       )}
 
-                      {/* Terms Agreement */}
                       <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <input
                           id="agreeToTerms"
                           type="checkbox"
-                          {...register("agreeToTerms")}
+                          {...formRegister("agreeToTerms")}
                           className="mt-1 accent-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/50"
                         />
                         <label htmlFor="agreeToTerms" className="text-sm text-gray-700">
@@ -535,7 +521,6 @@ export default function SignUp() {
                   </div>
                 )}
 
-                {/* Navigation Buttons */}
                 <div className="flex space-x-4 pt-4">
                   {currentStep > 1 && (
                     <button
@@ -579,7 +564,6 @@ export default function SignUp() {
                   )}
                 </div>
 
-                {/* Quick Sign Up */}
                 {currentStep === 1 && (
                   <>
                     <div className="flex items-center my-6">
@@ -601,7 +585,6 @@ export default function SignUp() {
                 )}
               </form>
 
-              {/* Login Link */}
               <div className="text-center mt-8 pt-6 border-t border-gray-200">
                 <p className="text-sm text-gray-600">
                   Already have an account?{" "}
@@ -617,20 +600,6 @@ export default function SignUp() {
           </div>
         </div>
       </div>
-
-      {/* Add custom animations to your CSS */}
-      <style jsx>{`
-        @keyframes scale-in {
-          from { transform: scale(0.9); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-scale-in { animation: scale-in 0.3s ease-out; }
-        .animate-fade-in { animation: fade-in 0.3s ease-out; }
-      `}</style>
     </div>
   );
 }
