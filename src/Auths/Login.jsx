@@ -14,6 +14,7 @@ import {
   Mail,
   Lock,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
@@ -43,6 +44,7 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,6 +73,7 @@ const Login = () => {
   const onSubmit = async (data) => {
     try {
       setIsLoading(true);
+      setUnverifiedEmail(null);
 
       const loginData = {
         email: data.email,
@@ -98,13 +101,11 @@ const Login = () => {
           localStorage.removeItem("rememberedEmail");
         }
 
-        // setAuthState to set user and token directly
         await setAuthState(user, token);
 
         setShowSuccess(true);
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // Navigate based on role
         const redirectPath =
           user.role === "organizer" ? "/dashboard/organizer" : "/dashboard";
         
@@ -117,6 +118,7 @@ const Login = () => {
       console.error("Login error:", error);
 
       let errorMessage = "Login failed. Please try again.";
+      let isUnverifiedError = false;
 
       if (error.response) {
         const { status, data } = error.response;
@@ -126,7 +128,14 @@ const Login = () => {
             errorMessage = data.message || "Invalid request data";
             break;
           case 401:
-            errorMessage = data.message || "Invalid email or password";
+            // Check if it's an unverified email error
+            if (data.message && data.message.includes("verify your email")) {
+              isUnverifiedError = true;
+              setUnverifiedEmail(emailValue);
+              errorMessage = data.message;
+            } else {
+              errorMessage = data.message || "Invalid email or password";
+            }
             break;
           case 403:
             errorMessage = data.message || "Account suspended or deactivated";
@@ -152,6 +161,7 @@ const Login = () => {
       setError("root.serverError", {
         type: "server",
         message: errorMessage,
+        isUnverified: isUnverifiedError,
       });
     } finally {
       setIsLoading(false);
@@ -162,6 +172,7 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true);
+      setUnverifiedEmail(null);
 
       if (!userType) {
         setError("root.serverError", {
@@ -170,7 +181,6 @@ const Login = () => {
         return;
       }
 
-      // Demo implementation 
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       const demoUser = {
@@ -182,7 +192,6 @@ const Login = () => {
         role: userType,
       };
 
-      // setAuthState for Google login too
       await setAuthState(demoUser, "google-demo-token");
       localStorage.setItem("authMethod", "google");
 
@@ -350,13 +359,11 @@ const Login = () => {
                             value: "attendee",
                             label: "Event Attendee",
                             description: "Discover and attend events",
-                            
                           },
                           {
                             value: "organizer",
                             label: "Event Organizer",
                             description: "Create and manage events",
-                           
                           },
                         ].map((type) => (
                           <label
@@ -373,7 +380,6 @@ const Login = () => {
                               {...register("userType")}
                               className="sr-only"
                             />
-                            <div className="text-2xl mb-2">{type.icon}</div>
                             <span className="font-semibold text-gray-900">
                               {type.label}
                             </span>
@@ -439,11 +445,37 @@ const Login = () => {
                     </div>
 
                     {errors.root?.serverError && (
-                      <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-600 text-sm font-medium flex items-center">
-                          <X className="w-4 h-4 mr-2 flex-shrink-0" />
-                          {errors.root.serverError.message}
+                      <div className={`mb-6 p-4 rounded-lg border ${
+                        errors.root.serverError.isUnverified
+                          ? "bg-orange-50 border-orange-200"
+                          : "bg-red-50 border-red-200"
+                      }`}>
+                        <p className={`text-sm font-medium flex items-start gap-2 ${
+                          errors.root.serverError.isUnverified
+                            ? "text-orange-700"
+                            : "text-red-600"
+                        }`}>
+                          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                          <span>{errors.root.serverError.message}</span>
                         </p>
+                        
+                        {errors.root.serverError.isUnverified && (
+                          <div className="mt-3 pt-3 border-t border-orange-200">
+                            <p className="text-xs text-orange-600 mb-2">
+                              Haven't received the verification email? You can:
+                            </p>
+                            <ul className="text-xs text-orange-600 space-y-1 mb-3">
+                              <li>• Check your spam or junk folder</li>
+                              <li>• Request a new verification link</li>
+                            </ul>
+                            <Link
+                              to="/resend-verification"
+                              className="inline-block px-4 py-2 bg-[#FF6B35] text-white rounded text-xs font-semibold hover:bg-[#FF8535] transition-all"
+                            >
+                              Request New Verification Email
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     )}
 

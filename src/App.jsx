@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { FadeLoader, PulseLoader, RingLoader } from "react-spinners";
-import { AuthProvider } from "./context/AuthContext"; 
+import { RingLoader } from "react-spinners";
+import { AuthProvider } from "./context/AuthContext";
 import "./App.css";
+
+// Pages
 import Home from "./pages/Home";
-import SignUp from "./Auths/SignUp";
-import Login from "./Auths/Login";
 import UserProfile from "./pages/UserProfile";
 import OrganizerDashboard from "./pages/OrganizerProfile";
 import CreateEvent from "./pages/dashboard/CreateEvent";
@@ -13,12 +13,16 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import DiscoverEvents from "./pages/dashboard/DiscoverEvent";
 import Team from "./pages/dashboard/Team";
-import ResetPassword from "./Auths/ResetPassword";
 import EventPage from "./pages/dashboard/EventPage";
-import Wallet from "./pages/dashboard/Wallet";
 import WalletComponent from "./pages/dashboard/Wallet";
 import CheckoutFlow from "./checkout/Checkout";
+
+// Auth Pages
+import SignUp from "./Auths/SignUp";
+import Login from "./Auths/Login";
 import VerifyEmail from "./Auths/VerifyEmail";
+import ResendVerification from "./Auths/ResendVerification"; 
+import ForgotPassword from "./Auths/ForgotPassword";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -41,25 +45,31 @@ function App() {
   }
 
   return (
-    <AuthProvider> 
+    <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Home */}
           <Route path="/" element={<Home />} />
           <Route path="/team" element={<Team />} />
-          {/* Auth pages */}
+
+          {/* Dashboard Routes */}
           <Route path="/dashboard" element={<UserProfile />} />
           <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
           <Route path="/dashboard/profile" element={<Profile />} />
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/dashboard/wallet" element={<WalletComponent />} />
           <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
-          {/* Auth */}
+
+          {/* Auth Routes */}
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          
+          {/* Email Verification Routes */}
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/resend-verification" element={<ResendVerification />} />
 
-          {/* Event */}
+          {/* Event Routes */}
           <Route path="/create-event" element={<CreateEvent />} />
           <Route path="/discover" element={<DiscoverEvents />} />
           <Route path="/event/:id" element={<EventPage />} />
