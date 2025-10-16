@@ -23,8 +23,11 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Use AuthContext for authentication state
+  //  AuthContext for authentication state
   const { isAuthenticated, user, logout, loading } = useAuth();
+
+  // Check if current page is Discover Events
+  const isDiscoverPage = location.pathname === "/discover";
 
   // Debug: Log auth state changes
   useEffect(() => {
@@ -127,7 +130,7 @@ const Navbar = () => {
     );
   }
 
-  // Determine which links to show
+  // links to show
   const navLinks = isAuthenticated ? authenticatedLinks : unauthenticatedLinks;
 
   return (
@@ -146,22 +149,24 @@ const Navbar = () => {
               </span>
             </NavLink>
 
-            {/* Search Bar - Desktop */}
-            <div className="hidden lg:flex flex-1 max-w-md mx-8">
-              <form onSubmit={handleSearch} className="relative w-full">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search events, organizers..."
-                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm transition-all"
-                />
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
-              </form>
-            </div>
+            {/* Search Bar - Desktop - Hidden on Discover Page */}
+            {!isDiscoverPage && (
+              <div className="hidden lg:flex flex-1 max-w-md mx-8">
+                <form onSubmit={handleSearch} className="relative w-full">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search events, organizers..."
+                    className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm transition-all"
+                  />
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
+                </form>
+              </div>
+            )}
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-6">
+            <div className={`hidden lg:flex items-center space-x-6 ${isDiscoverPage ? 'flex-1 justify-end' : ''}`}>
               {/* Navigation Links */}
               {navLinks.map((link) => (
                 <NavLink
@@ -284,17 +289,19 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="lg:hidden border-t border-white/10 bg-black/20 backdrop-blur-lg">
             <div className="w-11/12 mx-auto px-4 pt-2 pb-4 space-y-2">
-              {/* Mobile Search */}
-              <form onSubmit={handleSearch} className="relative mb-4">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search events, organizers..."
-                  className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm"
-                />
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
-              </form>
+              {/* Mobile Search - Hidden on Discover Page */}
+              {!isDiscoverPage && (
+                <form onSubmit={handleSearch} className="relative mb-4">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search events, organizers..."
+                    className="w-full px-4 py-2 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm"
+                  />
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/70" />
+                </form>
+              )}
 
               {/* Mobile Navigation Links */}
               {navLinks.map((link) => (

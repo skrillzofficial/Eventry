@@ -17,6 +17,7 @@ import Team from "./pages/dashboard/Team";
 import EventPage from "./pages/dashboard/EventPage";
 import WalletComponent from "./pages/dashboard/Wallet";
 import CheckoutFlow from "./checkout/Checkout";
+import MyEvents from "./pages/dashboard/MyEvents";
 
 // Auth Pages
 import SignUp from "./Auths/SignUp";
@@ -25,7 +26,6 @@ import VerifyEmail from "./Auths/VerifyEmail";
 import ResendVerification from "./Auths/ResendVerification";
 import ForgotPassword from "./Auths/ForgotPassword";
 import ResetPassword from "./Auths/ResetPassword";
-
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -50,36 +50,43 @@ function App() {
   return (
     <AuthProvider>
       <EventProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Home */}
-          <Route path="/" element={<Home />} />
-          <Route path="/team" element={<Team />} />
+        <BrowserRouter>
+          <Routes>
+            {/* Home */}
+            <Route path="/" element={<Home />} />
+            <Route path="/team" element={<Team />} />
 
-          {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<UserProfile />} />
-          <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
-          <Route path="/dashboard/profile" element={<Profile />} />
-          <Route path="/dashboard/settings" element={<Settings />} />
-          <Route path="/dashboard/wallet" element={<WalletComponent />} />
-          <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
+            {/* Dashboard Routes */}
+            <Route path="/dashboard" element={<UserProfile />} />
+            <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
+            <Route path="/dashboard/profile" element={<Profile />} />
+            <Route path="/dashboard/settings" element={<Settings />} />
+            <Route path="/dashboard/wallet" element={<WalletComponent />} />
+            <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
 
-          {/* Auth Routes */}
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Auth Routes */}
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Email Verification Routes */}
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/resend-verification" element={<ResendVerification />} />
+            {/* Email Verification Routes */}
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/resend-verification" element={<ResendVerification />} />
 
-          {/* Event Routes */}
-          <Route path="/create-event" element={<CreateEvent />} />
-          <Route path="/discover" element={<DiscoverEvents />} />
-          <Route path="/event/:id" element={<EventPage />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Event Routes */}
+            <Route path="/create-event" element={<CreateEvent />} />
+            <Route path="/discover" element={<DiscoverEvents />} />
+            <Route path="/event/:id" element={<EventPage />} />
+            
+            {/* FIXED: MyEvents route*/}
+            <Route path="/dashboard/organizer/events" element={<MyEvents />} />
+            
+            {/* Organizer-specific routes */}
+            <Route path="/dashboard/events" element={<MyEvents />} />
+            <Route path="/organizer/events/create" element={<CreateEvent />} />
+          </Routes>
+        </BrowserRouter>
       </EventProvider>
     </AuthProvider>
   );
