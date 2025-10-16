@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { RingLoader } from "react-spinners";
 import { AuthProvider } from "./context/AuthContext";
+import { EventProvider } from "./context/EventContext";
 import "./App.css";
 
 // Pages
@@ -25,6 +26,7 @@ import ResendVerification from "./Auths/ResendVerification";
 import ForgotPassword from "./Auths/ForgotPassword";
 import ResetPassword from "./Auths/ResetPassword";
 
+
 function App() {
   const [loading, setLoading] = useState(true);
 
@@ -47,6 +49,7 @@ function App() {
 
   return (
     <AuthProvider>
+      <EventProvider>
       <BrowserRouter>
         <Routes>
           {/* Home */}
@@ -77,6 +80,7 @@ function App() {
           <Route path="/event/:id" element={<EventPage />} />
         </Routes>
       </BrowserRouter>
+      </EventProvider>
     </AuthProvider>
   );
 }

@@ -9,6 +9,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+   const isOrganizer = user?.userType === "organizer" || user?.role === "organizer";
+
   // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
@@ -57,7 +59,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Internal login function - sets the state
+  // Internal login function 
   const setLoginState = async (userData, authToken) => {
     try {
       console.log("Setting login state for user:", userData);
@@ -80,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Login with credentials - exported function
+  // Login with credentials 
   const login = async (email, password, userType = "attendee") => {
     try {
       console.log("Attempting login with:", { email, userType });
@@ -162,6 +164,7 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     isAuthenticated,
+    isOrganizer,
     login,
     loginWithCredentials: login, 
     setAuthState: setLoginState, 
@@ -169,7 +172,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     refreshUser,
-    setUser, 
+    setUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

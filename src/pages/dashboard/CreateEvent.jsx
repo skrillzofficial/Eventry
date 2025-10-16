@@ -17,19 +17,22 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { eventAPI, apiCall } from "../../services/api";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 
-// Simplified validation schema
+// Enhanced validation schema to match backend requirements
 const eventSchema = yup.object().shape({
   title: yup
     .string()
     .required("Event title is required")
-    .min(5, "Title must be at least 5 characters"),
+    .min(5, "Title must be at least 5 characters")
+    .max(100, "Title must be less than 100 characters"),
   description: yup
     .string()
     .required("Description is required")
-    .min(50, "Description must be at least 50 characters"),
+    .min(50, "Description must be at least 50 characters")
+    .max(2000, "Description must be less than 2000 characters"),
   category: yup.string().required("Category is required"),
   date: yup.string().required("Event date is required"),
   time: yup.string().required("Event time is required"),
@@ -39,11 +42,14 @@ const eventSchema = yup.object().shape({
   city: yup.string().required("City is required"),
   price: yup
     .number()
+    .typeError("Price must be a number")
     .min(0, "Price cannot be negative")
     .required("Ticket price is required"),
   capacity: yup
     .number()
+    .typeError("Capacity must be a number")
     .min(1, "Capacity must be at least 1")
+    .max(100000, "Capacity cannot exceed 100,000")
     .required("Capacity is required"),
 });
 
@@ -51,6 +57,7 @@ const CreateEvent = () => {
   const { isAuthenticated, isOrganizer, user } = useAuth();
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploadedImages, setUploadedImages] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]); 
   const navigate = useNavigate();
 
   const {
@@ -58,6 +65,7 @@ const CreateEvent = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
+    watch,
   } = useForm({
     resolver: yupResolver(eventSchema),
     mode: "onChange",
@@ -73,6 +81,10 @@ const CreateEvent = () => {
     "Education",
     "Music",
     "Food",
+    "Sports",
+    "Entertainment",
+    "Networking",
+    "Other",
   ];
   const CITIES = [
     "Lagos",
@@ -83,49 +95,107 @@ const CreateEvent = () => {
     "Benin",
     "Enugu",
     "Kaduna",
+    "Owerri",
+    "Jos",
+    "Calabar",
+    "Abeokuta",
+    "Other",
   ];
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
+
     if (files.length + uploadedImages.length > 3) {
       setError("images", { message: "Maximum 3 images allowed" });
       return;
     }
 
+    const newImageFiles = [...imageFiles];
+    const newUploadedImages = [...uploadedImages];
+
     files.forEach((file) => {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        setError("images", { message: "Only image files are allowed" });
+        return;
+      }
+
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("images", { message: "Image size must be less than 5MB" });
+        return;
+      }
+
+      newImageFiles.push(file);
+
       const reader = new FileReader();
       reader.onload = (e) => {
-        setUploadedImages((prev) => [...prev, e.target.result]);
+        newUploadedImages.push(e.target.result);
+        setUploadedImages([...newUploadedImages]);
       };
       reader.readAsDataURL(file);
     });
+
+    setImageFiles(newImageFiles);
   };
 
   const removeImage = (indexToRemove) => {
     setUploadedImages((prev) =>
       prev.filter((_, index) => index !== indexToRemove)
     );
+    setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
   const onSubmit = async (data) => {
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Prepare form data for file upload
+      const formData = new FormData();
 
-      console.log("Event created:", {
-        ...data,
-        images: uploadedImages,
-        organizer: user?.name || "Organizer",
+      // Append basic event data
+      formData.append("title", data.title);
+      formData.append("description", data.description);
+      formData.append("category", data.category);
+      formData.append("date", data.date);
+      formData.append("time", data.time);
+      formData.append("endTime", data.endTime);
+      formData.append("venue", data.venue);
+      formData.append("address", data.address);
+      formData.append("city", data.city);
+      formData.append("price", data.price);
+      formData.append("capacity", data.capacity);
+
+      // Append images
+      imageFiles.forEach((file, index) => {
+        formData.append("images", file);
       });
 
-      setShowSuccess(true);
-      setTimeout(() => {
-        navigate("/dashboard/organizer");
-      }, 2000);
+      console.log("Submitting event data:", {
+        ...data,
+        imageCount: imageFiles.length,
+      });
+
+      // Call the backend API
+      const result = await apiCall(eventAPI.createEvent, formData);
+
+      if (result.success) {
+        console.log("Event created successfully:", result.data);
+        setShowSuccess(true);
+
+        // Redirect to organizer dashboard after success
+        setTimeout(() => {
+          navigate("/dashboard/organizer");
+        }, 2000);
+      } else {
+        // Handle API errors
+        console.error("Event creation failed:", result.error);
+        setError("root.serverError", {
+          message: result.error || "Failed to create event. Please try again.",
+        });
+      }
     } catch (error) {
       console.error("Error creating event:", error);
       setError("root.serverError", {
-        message: "Failed to create event. Please try again.",
+        message: "An unexpected error occurred. Please try again.",
       });
     }
   };
@@ -306,7 +376,7 @@ const CreateEvent = () => {
                   {...register("description")}
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                  placeholder="Describe your event..."
+                  placeholder="Describe your event in detail..."
                 />
                 {errors.description && (
                   <p className="text-red-600 text-sm mt-1">
@@ -456,6 +526,7 @@ const CreateEvent = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                   placeholder="0"
                   min="0"
+                  step="0.01"
                 />
                 {errors.price && (
                   <p className="text-red-600 text-sm mt-1">
@@ -502,8 +573,14 @@ const CreateEvent = () => {
                   className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6B35] file:text-white hover:file:bg-[#FF8535]"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Recommended: 1200x600 pixels, JPEG or PNG format
+                  Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB per
+                  image.
                 </p>
+                {errors.images && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.images.message}
+                  </p>
+                )}
               </div>
               {uploadedImages.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

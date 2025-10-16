@@ -22,9 +22,9 @@ import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import CheckoutFlow from "../../checkout/Checkout";
-import { eventsApi } from "../../data/EventsApi";
+import { eventAPI, apiCall } from "../../services/api";
 
-// Local images (adjust paths as needed)
+// Local images
 import eventOne from "../../assets/Vision one.png";
 import eventTwo from "../../assets/Vision 2.png";
 import eventThree from "../../assets/vision 3.png";
@@ -54,51 +54,102 @@ export default function EventPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadEvent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (id) {
+      loadEvent();
+    }
   }, [id]);
 
   const loadEvent = async () => {
     setLoading(true);
     setError(null);
     try {
-      const e = await eventsApi.getEventById(id);
+      const result = await apiCall(eventAPI.getEventById, id);
 
-      // normalize images: event.images or event.image (array)
-      const rawImages =
-        (e.images && Array.isArray(e.images) && e.images) ||
-        (e.image && Array.isArray(e.image) && e.image) ||
-        [];
+      if (result.success) {
+        const eventData = result.data.event || result.data;
 
-      const mappedImages =
-        rawImages.length > 0
-          ? rawImages.map((img) => imageMap[img] || img)
-          : [fallbackImage];
+        if (!eventData) {
+          throw new Error("Event not found");
+        }
 
-      const eventWithImages = {
-        ...e,
-        images: mappedImages,
-        organizer: e.organizer || { name: "Unknown Organizer" },
-        tags: e.tags || [],
-        includes: e.includes || [],
-        requirements: e.requirements || [],
-      };
+        // images from backend 
+        const rawImages = eventData.images || [];
+        const mappedImages =
+          rawImages.length > 0
+            ? rawImages.map((img) =>
+                typeof img === "string" ? img : imageMap[img] || img
+              )
+            : [fallbackImage];
 
-      setEvent(eventWithImages);
+        const eventWithImages = {
+          ...eventData,
+          id: eventData._id || eventData.id,
+          images: mappedImages,
+          organizer: eventData.organizer || { name: "Unknown Organizer" },
+          tags: eventData.tags || [eventData.category].filter(Boolean),
+          includes: Array.isArray(eventData.includes)
+            ? eventData.includes
+            : ["Event access", "Networking opportunities"],
+          requirements: Array.isArray(eventData.requirements)
+            ? eventData.requirements
+            : ["Valid ID", "Ticket confirmation"],
+          rating: eventData.rating || 4.5,
+          reviews: eventData.reviews || Math.floor(Math.random() * 100) + 10,
+          attendees:
+            eventData.ticketsSold ||
+            eventData.attendees ||
+            Math.floor(Math.random() * (eventData.capacity || 100)),
+          featured: eventData.featured || false,
+          longDescription: eventData.longDescription || eventData.description,
+        };
 
-      // load related events and map images (safe)
-      const relatedEvents = await eventsApi.getRelatedEvents(id, 4);
-      const mapRel = relatedEvents.map((r) => {
-        const img =
-          (r.images && r.images[0]) || (r.image && r.image[0]) || null;
-        return { ...r, image: imageMap[img] || img || fallbackImage };
-      });
-      setRelated(mapRel);
+        setEvent(eventWithImages);
+        loadRelatedEvents(eventData.category, eventData._id || eventData.id);
+      } else {
+        throw new Error(result.error || "Failed to load event");
+      }
     } catch (err) {
       console.error("Error loading event:", err);
       setError(err?.message || "Failed to load event");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRelatedEvents = async (category, currentEventId) => {
+    try {
+      // Get all events and filter by category for related events
+      const result = await apiCall(eventAPI.getAllEvents);
+
+      if (result.success) {
+        const allEvents = result.data.events || result.data || [];
+        const relatedEvents = allEvents
+          .filter((ev) => {
+            const eventId = ev._id || ev.id;
+            return (
+              eventId !== currentEventId &&
+              ev.category === category &&
+              ev.status !== "cancelled"
+            );
+          })
+          .slice(0, 4)
+          .map((ev) => {
+            const img =
+              ev.images && ev.images[0] ? ev.images[0] : fallbackImage;
+            return {
+              ...ev,
+              id: ev._id || ev.id,
+              image:
+                typeof img === "string"
+                  ? img
+                  : imageMap[img] || img || fallbackImage,
+            };
+          });
+
+        setRelated(relatedEvents);
+      }
+    } catch (err) {
+      console.error("Error loading related events:", err);
     }
   };
 
@@ -108,6 +159,8 @@ export default function EventPage() {
     alert(
       `Payment successful — ${result.tickets} tickets for ${result.event.title}. Transaction: ${result.transactionId}`
     );
+    // Refresh event data to update attendee count
+    loadEvent();
   };
 
   const toggleFavorite = () => setIsFavorite((s) => !s);
@@ -178,7 +231,7 @@ export default function EventPage() {
     );
   }
 
-  // Subcomponents (kept inside file for easy paste)
+  // Subcomponents 
   const EventHeader = ({ ev }) => {
     const eventDate = new Date(ev.date);
     const isUpcoming = eventDate >= new Date();
@@ -246,7 +299,7 @@ export default function EventPage() {
           <div className="w-full lg:w-56 flex-shrink-0">
             <div className="bg-white border border-gray-200 rounded-lg p-4 text-center shadow-sm">
               <div className="text-lg text-gray-700 font-semibold">
-                ₦{ev.price.toLocaleString()}
+                {ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`}
               </div>
               <div className="text-sm text-gray-500 mb-4">per ticket</div>
 
@@ -274,7 +327,7 @@ export default function EventPage() {
               <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
                 <Star className="h-4 w-4 text-yellow-400" />
                 <span className="font-medium text-gray-800">{ev.rating}</span>
-                <span className="text-gray-500">({ev.reviews})</span>
+                <span className="text-gray-500">({ev.reviews} reviews)</span>
               </div>
             </div>
           </div>
@@ -341,7 +394,7 @@ export default function EventPage() {
                   __html:
                     ev.longDescription ||
                     ev.description ||
-                    "<p>No description</p>",
+                    "<p>No description available</p>",
                 }}
               />
 
@@ -352,11 +405,9 @@ export default function EventPage() {
                     included
                   </h4>
                   <ul className="list-disc pl-5 text-gray-700">
-                    {ev.includes.length ? (
-                      ev.includes.map((inc, i) => <li key={i}>{inc}</li>)
-                    ) : (
-                      <li>Standard event access</li>
-                    )}
+                    {ev.includes.map((inc, i) => (
+                      <li key={i}>{inc}</li>
+                    ))}
                   </ul>
                 </div>
 
@@ -365,11 +416,9 @@ export default function EventPage() {
                     <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
                   </h4>
                   <ul className="list-disc pl-5 text-gray-700">
-                    {ev.requirements.length ? (
-                      ev.requirements.map((r, i) => <li key={i}>{r}</li>)
-                    ) : (
-                      <li>No special requirements</li>
-                    )}
+                    {ev.requirements.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
                   </ul>
                 </div>
               </div>
@@ -409,20 +458,20 @@ export default function EventPage() {
                     )}
                   </div>
                   <p className="text-gray-600 mt-1">
-                    {ev.organizer.description}
+                    {ev.organizer.description || "Event organizer"}
                   </p>
 
                   <div className="grid grid-cols-2 gap-3 mt-4">
                     <div className="p-3 bg-gray-50 border border-gray-100 rounded">
                       <div className="text-sm text-gray-500">Events hosted</div>
                       <div className="font-semibold text-gray-900">
-                        {ev.organizer.eventsHosted || "-"}
+                        {ev.organizer.eventsHosted || "Multiple"}
                       </div>
                     </div>
                     <div className="p-3 bg-gray-50 border border-gray-100 rounded">
                       <div className="text-sm text-gray-500">Rating</div>
                       <div className="font-semibold text-gray-900">
-                        {ev.organizer.rating || "-"}
+                        {ev.organizer.rating || ev.rating || "4.5"}
                       </div>
                     </div>
                   </div>
@@ -444,11 +493,12 @@ export default function EventPage() {
                       {ev.venue}
                     </div>
                     <div className="text-gray-600">{ev.address}</div>
+                    <div className="text-gray-600">{ev.city}</div>
                   </div>
                 </div>
 
                 <div className="mt-4 h-48 bg-white border border-gray-100 rounded flex items-center justify-center text-gray-500">
-                  Map placeholder
+                  Map placeholder for {ev.venue}, {ev.city}
                 </div>
               </div>
             </>
@@ -487,7 +537,8 @@ export default function EventPage() {
                 <div className="p-4 bg-gray-50 border border-gray-100 rounded">
                   <div className="font-semibold text-gray-900">Chinedu O.</div>
                   <div className="text-sm text-gray-600">
-                    "One of the best blockchain conferences I've attended."
+                    "One of the best events I've attended. Great organization
+                    and networking opportunities!"
                   </div>
                 </div>
               </div>
@@ -520,7 +571,8 @@ export default function EventPage() {
               <div>
                 <div className="font-medium text-gray-900">{r.title}</div>
                 <div className="text-sm text-gray-600">
-                  {r.category} • ₦{r.price?.toLocaleString()}
+                  {r.category} •{" "}
+                  {r.price === 0 ? "Free" : `₦${r.price?.toLocaleString()}`}
                 </div>
               </div>
             </Link>
@@ -531,8 +583,9 @@ export default function EventPage() {
   };
 
   const TicketCard = ({ ev }) => {
-    const available = Math.max(0, ev.capacity - ev.attendees);
+    const available = Math.max(0, ev.capacity - (ev.attendees || 0));
     const total = ev.price * ticketQuantity;
+
     return (
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
         <div className="space-y-4">
@@ -542,7 +595,7 @@ export default function EventPage() {
           <div className="flex items-center border border-gray-100 rounded">
             <button
               onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-              disabled={!isAuthenticated || authLoading}
+              disabled={!isAuthenticated || authLoading || available === 0}
               className="px-4 py-2 text-gray-700 disabled:opacity-50"
             >
               -
@@ -554,17 +607,25 @@ export default function EventPage() {
 
             <button
               onClick={() => setTicketQuantity(ticketQuantity + 1)}
-              disabled={!isAuthenticated || authLoading}
+              disabled={!isAuthenticated || authLoading || available === 0}
               className="px-4 py-2 text-gray-700 disabled:opacity-50"
             >
               +
             </button>
           </div>
 
+          {available === 0 && (
+            <div className="text-sm text-red-600 bg-red-50 p-2 rounded text-center">
+              Sold out!
+            </div>
+          )}
+
           <div className="text-sm text-gray-600">
             <div className="flex justify-between">
               <span>Price</span>
-              <span>₦{ev.price.toLocaleString()}</span>
+              <span>
+                {ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Quantity</span>
@@ -572,7 +633,9 @@ export default function EventPage() {
             </div>
             <div className="flex justify-between font-semibold text-gray-900 mt-2">
               <span>Total</span>
-              <span>₦{total.toLocaleString()}</span>
+              <span>
+                {ev.price === 0 ? "Free" : `₦${total.toLocaleString()}`}
+              </span>
             </div>
           </div>
 
@@ -583,9 +646,11 @@ export default function EventPage() {
           ) : isAuthenticated ? (
             <button
               onClick={handleGetTickets}
-              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#FF8535]"
+              disabled={available === 0}
+              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              <Ticket className="inline-block h-4 w-4 mr-2" /> Get tickets now
+              <Ticket className="inline-block h-4 w-4 mr-2" />
+              {available === 0 ? "Sold Out" : "Get tickets now"}
             </button>
           ) : (
             <div className="space-y-3 text-center">
@@ -594,7 +659,7 @@ export default function EventPage() {
               </div>
               <Link
                 to="/login"
-                className="block w-[20] bg-[#FF6B35] text-white py-2 rounded"
+                className="block w-full bg-[#FF6B35] text-white py-2 rounded font-semibold text-center"
               >
                 Sign in
               </Link>
@@ -639,16 +704,19 @@ export default function EventPage() {
               <div className="text-sm text-gray-700 grid gap-2">
                 <div className="flex justify-between">
                   <span>Capacity</span>
-                  <span>{event.capacity.toLocaleString()}</span>
+                  <span>{(event.capacity || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Attendees</span>
-                  <span>{event.attendees.toLocaleString()}</span>
+                  <span>{(event.attendees || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Available</span>
                   <span>
-                    {(event.capacity - event.attendees).toLocaleString()}
+                    {Math.max(
+                      0,
+                      (event.capacity || 0) - (event.attendees || 0)
+                    ).toLocaleString()}
                   </span>
                 </div>
                 <div className="pt-2">
@@ -656,16 +724,27 @@ export default function EventPage() {
                     <div
                       className="h-2 bg-[#FF6B35]"
                       style={{
-                        width: `${(event.attendees / event.capacity) * 100}%`,
+                        width: `${Math.min(
+                          100,
+                          ((event.attendees || 0) / (event.capacity || 1)) * 100
+                        )}%`,
                       }}
                     />
                   </div>
                   <div className="flex justify-between text-xs text-gray-600 mt-1">
                     <span>
-                      {Math.round((event.attendees / event.capacity) * 100)}%
-                      booked
+                      {Math.round(
+                        ((event.attendees || 0) / (event.capacity || 1)) * 100
+                      )}
+                      % booked
                     </span>
-                    <span>{event.capacity - event.attendees} left</span>
+                    <span>
+                      {Math.max(
+                        0,
+                        (event.capacity || 0) - (event.attendees || 0)
+                      )}{" "}
+                      left
+                    </span>
                   </div>
                 </div>
                 {!authLoading && (
@@ -695,7 +774,7 @@ export default function EventPage() {
         />
       )}
 
-      {/* Footer kept dark as requested */}
+      {/* Footer */}
       <div className="bg-black">
         <Footer />
       </div>
