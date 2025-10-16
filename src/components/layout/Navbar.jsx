@@ -13,7 +13,7 @@ import {
   Ticket,
   Search,
 } from "lucide-react";
-import Brandlogo from "../../assets/Orange-logo.jpeg";
+import Brandlogo from "../../assets/eventy orange logo.PNG";
 import { useAuth } from "../../context/AuthContext";
 
 const Navbar = () => {
@@ -140,8 +140,8 @@ const Navbar = () => {
               to={isAuthenticated ? "/dashboard" : "/"}
               className="flex items-center group"
             >
-              <img className="h-10 w-auto" src={Brandlogo} alt="Logo" />
-              <span className="ml-2 text-xl font-bold text-white tracking-wide group-hover:text-[#FF6B35] transition-colors">
+              <img className="h-13 w-auto" src={Brandlogo} alt="Logo" />
+              <span className="ml-2 text-xl font-bold  text-[#FF6B35] transition-colors">
                 Eventry
               </span>
             </NavLink>

@@ -1,15 +1,15 @@
 import React from "react";
-import Brandlogo from "../../assets/1.png";
+import Brandlogo from "../../assets/eventry white logo.PNG";
 import { Facebook, Twitter, Linkedin } from "lucide-react";
 
 const Footer = () => {
   return (
-    <footer className=" bg-black text-[#C9E9E7]">
+    <footer className=" bg-black text-white">
       <div className="w-11/12 mx-auto container py-8">
         {/* Brand + Tagline */}
         <div className="flex flex-col items-center md:items-start space-y-3">
           <div className="flex items-center space-x-2">
-            <img className="h-8 w-auto" src={Brandlogo} alt="Eventry Logo" />
+            <img className="h-13 w-auto" src={Brandlogo} alt="Eventry Logo" />
             <span className="text-xl font-bold tracking-wide">Eventry</span>
           </div>
           <p className="text-xs md:text-sm text-start max-w-md">
