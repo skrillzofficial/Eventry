@@ -58,17 +58,29 @@ const DiscoverEvents = () => {
       setLoading(true);
       setError(null);
       const result = await apiCall(eventAPI.getAllEvents);
-      
+
       if (result.success) {
         const eventsData = result.data.events || result.data || [];
-        
+
         const processed = eventsData.map((event) => {
+          const rawImages = event.images || [];
           let eventImage = eventOne;
-          
-          if (event.images && event.images.length > 0) {
-            eventImage = event.images[0];
-          } else if (event.image) {
-            eventImage = event.image;
+
+          if (rawImages.length > 0) {
+            const img = rawImages[0];
+
+            // If img is an object with url property (Cloudinary format)
+            if (img && typeof img === "object" && img.url) {
+              eventImage = img.url;
+            }
+            // If img is already a string URL
+            else if (typeof img === "string") {
+              eventImage = img;
+            }
+            // Check if it matches a local image path
+            else {
+              eventImage = imageMap[img] || eventOne;
+            }
           }
 
           return {
@@ -113,17 +125,36 @@ const DiscoverEvents = () => {
   // Load categories & cities from events data
   const loadCategoriesAndCities = () => {
     try {
-      const uniqueCategories = [...new Set(events.map(event => event.category).filter(Boolean))];
-      const uniqueCities = [...new Set(events.map(event => event.city).filter(Boolean))];
+      const uniqueCategories = [
+        ...new Set(events.map((event) => event.category).filter(Boolean)),
+      ];
+      const uniqueCities = [
+        ...new Set(events.map((event) => event.city).filter(Boolean)),
+      ];
 
       setCategories(["All Categories", ...uniqueCategories]);
       setCities(["All Cities", ...uniqueCities]);
     } catch (error) {
       console.error("Error loading categories/cities:", error);
-      
+
       // Fallback categories and cities
-      setCategories(["All Categories", "Technology", "Business", "Arts", "Music", "Food", "Sports"]);
-      setCities(["All Cities", "Lagos", "Abuja", "Port Harcourt", "Ibadan", "Kano"]);
+      setCategories([
+        "All Categories",
+        "Technology",
+        "Business",
+        "Arts",
+        "Music",
+        "Food",
+        "Sports",
+      ]);
+      setCities([
+        "All Cities",
+        "Lagos",
+        "Abuja",
+        "Port Harcourt",
+        "Ibadan",
+        "Kano",
+      ]);
     }
   };
 
@@ -136,7 +167,8 @@ const DiscoverEvents = () => {
         event.title?.toLowerCase().includes(search) ||
         event.description?.toLowerCase().includes(search) ||
         event.organizer.name?.toLowerCase().includes(search) ||
-        (event.tags && event.tags.some((tag) => tag.toLowerCase().includes(search)));
+        (event.tags &&
+          event.tags.some((tag) => tag.toLowerCase().includes(search)));
 
       const matchesCategory =
         !filters.category ||
@@ -150,13 +182,16 @@ const DiscoverEvents = () => {
 
       const matchesDate =
         !filters.date ||
-        new Date(event.date).toDateString() === new Date(filters.date).toDateString();
+        new Date(event.date).toDateString() ===
+          new Date(filters.date).toDateString();
 
       const matchesPrice =
         !filters.priceRange ||
         (filters.priceRange === "free" && event.price === 0) ||
         (filters.priceRange === "under5k" && event.price <= 5000) ||
-        (filters.priceRange === "5k-15k" && event.price > 5000 && event.price <= 15000) ||
+        (filters.priceRange === "5k-15k" &&
+          event.price > 5000 &&
+          event.price <= 15000) ||
         (filters.priceRange === "over15k" && event.price > 15000);
 
       return (
@@ -206,10 +241,10 @@ const DiscoverEvents = () => {
 
   // Format date for display
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
@@ -273,7 +308,8 @@ const DiscoverEvents = () => {
               Discover Events
             </h1>
             <p className="text-gray-600 mt-2">
-              {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} found
+              {filteredEvents.length} event
+              {filteredEvents.length !== 1 ? "s" : ""} found
             </p>
           </div>
 
@@ -315,7 +351,9 @@ const DiscoverEvents = () => {
                 onChange={(e) => handleFilterChange("category", e.target.value)}
               >
                 {categories.map((cat, i) => (
-                  <option key={i} value={cat}>{cat}</option>
+                  <option key={i} value={cat}>
+                    {cat}
+                  </option>
                 ))}
               </select>
 
@@ -325,7 +363,9 @@ const DiscoverEvents = () => {
                 onChange={(e) => handleFilterChange("city", e.target.value)}
               >
                 {cities.map((city, i) => (
-                  <option key={i} value={city}>{city}</option>
+                  <option key={i} value={city}>
+                    {city}
+                  </option>
                 ))}
               </select>
 
@@ -339,7 +379,9 @@ const DiscoverEvents = () => {
               <select
                 className="border border-gray-300 rounded-xl p-2"
                 value={filters.priceRange}
-                onChange={(e) => handleFilterChange("priceRange", e.target.value)}
+                onChange={(e) =>
+                  handleFilterChange("priceRange", e.target.value)
+                }
               >
                 <option value="">Price Range</option>
                 <option value="free">Free</option>
@@ -393,29 +435,31 @@ const DiscoverEvents = () => {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
                     {event.title}
                   </h3>
-                  
+
                   <div className="space-y-2 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       <span>{formatDate(event.date)}</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
-                      <span className="truncate">{event.venue}, {event.city}</span>
+                      <span className="truncate">
+                        {event.venue}, {event.city}
+                      </span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
                       <span>{event.attendees} attending</span>
                     </div>
                   </div>
-                  
+
                   <div className="mt-3 pt-3 border-t border-gray-100">
                     <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full">
                       {event.category}
@@ -432,10 +476,9 @@ const DiscoverEvents = () => {
               No Events Found
             </h3>
             <p className="text-gray-600 mb-4">
-              {events.length > 0 
+              {events.length > 0
                 ? "Try adjusting your filters to see more events."
-                : "No events available yet. Check back later!"
-              }
+                : "No events available yet. Check back later!"}
             </p>
             {events.length === 0 && (
               <Link

@@ -72,13 +72,22 @@ export default function EventPage() {
           throw new Error("Event not found");
         }
 
-        // images from backend 
+
         const rawImages = eventData.images || [];
         const mappedImages =
           rawImages.length > 0
-            ? rawImages.map((img) =>
-                typeof img === "string" ? img : imageMap[img] || img
-              )
+            ? rawImages.map((img) => {
+                // If img is an object with url property (Cloudinary format)
+                if (img && typeof img === "object" && img.url) {
+                  return img.url;
+                }
+                // If img is already a string URL
+                if (typeof img === "string") {
+                  return img;
+                }
+                // Check if it matches a local image path
+                return imageMap[img] || fallbackImage;
+              })
             : [fallbackImage];
 
         const eventWithImages = {
@@ -118,7 +127,6 @@ export default function EventPage() {
 
   const loadRelatedEvents = async (category, currentEventId) => {
     try {
-      // Get all events and filter by category for related events
       const result = await apiCall(eventAPI.getAllEvents);
 
       if (result.success) {
@@ -136,13 +144,21 @@ export default function EventPage() {
           .map((ev) => {
             const img =
               ev.images && ev.images[0] ? ev.images[0] : fallbackImage;
+
+            // Extract URL if it's an object with url property
+            let imageUrl = fallbackImage;
+            if (img && typeof img === "object" && img.url) {
+              imageUrl = img.url;
+            } else if (typeof img === "string") {
+              imageUrl = img;
+            } else {
+              imageUrl = imageMap[img] || fallbackImage;
+            }
+
             return {
               ...ev,
               id: ev._id || ev.id,
-              image:
-                typeof img === "string"
-                  ? img
-                  : imageMap[img] || img || fallbackImage,
+              image: imageUrl,
             };
           });
 
@@ -152,7 +168,6 @@ export default function EventPage() {
       console.error("Error loading related events:", err);
     }
   };
-
   const handlePaymentSuccess = (result) => {
     setShowCheckout(false);
     // You may replace this alert with a toast
@@ -231,7 +246,7 @@ export default function EventPage() {
     );
   }
 
-  // Subcomponents 
+  // Subcomponents
   const EventHeader = ({ ev }) => {
     const eventDate = new Date(ev.date);
     const isUpcoming = eventDate >= new Date();

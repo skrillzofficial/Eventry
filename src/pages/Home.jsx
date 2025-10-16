@@ -10,28 +10,105 @@ import {
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { eventsApi } from "../data/EventsApi";
+import { eventAPI, apiCall } from "../services/api";
+
+// Local images for fallback
+import eventOne from "../assets/Vision one.png";
+import eventTwo from "../assets/Vision 2.png";
+import eventThree from "../assets/vision 3.png";
+
+// Map potential stored paths to actual imports
+const imageMap = {
+  "/src/assets/Vision one.png": eventOne,
+  "/src/assets/Vision 2.png": eventTwo,
+  "/src/assets/vision 3.png": eventThree,
+  "/assets/Vision one.png": eventOne,
+  "/assets/Vision 2.png": eventTwo,
+  "/assets/vision 3.png": eventThree,
+};
+
+const fallbackImage = eventOne;
 
 const Home = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Fetch all events
+  // Fetch all events from backend
   useEffect(() => {
-    const loadEvents = async () => {
-      try {
-        setLoading(true);
-        const allEvents = await eventsApi.getAllEvents();
-        setEvents(allEvents);
-      } catch (error) {
-        console.error("Error fetching events:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadEvents();
   }, []);
+
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiCall(eventAPI.getAllEvents);
+
+      if (result.success) {
+        const eventsData = result.data.events || result.data || [];
+
+        const processed = eventsData.map((event) => {
+          const rawImages = event.images || [];
+          let eventImage = fallbackImage;
+
+          if (rawImages.length > 0) {
+            const img = rawImages[0];
+
+            // If img is an object with url property (Cloudinary format)
+            if (img && typeof img === "object" && img.url) {
+              eventImage = img.url;
+            }
+            // If img is already a string URL
+            else if (typeof img === "string") {
+              eventImage = img;
+            }
+            // Check if it matches a local image path
+            else {
+              eventImage = imageMap[img] || fallbackImage;
+            }
+          }
+
+          return {
+            id: event._id || event.id,
+            title: event.title || "Untitled Event",
+            description: event.description || "",
+            category: event.category || "General",
+            date: event.date,
+            time: event.time,
+            endTime: event.endTime,
+            venue: event.venue,
+            address: event.address,
+            city: event.city,
+            price: event.price || 0,
+            capacity: event.capacity || 0,
+            ticketsSold: event.ticketsSold || 0,
+            image: eventImage,
+            images: event.images || [],
+            tags: event.tags || [event.category].filter(Boolean),
+            organizer: event.organizer || { name: "Unknown Organizer" },
+            rating: event.rating || 4.5,
+            attendees: event.attendees || 0,
+            status: event.status || "active",
+            createdAt: event.createdAt,
+          };
+        });
+
+        // Sort by date to show upcoming events first
+        processed.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        setEvents(processed);
+      } else {
+        setError(result.error || "Failed to load events");
+        console.error("API Error:", result.error);
+      }
+    } catch (error) {
+      console.error("Error loading events:", error);
+      setError("An unexpected error occurred while loading events");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Features data
   const features = [
@@ -149,41 +226,57 @@ const Home = () => {
 
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-              {[...Array(12)].map((_, i) => (
+              {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-120 bg-gray-200 rounded-xl animate-pulse"
+                  className="h-80 bg-gray-200 rounded-xl animate-pulse"
                 />
               ))}
             </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Failed to Load Events
+              </h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={loadEvents}
+                className="inline-flex items-center bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
           ) : events.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.slice(0, 6).map((event) => {
-                const imageSrc = event.image
-                  ? event.image[0]
-                  : event.images
-                  ? event.images[0]
-                  : "/default.jpg";
-
-                return (
-                  <Link
-                    to={`/event/${event.id}`}
-                    key={event.id}
-                    className="relative group h-120 rounded-xl overflow-hidden"
-                  >
-                    <img
-                      src={imageSrc}
-                      alt={event.title}
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-3 py-2">
-                      <h3 className="text-white font-semibold text-sm truncate">
-                        {event.title}
-                      </h3>
-                    </div>
-                  </Link>
-                );
-              })}
+              {events.slice(0, 6).map((event) => (
+                <Link
+                  to={`/event/${event.id}`}
+                  key={event.id}
+                  className="relative group h-80 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow"
+                >
+                  <img
+                    src={event.image}
+                    alt={event.title}
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-4 py-6">
+                    <span className="inline-block bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-semibold mb-2">
+                      {event.category}
+                    </span>
+                    <h3 className="text-white font-semibold text-lg mb-1 line-clamp-2">
+                      {event.title}
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      {new Date(event.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}{" "}
+                      • {event.city}
+                    </p>
+                  </div>
+                </Link>
+              ))}
             </div>
           ) : (
             <div className="text-center py-12">
@@ -199,6 +292,7 @@ const Home = () => {
                 className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] font-semibold"
               >
                 Create an Event
+                <ArrowRight className="h-5 w-5 ml-2" />
               </Link>
             </div>
           )}
