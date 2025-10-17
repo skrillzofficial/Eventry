@@ -72,7 +72,6 @@ export default function EventPage() {
           throw new Error("Event not found");
         }
 
-
         const rawImages = eventData.images || [];
         const mappedImages =
           rawImages.length > 0
@@ -94,24 +93,69 @@ export default function EventPage() {
           ...eventData,
           id: eventData._id || eventData.id,
           images: mappedImages,
-          organizer: eventData.organizer || { name: "Unknown Organizer" },
-          tags: eventData.tags || [eventData.category].filter(Boolean),
-          includes: Array.isArray(eventData.includes)
-            ? eventData.includes
-            : ["Event access", "Networking opportunities"],
-          requirements: Array.isArray(eventData.requirements)
-            ? eventData.requirements
-            : ["Valid ID", "Ticket confirmation"],
+
+          // Organizer mapping (from organizerInfo in backend)
+          organizer: {
+            name:
+              eventData.organizerInfo?.name ||
+              eventData.organizerInfo?.companyName ||
+              "Unknown Organizer",
+            email: eventData.organizerInfo?.email || "",
+            companyName: eventData.organizerInfo?.companyName || "",
+            verified: eventData.blockchainData?.verified || false,
+            description:
+              eventData.organizerInfo?.description || "Event organizer",
+            eventsHosted: eventData.organizerInfo?.eventsHosted || "Multiple",
+            rating: eventData.organizerInfo?.rating || 4.5,
+          },
+
+          // Tags - handle both array and empty array
+          tags:
+            Array.isArray(eventData.tags) && eventData.tags.length > 0
+              ? eventData.tags
+              : [eventData.category].filter(Boolean),
+
+          // Includes - from Edit Event form
+          includes:
+            Array.isArray(eventData.includes) && eventData.includes.length > 0
+              ? eventData.includes
+              : ["Event access", "Networking opportunities"],
+
+          // Requirements - handle both array and string from backend
+          requirements: (() => {
+            if (Array.isArray(eventData.requirements)) {
+              return eventData.requirements;
+            }
+            if (
+              typeof eventData.requirements === "string" &&
+              eventData.requirements.trim()
+            ) {
+              return [eventData.requirements];
+            }
+            return ["Valid ID", "Ticket confirmation"];
+          })(),
+
+          // Backend API fields
           rating: eventData.rating || 4.5,
-          reviews: eventData.reviews || Math.floor(Math.random() * 100) + 10,
-          attendees:
-            eventData.ticketsSold ||
-            eventData.attendees ||
-            Math.floor(Math.random() * (eventData.capacity || 100)),
-          featured: eventData.featured || false,
+          reviews: eventData.totalLikes || 0,
+          attendees: eventData.totalAttendees || 0,
+          availableTickets:
+            eventData.availableTickets || eventData.capacity || 0,
+          featured: eventData.isFeatured || false,
+          status: eventData.status || "published",
+          isActive: eventData.isActive !== false,
+          views: eventData.views || 0,
+          totalLikes: eventData.totalLikes || 0,
+          bookings: eventData.bookings || 0,
+          totalRevenue: eventData.totalRevenue || 0,
+          refundPolicy: eventData.refundPolicy || "partial",
+          currency: eventData.currency || "NGN",
+          agenda: Array.isArray(eventData.agenda) ? eventData.agenda : [],
+          faqs: Array.isArray(eventData.faqs) ? eventData.faqs : [],
+
+          // Description handling - prioritize longDescription from Edit Event
           longDescription: eventData.longDescription || eventData.description,
         };
-
         setEvent(eventWithImages);
         loadRelatedEvents(eventData.category, eventData._id || eventData.id);
       } else {
@@ -298,7 +342,8 @@ export default function EventPage() {
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-[#FF6B35]" />
                 <span>
-                  {ev.time} - {ev.endTime}
+                  {ev.time}
+                  {ev.endTime ? ` - ${ev.endTime}` : ""}
                 </span>
               </div>
 
@@ -314,7 +359,11 @@ export default function EventPage() {
           <div className="w-full lg:w-56 flex-shrink-0">
             <div className="bg-white border border-gray-200 rounded-lg p-4 text-center shadow-sm">
               <div className="text-lg text-gray-700 font-semibold">
-                {ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`}
+                {ev.price === 0
+                  ? "Free"
+                  : `${
+                      ev.currency === "NGN" ? "₦" : "$"
+                    }${ev.price.toLocaleString()}`}
               </div>
               <div className="text-sm text-gray-500 mb-4">per ticket</div>
 
@@ -403,15 +452,14 @@ export default function EventPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 About this event
               </h3>
-              <div
-                className="prose max-w-none text-gray-700"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    ev.longDescription ||
+              {/* Display longDescription with proper formatting */}
+              <div className="prose max-w-none text-gray-700">
+                <p className="whitespace-pre-wrap">
+                  {ev.longDescription ||
                     ev.description ||
-                    "<p>No description available</p>",
-                }}
-              />
+                    "No description available"}
+                </p>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
@@ -419,7 +467,7 @@ export default function EventPage() {
                     <CheckCircle className="h-5 w-5 text-[#FF6B35]" /> What's
                     included
                   </h4>
-                  <ul className="list-disc pl-5 text-gray-700">
+                  <ul className="list-disc pl-5 text-gray-700 space-y-1">
                     {ev.includes.map((inc, i) => (
                       <li key={i}>{inc}</li>
                     ))}
@@ -430,7 +478,7 @@ export default function EventPage() {
                   <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
                     <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
                   </h4>
-                  <ul className="list-disc pl-5 text-gray-700">
+                  <ul className="list-disc pl-5 text-gray-700 space-y-1">
                     {ev.requirements.map((r, i) => (
                       <li key={i}>{r}</li>
                     ))}
@@ -438,22 +486,24 @@ export default function EventPage() {
                 </div>
               </div>
 
-              <div className="mt-6">
-                <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
-                <div className="flex flex-wrap gap-2">
-                  {ev.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-full border border-gray-200"
-                    >
-                      {t}
-                    </span>
-                  ))}
+              {/* Display tags if available */}
+              {ev.tags.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {ev.tags.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-full border border-gray-200"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
-
           {activeTab === "organizer" && (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">

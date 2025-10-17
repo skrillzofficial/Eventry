@@ -66,7 +66,7 @@ const eventSchema = yup.object().shape({
 
 const EditEvent = () => {
   const { id } = useParams();
-  const { isAuthenticated, isOrganizer, user } = useAuth(); // ADDED user here
+  const { isAuthenticated, isOrganizer, user } = useAuth();
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState(null);
@@ -315,30 +315,37 @@ const EditEvent = () => {
       formData.append("price", data.price);
       formData.append("capacity", data.capacity);
 
-      // Append dynamic fields
+      // Append dynamic fields as arrays (FIXED - removed JSON.stringify)
       if (tags.length > 0) {
-        formData.append("tags", JSON.stringify(tags));
+        tags.forEach((tag) => {
+          formData.append("tags[]", tag);
+        });
       }
 
       if (includes.length > 0) {
-        formData.append("includes", JSON.stringify(includes));
+        includes.forEach((item) => {
+          formData.append("includes[]", item);
+        });
       }
 
       if (requirements.length > 0) {
-        formData.append("requirements", JSON.stringify(requirements));
+        requirements.forEach((item) => {
+          formData.append("requirements[]", item);
+        });
       }
 
       // Append existing images that weren't deleted
       if (existingImages.length > 0) {
-        formData.append(
-          "existingImages",
-          JSON.stringify(existingImages.map((img) => img.url))
-        );
+        existingImages.forEach((img) => {
+          formData.append("existingImages[]", img.url);
+        });
       }
 
       // Append images to delete
       if (imagesToDelete.length > 0) {
-        formData.append("imagesToDelete", JSON.stringify(imagesToDelete));
+        imagesToDelete.forEach((imgId) => {
+          formData.append("imagesToDelete[]", imgId);
+        });
       }
 
       // Append new images
@@ -819,7 +826,7 @@ const EditEvent = () => {
               <div className="space-y-2">
                 {requirements.map((item, index) => (
                   <div
-                    key={`include-${index}-${item}`}
+                    key={`requirement-${index}-${item}`}
                     className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg"
                   >
                     <span className="text-gray-700">{item}</span>
