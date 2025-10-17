@@ -18,6 +18,7 @@ import EventPage from "./pages/dashboard/EventPage";
 import WalletComponent from "./pages/dashboard/Wallet";
 import CheckoutFlow from "./checkout/Checkout";
 import MyEvents from "./pages/dashboard/MyEvents";
+import MyTickets from "./pages/dashboard/MyTickets"; 
 
 // Auth Pages
 import SignUp from "./Auths/SignUp";
@@ -63,6 +64,7 @@ function App() {
             <Route path="/dashboard/settings" element={<Settings />} />
             <Route path="/dashboard/wallet" element={<WalletComponent />} />
             <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
+            <Route path="/my-tickets" element={<MyTickets />} /> {/* ADD THIS ROUTE */}
 
             {/* Auth Routes */}
             <Route path="/signup" element={<SignUp />} />
@@ -79,10 +81,8 @@ function App() {
             <Route path="/discover" element={<DiscoverEvents />} />
             <Route path="/event/:id" element={<EventPage />} />
             
-            {/* FIXED: MyEvents route*/}
+            {/* MyEvents routes */}
             <Route path="/dashboard/organizer/events" element={<MyEvents />} />
-            
-            {/* Organizer-specific routes */}
             <Route path="/dashboard/events" element={<MyEvents />} />
             <Route path="/organizer/events/create" element={<CreateEvent />} />
           </Routes>

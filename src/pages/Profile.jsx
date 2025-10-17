@@ -19,17 +19,21 @@ import {
   TrendingUp,
   Ticket,
   Calendar as CalendarIcon,
-  Sparkles
+  Sparkles,
+  Loader
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import { authAPI, eventAPI, apiCall } from '../services/api';
 
 const Profile = () => {
-  const [user, setUser] = useState(null);
+  const { user: authUser, updateUser, refreshUser, isAuthenticated } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   const [stats, setStats] = useState({});
-  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   const {
     register,
@@ -40,123 +44,227 @@ const Profile = () => {
   } = useForm();
 
   useEffect(() => {
-    loadUserData();
-    loadProfileStats();
-  }, []);
+    if (isAuthenticated && authUser) {
+      loadUserData();
+      loadProfileStats();
+    }
+  }, [isAuthenticated, authUser]);
 
-  const loadUserData = () => {
-    // Get user data from localStorage/auth context
-    const userData = {
-      id: 'user_123',
-      name: localStorage.getItem('userName') || 'John Doe',
-      email: localStorage.getItem('userEmail') || 'john.doe@example.com',
-      phone: '+234 812 345 6789',
-      role: localStorage.getItem('userRole') || 'attendee',
-      joinDate: '2024-01-15',
-      avatar: null,
-      bio: 'Event enthusiast passionate about technology and networking events across Nigeria.',
-      location: 'Lagos, Nigeria',
-      dateOfBirth: '1990-05-15',
-      preferences: {
-        notifications: true,
-        newsletter: true,
-        smsAlerts: false
-      },
-      socialLinks: {
-        twitter: '@johndoe',
-        linkedin: 'john-doe',
-        website: 'johndoe.com'
+  const loadUserData = async () => {
+    setLoading(true);
+    try {
+      // Refresh user data from server
+      await refreshUser();
+      
+      // Populate form with current user data
+      if (authUser) {
+        setValue('name', authUser.name || authUser.fullName || '');
+        setValue('email', authUser.email || '');
+        setValue('phone', authUser.phone || authUser.phoneNumber || '');
+        setValue('bio', authUser.bio || '');
+        setValue('location', authUser.location || authUser.city || '');
+        setValue('dateOfBirth', authUser.dateOfBirth || '');
       }
-    };
-    setUser(userData);
-    // Populate form with current data
-    Object.keys(userData).forEach(key => {
-      if (typeof userData[key] !== 'object') {
-        setValue(key, userData[key]);
-      }
-    });
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const loadProfileStats = () => {
-    const userRole = localStorage.getItem('userRole') || 'attendee';
-    
-    if (userRole === 'organizer') {
+  const loadProfileStats = async () => {
+    try {
+      const userRole = authUser?.userType || authUser?.role || 'attendee';
+      
+      if (userRole === 'organizer') {
+        // Fetch organizer stats
+        const eventsResult = await apiCall(eventAPI.getMyEvents);
+        
+        if (eventsResult.success) {
+          const events = eventsResult.data?.events || [];
+          const totalAttendees = events.reduce((sum, event) => 
+            sum + (event.ticketsSold || event.attendees || 0), 0
+          );
+          const totalRevenue = events.reduce((sum, event) => 
+            sum + ((event.ticketsSold || 0) * (event.price || 0)), 0
+          );
+          const upcomingEvents = events.filter(e => 
+            new Date(e.date) >= new Date() && e.status !== 'cancelled'
+          ).length;
+          
+          setStats({
+            eventsHosted: events.length,
+            totalAttendees,
+            averageRating: 4.8,
+            revenue: totalRevenue,
+            upcomingEvents,
+            ticketsSold: totalAttendees
+          });
+        }
+      } else {
+        // Fetch attendee stats
+        const bookingsResult = await apiCall(eventAPI.getMyBookings);
+        
+        if (bookingsResult.success) {
+          const bookings = bookingsResult.data?.bookings || [];
+          const totalTickets = bookings.reduce((sum, booking) => 
+            sum + (booking.tickets || booking.quantity || 1), 0
+          );
+          const totalSpent = bookings.reduce((sum, booking) => 
+            sum + (booking.totalAmount || booking.amount || 0), 0
+          );
+          const upcomingEvents = bookings.filter(b => {
+            const eventDate = b.event?.date || b.eventDate;
+            return eventDate && new Date(eventDate) >= new Date();
+          }).length;
+          
+          setStats({
+            eventsAttended: bookings.length,
+            ticketsPurchased: totalTickets,
+            favoriteCategories: ['Technology', 'Business', 'Music'],
+            totalSpent,
+            upcomingEvents,
+            reviewsWritten: 0
+          });
+        } else {
+          // Set default stats if API fails
+          setStats({
+            eventsAttended: 0,
+            ticketsPurchased: 0,
+            favoriteCategories: [],
+            totalSpent: 0,
+            upcomingEvents: 0,
+            reviewsWritten: 0
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile stats:', error);
+      // Set default stats on error
       setStats({
-        eventsHosted: 12,
-        totalAttendees: 2847,
-        averageRating: 4.8,
-        revenue: 125600,
-        upcomingEvents: 3,
-        ticketsSold: 1245
-      });
-    } else {
-      setStats({
-        eventsAttended: 24,
-        ticketsPurchased: 32,
-        favoriteCategories: ['Technology', 'Business', 'Music'],
-        totalSpent: 85600,
-        upcomingEvents: 5,
-        reviewsWritten: 8
+        eventsAttended: 0,
+        ticketsPurchased: 0,
+        upcomingEvents: 0
       });
     }
   };
 
   const onSubmit = async (data) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call update profile API
+      const result = await apiCall(authAPI.updateProfile, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        bio: data.bio,
+        location: data.location,
+        dateOfBirth: data.dateOfBirth
+      });
       
-      // Update user data
-      const updatedUser = { ...user, ...data };
-      setUser(updatedUser);
-      
-      // Update localStorage
-      localStorage.setItem('userName', data.name);
-      localStorage.setItem('userEmail', data.email);
-      
-      setIsEditing(false);
+      if (result.success) {
+        // Update local user state
+        updateUser(result.data.user || data);
+        setUpdateSuccess(true);
+        setIsEditing(false);
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => setUpdateSuccess(false), 3000);
+      } else {
+        alert(result.error || 'Failed to update profile');
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
     }
   };
 
   const handleCancelEdit = () => {
     reset();
+    loadUserData();
     setIsEditing(false);
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
+      // In a real app, you'd upload to your backend/Cloudinary
       const reader = new FileReader();
       reader.onload = (e) => {
-        setUser(prev => ({ ...prev, avatar: e.target.result }));
+        // For now, just update locally
+        updateUser({ avatar: e.target.result });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  if (!user) {
+  if (!isAuthenticated) {
     return (
-      <div className="min-h-screen Homeimg Blend-overlay flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
+      <div className="min-h-screen Homeimg Blend-overlay">
+        <Navbar />
+        <div className="max-w-4xl mx-auto px-4 py-20">
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 text-center glass-morphism">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <User className="h-8 w-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-semibold text-white mb-2">
+              Sign In Required
+            </h2>
+            <p className="text-gray-300 mb-4">
+              Please sign in to view your profile.
+            </p>
+            <a
+              href="/login"
+              className="inline-flex items-center bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition"
+            >
+              Sign In
+            </a>
+          </div>
+        </div>
+        <div className="bg-[#FF6B35]">
+          <Footer />
+        </div>
       </div>
     );
   }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen Homeimg Blend-overlay flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-white">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const userRole = authUser?.userType || authUser?.role || 'attendee';
 
   return (
     <div className="min-h-screen Homeimg Blend-overlay">
       <Navbar />
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header with Sparkles Badge */}
+        {/* Success Message */}
+        {updateSuccess && (
+          <div className="mb-6 bg-green-500/20 border border-green-500/50 rounded-lg p-4 backdrop-blur-sm">
+            <p className="text-green-200 flex items-center">
+              <Shield className="w-5 h-5 mr-2" />
+              Profile updated successfully!
+            </p>
+          </div>
+        )}
+
+        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold text-white">Profile Settings</h1>
-            <div className="flex items-center gap-1 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-              <Sparkles className="w-4 h-4 text-[#FF6B35]" />
-              <span className="text-sm font-medium text-white">Premium</span>
-            </div>
+            {userRole === 'organizer' && (
+              <div className="flex items-center gap-1 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
+                <Sparkles className="w-4 h-4 text-[#FF6B35]" />
+                <span className="text-sm font-medium text-white">Organizer</span>
+              </div>
+            )}
           </div>
           <p className="text-gray-300">
             Manage your account information and preferences
@@ -169,11 +277,13 @@ const Profile = () => {
             <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
               <div className="text-center mb-6">
                 <div className="relative inline-block mb-4">
-                  <div className="w-24 h-24 bg-[#FF6B35] rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                    {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-24 h-24 rounded-full object-cover" />
+                  <div className="w-24 h-24 bg-[#FF6B35] rounded-full flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
+                    {authUser?.avatar ? (
+                      <img src={authUser.avatar} alt={authUser.name} className="w-24 h-24 rounded-full object-cover" />
                     ) : (
-                      <User className="w-12 h-12" />
+                      <span className="text-3xl">
+                        {(authUser?.name || authUser?.fullName || 'U').charAt(0).toUpperCase()}
+                      </span>
                     )}
                   </div>
                   {isEditing && (
@@ -188,11 +298,11 @@ const Profile = () => {
                     </label>
                   )}
                 </div>
-                <h2 className="text-xl font-bold text-white">{user.name}</h2>
-                <p className="text-gray-300 capitalize">{user.role}</p>
+                <h2 className="text-xl font-bold text-white">{authUser?.name || authUser?.fullName}</h2>
+                <p className="text-gray-300 capitalize">{userRole}</p>
                 <p className="text-sm text-gray-400 flex items-center justify-center mt-1">
                   <MapPin className="w-3 h-3 mr-1" />
-                  {user.location}
+                  {authUser?.location || authUser?.city || 'Location not set'}
                 </p>
               </div>
 
@@ -202,7 +312,7 @@ const Profile = () => {
                   { id: 'profile', label: 'Profile Information', icon: User },
                   { id: 'preferences', label: 'Preferences', icon: Bell },
                   { id: 'security', label: 'Security', icon: Shield },
-                  ...(user.role === 'organizer' ? [{ id: 'organizer', label: 'Organizer Tools', icon: Award }] : [])
+                  ...(userRole === 'organizer' ? [{ id: 'organizer', label: 'Organizer Tools', icon: Award }] : [])
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -224,17 +334,17 @@ const Profile = () => {
             <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 mt-6 glass-morphism">
               <h3 className="font-semibold text-white mb-4">Quick Stats</h3>
               <div className="space-y-3">
-                {user.role === 'organizer' ? (
+                {userRole === 'organizer' ? (
                   <>
-                    <StatItem icon={CalendarIcon} label="Events Hosted" value={stats.eventsHosted} />
-                    <StatItem icon={User} label="Total Attendees" value={stats.totalAttendees?.toLocaleString()} />
-                    <StatItem icon={Star} label="Average Rating" value={stats.averageRating} />
+                    <StatItem icon={CalendarIcon} label="Events Hosted" value={stats.eventsHosted || 0} />
+                    <StatItem icon={User} label="Total Attendees" value={(stats.totalAttendees || 0).toLocaleString()} />
+                    <StatItem icon={Star} label="Average Rating" value={stats.averageRating || '0.0'} />
                   </>
                 ) : (
                   <>
-                    <StatItem icon={Ticket} label="Events Attended" value={stats.eventsAttended} />
-                    <StatItem icon={Star} label="Reviews Written" value={stats.reviewsWritten} />
-                    <StatItem icon={TrendingUp} label="Upcoming Events" value={stats.upcomingEvents} />
+                    <StatItem icon={Ticket} label="Events Attended" value={stats.eventsAttended || 0} />
+                    <StatItem icon={Star} label="Tickets Purchased" value={stats.ticketsPurchased || 0} />
+                    <StatItem icon={TrendingUp} label="Upcoming Events" value={stats.upcomingEvents || 0} />
                   </>
                 )}
               </div>
@@ -270,8 +380,17 @@ const Profile = () => {
                         disabled={isSubmitting}
                         className="flex items-center px-4 py-2 text-sm font-medium bg-[#FF6B35] text-white rounded-lg hover:bg-[#E55A2B] disabled:opacity-50 transition-all duration-200 hover:scale-105"
                       >
-                        <Save className="w-4 h-4 mr-2" />
-                        {isSubmitting ? 'Saving...' : 'Save Changes'}
+                        {isSubmitting ? (
+                          <>
+                            <Loader className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
                       </button>
                     </div>
                   )}
@@ -327,6 +446,7 @@ const Profile = () => {
                         {...register('phone')}
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
+                        placeholder="+234 XXX XXX XXXX"
                       />
                     </div>
 
@@ -366,8 +486,37 @@ const Profile = () => {
                         {...register('location')}
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
-                        placeholder="Your city and country"
+                        placeholder="Lagos, Nigeria"
                       />
+                    </div>
+                  </div>
+
+                  {/* Account Info */}
+                  <div className="pt-6 border-t border-white/10">
+                    <h4 className="text-sm font-semibold text-white mb-3">Account Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">User ID:</span>
+                        <span className="ml-2 text-white">{authUser?._id?.slice(-8) || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Account Type:</span>
+                        <span className="ml-2 text-white capitalize">{userRole}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Member Since:</span>
+                        <span className="ml-2 text-white">
+                          {authUser?.createdAt 
+                            ? new Date(authUser.createdAt).toLocaleDateString('en-NG', { year: 'numeric', month: 'long' })
+                            : 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Email Verified:</span>
+                        <span className="ml-2 text-white">
+                          {authUser?.isVerified ? '✓ Yes' : '✗ No'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </form>
@@ -383,19 +532,19 @@ const Profile = () => {
                     icon={Bell}
                     label="Event Notifications"
                     description="Get notified about new events in your area"
-                    defaultChecked={user.preferences?.notifications}
+                    defaultChecked={authUser?.preferences?.notifications ?? true}
                   />
                   <PreferenceToggle
                     icon={Mail}
                     label="Email Newsletter"
                     description="Receive weekly updates and featured events"
-                    defaultChecked={user.preferences?.newsletter}
+                    defaultChecked={authUser?.preferences?.newsletter ?? true}
                   />
                   <PreferenceToggle
                     icon={Phone}
                     label="SMS Alerts"
                     description="Get text message reminders for your events"
-                    defaultChecked={user.preferences?.smsAlerts}
+                    defaultChecked={authUser?.preferences?.smsAlerts ?? false}
                   />
                 </div>
               </div>
@@ -429,7 +578,7 @@ const Profile = () => {
             )}
 
             {/* Organizer Tools Tab */}
-            {activeTab === 'organizer' && user.role === 'organizer' && (
+            {activeTab === 'organizer' && userRole === 'organizer' && (
               <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
                 <h3 className="text-lg font-semibold text-white mb-6">Organizer Tools</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -437,21 +586,25 @@ const Profile = () => {
                     icon={TrendingUp}
                     title="Event Analytics"
                     description="View detailed analytics for your events"
+                    value={`${stats.eventsHosted || 0} events`}
                   />
                   <OrganizerTool
                     icon={User}
                     title="Attendee Management"
                     description="Manage attendee lists and check-ins"
+                    value={`${(stats.totalAttendees || 0).toLocaleString()} total`}
                   />
                   <OrganizerTool
                     icon={CreditCard}
                     title="Revenue Reports"
                     description="Track your earnings and payments"
+                    value={`₦${(stats.revenue || 0).toLocaleString()}`}
                   />
                   <OrganizerTool
                     icon={Award}
                     title="Organizer Badge"
                     description="Get verified as a professional organizer"
+                    value={authUser?.isVerified ? 'Verified' : 'Pending'}
                   />
                 </div>
               </div>
@@ -475,22 +628,6 @@ const StatItem = ({ icon: Icon, label, value }) => (
       <span className="text-sm text-gray-300">{label}</span>
     </div>
     <span className="font-semibold text-white">{value}</span>
-  </div>
-);
-
-const ActivityItem = ({ activity }) => (
-  <div className="flex items-center space-x-4 p-3 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-102">
-    <div className="w-10 h-10 bg-[#FF6B35]/20 rounded-full flex items-center justify-center">
-      <Ticket className="w-5 h-5 text-[#FF6B35]" />
-    </div>
-    <div className="flex-1">
-      <h4 className="font-medium text-white">{activity.title}</h4>
-      <p className="text-sm text-gray-300">{activity.description}</p>
-      <p className="text-xs text-gray-400 mt-1">{activity.date}</p>
-    </div>
-    {activity.amount && (
-      <span className="font-semibold text-[#FF6B35]">₦{activity.amount.toLocaleString()}</span>
-    )}
   </div>
 );
 
@@ -525,11 +662,14 @@ const SecurityOption = ({ icon: Icon, title, description, action }) => (
   </div>
 );
 
-const OrganizerTool = ({ icon: Icon, title, description }) => (
+const OrganizerTool = ({ icon: Icon, title, description, value }) => (
   <div className="p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 cursor-pointer hover:scale-105">
     <Icon className="w-8 h-8 text-[#FF6B35] mb-3 transition-all duration-200 hover:scale-110" />
     <h4 className="font-semibold text-white mb-2">{title}</h4>
-    <p className="text-sm text-gray-300">{description}</p>
+    <p className="text-sm text-gray-300 mb-2">{description}</p>
+    {value && (
+      <p className="text-xs text-[#FF6B35] font-semibold">{value}</p>
+    )}
   </div>
 );
 

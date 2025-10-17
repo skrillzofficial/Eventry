@@ -14,6 +14,12 @@ import {
   Save,
   ArrowLeft,
   CheckCircle,
+  Plus,
+  Trash2,
+  Tag,
+  FileText,
+  Shield,
+  Gift,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -21,7 +27,7 @@ import { eventAPI, apiCall } from "../../services/api";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 
-// Enhanced validation schema to match backend requirements
+// Enhanced validation schema
 const eventSchema = yup.object().shape({
   title: yup
     .string()
@@ -33,6 +39,10 @@ const eventSchema = yup.object().shape({
     .required("Description is required")
     .min(50, "Description must be at least 50 characters")
     .max(2000, "Description must be less than 2000 characters"),
+  longDescription: yup
+    .string()
+    .optional()
+    .max(5000, "Long description must be less than 5000 characters"),
   category: yup.string().required("Category is required"),
   date: yup.string().required("Event date is required"),
   time: yup.string().required("Event time is required"),
@@ -57,7 +67,16 @@ const CreateEvent = () => {
   const { isAuthenticated, isOrganizer, user } = useAuth();
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploadedImages, setUploadedImages] = useState([]);
-  const [imageFiles, setImageFiles] = useState([]); 
+  const [imageFiles, setImageFiles] = useState([]);
+  
+  // New state for dynamic fields
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState("");
+  const [includes, setIncludes] = useState([]);
+  const [includeInput, setIncludeInput] = useState("");
+  const [requirements, setRequirements] = useState([]);
+  const [requirementInput, setRequirementInput] = useState("");
+  
   const navigate = useNavigate();
 
   const {
@@ -102,6 +121,42 @@ const CreateEvent = () => {
     "Other",
   ];
 
+  // Tag management
+  const addTag = () => {
+    if (tagInput.trim() && !tags.includes(tagInput.trim()) && tags.length < 10) {
+      setTags([...tags, tagInput.trim()]);
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (tagToRemove) => {
+    setTags(tags.filter((tag) => tag !== tagToRemove));
+  };
+
+  // What's Included management
+  const addInclude = () => {
+    if (includeInput.trim() && includes.length < 10) {
+      setIncludes([...includes, includeInput.trim()]);
+      setIncludeInput("");
+    }
+  };
+
+  const removeInclude = (index) => {
+    setIncludes(includes.filter((_, i) => i !== index));
+  };
+
+  // Requirements management
+  const addRequirement = () => {
+    if (requirementInput.trim() && requirements.length < 10) {
+      setRequirements([...requirements, requirementInput.trim()]);
+      setRequirementInput("");
+    }
+  };
+
+  const removeRequirement = (index) => {
+    setRequirements(requirements.filter((_, i) => i !== index));
+  };
+
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
 
@@ -114,13 +169,11 @@ const CreateEvent = () => {
     const newUploadedImages = [...uploadedImages];
 
     files.forEach((file) => {
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         setError("images", { message: "Only image files are allowed" });
         return;
       }
 
-      // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         setError("images", { message: "Image size must be less than 5MB" });
         return;
@@ -148,12 +201,17 @@ const CreateEvent = () => {
 
   const onSubmit = async (data) => {
     try {
-      // Prepare form data for file upload
       const formData = new FormData();
 
       // Append basic event data
       formData.append("title", data.title);
       formData.append("description", data.description);
+      
+      // long description if provided
+      if (data.longDescription) {
+        formData.append("longDescription", data.longDescription);
+      }
+      
       formData.append("category", data.category);
       formData.append("date", data.date);
       formData.append("time", data.time);
@@ -164,29 +222,42 @@ const CreateEvent = () => {
       formData.append("price", data.price);
       formData.append("capacity", data.capacity);
 
+      // Append tags, includes, and requirements as JSON strings
+      if (tags.length > 0) {
+        formData.append("tags", JSON.stringify(tags));
+      }
+      
+      if (includes.length > 0) {
+        formData.append("includes", JSON.stringify(includes));
+      }
+      
+      if (requirements.length > 0) {
+        formData.append("requirements", JSON.stringify(requirements));
+      }
+
       // Append images
-      imageFiles.forEach((file, index) => {
+      imageFiles.forEach((file) => {
         formData.append("images", file);
       });
 
       console.log("Submitting event data:", {
         ...data,
+        tags,
+        includes,
+        requirements,
         imageCount: imageFiles.length,
       });
 
-      // Call the backend API
       const result = await apiCall(eventAPI.createEvent, formData);
 
       if (result.success) {
         console.log("Event created successfully:", result.data);
         setShowSuccess(true);
 
-        // Redirect to organizer dashboard after success
         setTimeout(() => {
           navigate("/dashboard/organizer");
         }, 2000);
       } else {
-        // Handle API errors
         console.error("Event creation failed:", result.error);
         setError("root.serverError", {
           message: result.error || "Failed to create event. Please try again.",
@@ -200,7 +271,6 @@ const CreateEvent = () => {
     }
   };
 
-  // Show authentication prompt for unauthenticated users
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -231,7 +301,6 @@ const CreateEvent = () => {
     );
   }
 
-  // Show organizer requirement for authenticated non-organizers
   if (!isOrganizer) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -267,7 +336,6 @@ const CreateEvent = () => {
     );
   }
 
-  // Success modal
   if (showSuccess) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -292,7 +360,6 @@ const CreateEvent = () => {
     );
   }
 
-  // Main create event form
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -317,14 +384,14 @@ const CreateEvent = () => {
 
         {/* Server Error */}
         {errors.root?.serverError && (
-          <div className="w-11/12 mx-auto container mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-700">{errors.root.serverError.message}</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {/* Event Basic Information */}
-          <div className="w-11/12 mx-auto container bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Basic Information
             </h3>
@@ -370,13 +437,13 @@ const CreateEvent = () => {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description *
+                  Short Description *
                 </label>
                 <textarea
                   {...register("description")}
-                  rows={4}
+                  rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                  placeholder="Describe your event in detail..."
+                  placeholder="Brief description of your event (50-2000 characters)"
                 />
                 {errors.description && (
                   <p className="text-red-600 text-sm mt-1">
@@ -384,11 +451,31 @@ const CreateEvent = () => {
                   </p>
                 )}
               </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Detailed Description (Optional)
+                </label>
+                <textarea
+                  {...register("longDescription")}
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  placeholder="Provide a more detailed description of your event, including agenda, speakers, activities, etc."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This will be displayed in the "About this event" section
+                </p>
+                {errors.longDescription && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.longDescription.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Date & Time */}
-          <div className="w-11/12 mx-auto container bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Date & Time
             </h3>
@@ -447,7 +534,7 @@ const CreateEvent = () => {
           </div>
 
           {/* Location */}
-          <div className="w-11/12 mx-auto container bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Location
             </h3>
@@ -511,7 +598,7 @@ const CreateEvent = () => {
           </div>
 
           {/* Ticket Information */}
-          <div className="w-11/12 mx-auto container bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Ticket Information
             </h3>
@@ -555,8 +642,168 @@ const CreateEvent = () => {
             </div>
           </div>
 
+          {/* What's Included */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Gift className="h-5 w-5 text-[#FF6B35]" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                What's Included
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              List what attendees will get with their ticket (e.g., refreshments, materials, certificates)
+            </p>
+            
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={includeInput}
+                onChange={(e) => setIncludeInput(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addInclude())}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                placeholder="e.g., Refreshments and meals"
+              />
+              <button
+                type="button"
+                onClick={addInclude}
+                className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
+
+            {includes.length > 0 && (
+              <div className="space-y-2">
+                {includes.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg"
+                  >
+                    <span className="text-gray-700">{item}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeInclude(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Requirements */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="h-5 w-5 text-[#FF6B35]" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Requirements
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              List what attendees need to bring or have (e.g., Valid ID, laptop, business card)
+            </p>
+            
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={requirementInput}
+                onChange={(e) => setRequirementInput(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addRequirement())}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                placeholder="e.g., Valid government-issued ID"
+              />
+              <button
+                type="button"
+                onClick={addRequirement}
+                className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
+
+            {requirements.length > 0 && (
+              <div className="space-y-2">
+                {requirements.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg"
+                  >
+                    <span className="text-gray-700">{item}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeRequirement(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Tags */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="h-5 w-5 text-[#FF6B35]" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Event Tags
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Add tags to help people discover your event (max 10 tags)
+            </p>
+            
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                placeholder="e.g., startup, innovation, AI"
+              />
+              <button
+                type="button"
+                onClick={addTag}
+                disabled={tags.length >= 10}
+                className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
+
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-2 bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="hover:bg-white/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-2">
+              {tags.length}/10 tags added
+            </p>
+          </div>
+
           {/* Event Images */}
-          <div className="w-11/12 mx-auto container bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Event Images (Max 3)
             </h3>
@@ -606,7 +853,7 @@ const CreateEvent = () => {
           </div>
 
           {/* Submit Section */}
-          <div className="w-11/12 mx-auto container bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
               <div className="text-center lg:text-left">
                 <h3 className="text-lg font-semibold text-gray-900">

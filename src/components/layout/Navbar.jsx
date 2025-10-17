@@ -23,7 +23,7 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  //  AuthContext for authentication state
+  // Use AuthContext for authentication state
   const { isAuthenticated, user, logout, loading } = useAuth();
 
   // Check if current page is Discover Events
@@ -101,11 +101,17 @@ const Navbar = () => {
   // Navigation links based on authentication
   const authenticatedLinks = [
     { path: "/discover", label: "Discover Events", icon: Ticket },
-    { path: "/dashboard/events", label: "My Events", icon: Calendar },
-    ...(user?.role === "organizer" &&
-    !location.pathname.includes("/create-event")
-      ? [{ path: "/create-event", label: "Create Event" }]
-      : []),
+    ...(user?.role === "organizer" 
+      ? [
+          { path: "/dashboard/organizer/events", label: "My Events", icon: Calendar },
+          ...(!location.pathname.includes("/create-event")
+            ? [{ path: "/create-event", label: "Create Event" }]
+            : [])
+        ]
+      : [
+          { path: "/my-tickets", label: "My Tickets", icon: Ticket },
+          { path: "/dashboard/events", label: "My Events", icon: Calendar }
+        ]),
   ];
 
   const unauthenticatedLinks = [
@@ -113,7 +119,6 @@ const Navbar = () => {
     ...(!location.pathname.includes("/create-event")
       ? [{ path: "/create-event", label: "Create Events" }]
       : []),
-    { path: "/team", label: "Team", icon: null },
   ];
 
   // Show loading state
@@ -130,7 +135,7 @@ const Navbar = () => {
     );
   }
 
-  // links to show
+  // Determine which links to show
   const navLinks = isAuthenticated ? authenticatedLinks : unauthenticatedLinks;
 
   return (
@@ -140,7 +145,13 @@ const Navbar = () => {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <NavLink
-              to={isAuthenticated ? "/dashboard" : "/"}
+              to={
+                isAuthenticated
+                  ? user?.role === "organizer"
+                    ? "/dashboard/organizer"
+                    : "/dashboard"
+                  : "/"
+              }
               className="flex items-center group"
             >
               <img className="h-13 w-auto" src={Brandlogo} alt="Logo" />
@@ -149,7 +160,7 @@ const Navbar = () => {
               </span>
             </NavLink>
 
-            {/* Search Bar - Desktop - Hidden on Discover Page */}
+            {/* Search Bar - Desktop  */}
             {!isDiscoverPage && (
               <div className="hidden lg:flex flex-1 max-w-md mx-8">
                 <form onSubmit={handleSearch} className="relative w-full">
