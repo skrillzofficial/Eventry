@@ -187,7 +187,7 @@ export const superadminAPI = {
   deleteUser: (userId) => 
     apiClient.delete(`/admin/users/${userId}/delete`),
 
-  // Event Management (admin perspective)
+  // Event Management
   getAllEventsAdmin: (params = {}) => 
     apiClient.get("/admin/events", { params }),
   

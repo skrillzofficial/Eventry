@@ -66,7 +66,7 @@ const eventSchema = yup.object().shape({
 
 const EditEvent = () => {
   const { id } = useParams();
-  const { isAuthenticated, isOrganizer } = useAuth();
+  const { isAuthenticated, isOrganizer, user } = useAuth(); // ADDED user here
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState(null);
@@ -74,7 +74,7 @@ const EditEvent = () => {
   const [existingImages, setExistingImages] = useState([]);
   const [imageFiles, setImageFiles] = useState([]);
   const [imagesToDelete, setImagesToDelete] = useState([]);
-  
+
   // Dynamic fields
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState("");
@@ -82,7 +82,7 @@ const EditEvent = () => {
   const [includeInput, setIncludeInput] = useState("");
   const [requirements, setRequirements] = useState([]);
   const [requirementInput, setRequirementInput] = useState("");
-  
+
   const navigate = useNavigate();
 
   const {
@@ -128,6 +128,16 @@ const EditEvent = () => {
     "Other",
   ];
 
+  // Debug user info
+  useEffect(() => {
+    console.log("EditEvent - Current User:", {
+      userId: user?.id,
+      userRole: user?.role,
+      userName: user?.name,
+      eventId: id,
+    });
+  }, [user, id]);
+
   // Load event data
   useEffect(() => {
     if (id) {
@@ -143,6 +153,13 @@ const EditEvent = () => {
       if (result.success) {
         const eventData = result.data.event || result.data;
         setEvent(eventData);
+
+        // Debug event organizer info
+        console.log("Event Data - Organizer Info:", {
+          eventOrganizer: eventData.organizer,
+          eventOrganizerId: eventData.organizer?._id || eventData.organizer,
+          currentUserId: user?.id,
+        });
 
         // Populate form fields
         setValue("title", eventData.title);
@@ -165,10 +182,12 @@ const EditEvent = () => {
 
         // Set existing images
         const images = eventData.images || [];
-        setExistingImages(images.map((img, index) => ({
-          url: typeof img === "object" ? img.url : img,
-          id: typeof img === "object" ? img.public_id : `existing-${index}`,
-        })));
+        setExistingImages(
+          images.map((img, index) => ({
+            url: typeof img === "object" ? img.url : img,
+            id: typeof img === "object" ? img.public_id : `existing-${index}`,
+          }))
+        );
       } else {
         setError("root.serverError", {
           message: "Failed to load event data",
@@ -186,7 +205,11 @@ const EditEvent = () => {
 
   // Tag management
   const addTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim()) && tags.length < 10) {
+    if (
+      tagInput.trim() &&
+      !tags.includes(tagInput.trim()) &&
+      tags.length < 10
+    ) {
       setTags([...tags, tagInput.trim()]);
       setTagInput("");
     }
@@ -223,7 +246,8 @@ const EditEvent = () => {
   // Image management
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-    const totalImages = existingImages.length + uploadedImages.length + files.length;
+    const totalImages =
+      existingImages.length + uploadedImages.length + files.length;
 
     if (totalImages > 3) {
       setError("images", { message: "Maximum 3 images allowed in total" });
@@ -276,11 +300,11 @@ const EditEvent = () => {
       // Append basic event data
       formData.append("title", data.title);
       formData.append("description", data.description);
-      
+
       if (data.longDescription) {
         formData.append("longDescription", data.longDescription);
       }
-      
+
       formData.append("category", data.category);
       formData.append("date", data.date);
       formData.append("time", data.time);
@@ -295,18 +319,21 @@ const EditEvent = () => {
       if (tags.length > 0) {
         formData.append("tags", JSON.stringify(tags));
       }
-      
+
       if (includes.length > 0) {
         formData.append("includes", JSON.stringify(includes));
       }
-      
+
       if (requirements.length > 0) {
         formData.append("requirements", JSON.stringify(requirements));
       }
 
       // Append existing images that weren't deleted
       if (existingImages.length > 0) {
-        formData.append("existingImages", JSON.stringify(existingImages.map(img => img.url)));
+        formData.append(
+          "existingImages",
+          JSON.stringify(existingImages.map((img) => img.url))
+        );
       }
 
       // Append images to delete
@@ -712,13 +739,15 @@ const EditEvent = () => {
             <p className="text-sm text-gray-600 mb-4">
               List what attendees will get with their ticket
             </p>
-            
+
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
                 value={includeInput}
                 onChange={(e) => setIncludeInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addInclude())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addInclude())
+                }
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 placeholder="e.g., Refreshments and meals"
               />
@@ -736,7 +765,7 @@ const EditEvent = () => {
               <div className="space-y-2">
                 {includes.map((item, index) => (
                   <div
-                    key={index}
+                    key={`include-${index}-${item}`}
                     className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg"
                   >
                     <span className="text-gray-700">{item}</span>
@@ -764,13 +793,15 @@ const EditEvent = () => {
             <p className="text-sm text-gray-600 mb-4">
               List what attendees need to bring or have
             </p>
-            
+
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
                 value={requirementInput}
                 onChange={(e) => setRequirementInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addRequirement())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addRequirement())
+                }
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 placeholder="e.g., Valid government-issued ID"
               />
@@ -788,7 +819,7 @@ const EditEvent = () => {
               <div className="space-y-2">
                 {requirements.map((item, index) => (
                   <div
-                    key={index}
+                    key={`include-${index}-${item}`}
                     className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg"
                   >
                     <span className="text-gray-700">{item}</span>
@@ -816,13 +847,15 @@ const EditEvent = () => {
             <p className="text-sm text-gray-600 mb-4">
               Add tags to help people discover your event (max 10 tags)
             </p>
-            
+
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addTag())
+                }
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 placeholder="e.g., startup, innovation, AI"
               />
@@ -841,7 +874,7 @@ const EditEvent = () => {
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
                   <span
-                    key={tag}
+                    key={`tag-${tag}`}
                     className="inline-flex items-center gap-2 bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm"
                   >
                     {tag}
@@ -922,7 +955,7 @@ const EditEvent = () => {
               )}
 
               {/* Upload New Images */}
-              {(existingImages.length + uploadedImages.length) < 3 && (
+              {existingImages.length + uploadedImages.length < 3 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Upload New Images
@@ -935,7 +968,8 @@ const EditEvent = () => {
                     className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6B35] file:text-white hover:file:bg-[#FF8535]"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB per image.
+                    Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB
+                    per image.
                   </p>
                   {errors.images && (
                     <p className="text-red-600 text-sm mt-1">
