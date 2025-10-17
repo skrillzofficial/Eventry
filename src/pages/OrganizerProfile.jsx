@@ -271,7 +271,6 @@ const OrganizerDashboard = () => {
   const downloadEventReport = (event) => {
     const reportData = `
 EVENT REPORT
-═══════════════════════════════════════
 
 Event: ${event.title}
 Date: ${new Date(event.date).toLocaleDateString()}
@@ -288,7 +287,6 @@ Ticket Price: ₦${event.price?.toLocaleString()}
 STATUS: ${event.status.toUpperCase()}
 
 Generated: ${new Date().toLocaleString()}
-═══════════════════════════════════════
     `.trim();
 
     const blob = new Blob([reportData], { type: "text/plain" });
@@ -467,7 +465,7 @@ Generated: ${new Date().toLocaleString()}
   );
 };
 
-// Component definitions remain the same as before
+
 const StatCard = ({ title, value, icon: Icon, change }) => (
   <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism hover:scale-105 transition-all duration-300">
     <div className="flex items-center justify-between">
@@ -502,7 +500,7 @@ const QuickActionsSection = () => (
         <span className="text-sm font-medium text-white">Create Event</span>
       </Link>
       <Link
-        to="/my-events"
+        to="/dashboard/organizer/events"
         className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
       >
         <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">

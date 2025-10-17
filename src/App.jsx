@@ -27,6 +27,7 @@ import VerifyEmail from "./Auths/VerifyEmail";
 import ResendVerification from "./Auths/ResendVerification";
 import ForgotPassword from "./Auths/ForgotPassword";
 import ResetPassword from "./Auths/ResetPassword";
+import EditEvent from "./pages/dashboard/EditEvent";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,7 @@ function App() {
             <Route path="/dashboard/settings" element={<Settings />} />
             <Route path="/dashboard/wallet" element={<WalletComponent />} />
             <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
-            <Route path="/my-tickets" element={<MyTickets />} /> {/* ADD THIS ROUTE */}
+            <Route path="/my-tickets" element={<MyTickets />} />
 
             {/* Auth Routes */}
             <Route path="/signup" element={<SignUp />} />
@@ -81,10 +82,13 @@ function App() {
             <Route path="/discover" element={<DiscoverEvents />} />
             <Route path="/event/:id" element={<EventPage />} />
             
-            {/* MyEvents routes */}
+            {/* Organizer Event Routes */}
             <Route path="/dashboard/organizer/events" element={<MyEvents />} />
             <Route path="/dashboard/events" element={<MyEvents />} />
             <Route path="/organizer/events/create" element={<CreateEvent />} />
+            
+            {/* EditEvent route with ID parameter */}
+            <Route path="/organizer/events/edit/:id" element={<EditEvent />} />
           </Routes>
         </BrowserRouter>
       </EventProvider>
