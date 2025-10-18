@@ -29,7 +29,6 @@ import eventOne from "../../assets/Vision one.png";
 import eventTwo from "../../assets/Vision 2.png";
 import eventThree from "../../assets/vision 3.png";
 
-// map potential stored paths to actual imports
 const imageMap = {
   "/src/assets/Vision one.png": eventOne,
   "/src/assets/Vision 2.png": eventTwo,
@@ -49,6 +48,7 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [ticketQuantity, setTicketQuantity] = useState(1);
+  const [selectedTicketType, setSelectedTicketType] = useState(null);
   const [activeTab, setActiveTab] = useState("details");
   const [showCheckout, setShowCheckout] = useState(false);
   const [error, setError] = useState(null);
@@ -76,15 +76,12 @@ export default function EventPage() {
         const mappedImages =
           rawImages.length > 0
             ? rawImages.map((img) => {
-                // If img is an object with url property (Cloudinary format)
                 if (img && typeof img === "object" && img.url) {
                   return img.url;
                 }
-                // If img is already a string URL
                 if (typeof img === "string") {
                   return img;
                 }
-                // Check if it matches a local image path
                 return imageMap[img] || fallbackImage;
               })
             : [fallbackImage];
@@ -94,7 +91,6 @@ export default function EventPage() {
           id: eventData._id || eventData.id,
           images: mappedImages,
 
-          // Organizer mapping (from organizerInfo in backend)
           organizer: {
             name:
               eventData.organizerInfo?.name ||
@@ -109,19 +105,16 @@ export default function EventPage() {
             rating: eventData.organizerInfo?.rating || 4.5,
           },
 
-          // Tags - handle both array and empty array
           tags:
             Array.isArray(eventData.tags) && eventData.tags.length > 0
               ? eventData.tags
               : [eventData.category].filter(Boolean),
 
-          // Includes - from Edit Event form
           includes:
             Array.isArray(eventData.includes) && eventData.includes.length > 0
               ? eventData.includes
               : ["Event access", "Networking opportunities"],
 
-          // Requirements - handle both array and string from backend
           requirements: (() => {
             if (Array.isArray(eventData.requirements)) {
               return eventData.requirements;
@@ -135,7 +128,6 @@ export default function EventPage() {
             return ["Valid ID", "Ticket confirmation"];
           })(),
 
-          // Backend API fields
           rating: eventData.rating || 4.5,
           reviews: eventData.totalLikes || 0,
           attendees: eventData.totalAttendees || 0,
@@ -152,11 +144,21 @@ export default function EventPage() {
           currency: eventData.currency || "NGN",
           agenda: Array.isArray(eventData.agenda) ? eventData.agenda : [],
           faqs: Array.isArray(eventData.faqs) ? eventData.faqs : [],
-
-          // Description handling - prioritize longDescription from Edit Event
           longDescription: eventData.longDescription || eventData.description,
+          
+          //Handle ticket types
+          ticketTypes: Array.isArray(eventData.ticketTypes) && eventData.ticketTypes.length > 0
+            ? eventData.ticketTypes
+            : null,
         };
+        
         setEvent(eventWithImages);
+        
+        //Auto-select first ticket type
+        if (eventWithImages.ticketTypes && eventWithImages.ticketTypes.length > 0) {
+          setSelectedTicketType(eventWithImages.ticketTypes[0]);
+        }
+        
         loadRelatedEvents(eventData.category, eventData._id || eventData.id);
       } else {
         throw new Error(result.error || "Failed to load event");
@@ -189,7 +191,6 @@ export default function EventPage() {
             const img =
               ev.images && ev.images[0] ? ev.images[0] : fallbackImage;
 
-            // Extract URL if it's an object with url property
             let imageUrl = fallbackImage;
             if (img && typeof img === "object" && img.url) {
               imageUrl = img.url;
@@ -212,13 +213,12 @@ export default function EventPage() {
       console.error("Error loading related events:", err);
     }
   };
+
   const handlePaymentSuccess = (result) => {
     setShowCheckout(false);
-    // You may replace this alert with a toast
     alert(
       `Payment successful — ${result.tickets} tickets for ${result.event.title}. Transaction: ${result.transactionId}`
     );
-    // Refresh event data to update attendee count
     loadEvent();
   };
 
@@ -237,10 +237,29 @@ export default function EventPage() {
 
   const handleGetTickets = () => {
     if (!isAuthenticated) {
-      // optionally show a toast
       return;
     }
     setShowCheckout(true);
+  };
+
+  //Helper to get price range for events with ticket types
+  const getPriceDisplay = (ev) => {
+    if (ev.ticketTypes && ev.ticketTypes.length > 0) {
+      const prices = ev.ticketTypes.map(t => t.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      
+      if (minPrice === 0 && maxPrice === 0) {
+        return "Free";
+      }
+      if (minPrice === maxPrice) {
+        return `₦${minPrice.toLocaleString()}`;
+      }
+      return `₦${minPrice.toLocaleString()} - ₦${maxPrice.toLocaleString()}`;
+    }
+    
+    // Fallback to legacy price
+    return ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`;
   };
 
   if (loading) {
@@ -359,13 +378,11 @@ export default function EventPage() {
           <div className="w-full lg:w-56 flex-shrink-0">
             <div className="bg-white border border-gray-200 rounded-lg p-4 text-center shadow-sm">
               <div className="text-lg text-gray-700 font-semibold">
-                {ev.price === 0
-                  ? "Free"
-                  : `${
-                      ev.currency === "NGN" ? "₦" : "$"
-                    }${ev.price.toLocaleString()}`}
+                {getPriceDisplay(ev)}
               </div>
-              <div className="text-sm text-gray-500 mb-4">per ticket</div>
+              <div className="text-sm text-gray-500 mb-4">
+                {ev.ticketTypes && ev.ticketTypes.length > 1 ? "Price range" : "per ticket"}
+              </div>
 
               <div className="flex items-center justify-center gap-2 mb-3">
                 <button
@@ -452,7 +469,6 @@ export default function EventPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 About this event
               </h3>
-              {/* Display longDescription with proper formatting */}
               <div className="prose max-w-none text-gray-700">
                 <p className="whitespace-pre-wrap">
                   {ev.longDescription ||
@@ -486,7 +502,6 @@ export default function EventPage() {
                 </div>
               </div>
 
-              {/* Display tags if available */}
               {ev.tags.length > 0 && (
                 <div className="mt-6">
                   <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
@@ -647,13 +662,88 @@ export default function EventPage() {
     );
   };
 
+  // Enhanced Ticket Card with Ticket Type Selection
   const TicketCard = ({ ev }) => {
-    const available = Math.max(0, ev.capacity - (ev.attendees || 0));
-    const total = ev.price * ticketQuantity;
+    const hasTicketTypes = ev.ticketTypes && ev.ticketTypes.length > 0;
+    
+    // Calculate available tickets based on ticket type or legacy
+    const getAvailableTickets = () => {
+      if (hasTicketTypes && selectedTicketType) {
+        return selectedTicketType.availableTickets;
+      }
+      return Math.max(0, ev.capacity - (ev.attendees || 0));
+    };
+    
+    const available = getAvailableTickets();
+    
+    // Calculate total price
+    const getPrice = () => {
+      if (hasTicketTypes && selectedTicketType) {
+        return selectedTicketType.price;
+      }
+      return ev.price;
+    };
+    
+    const price = getPrice();
+    const total = price * ticketQuantity;
 
     return (
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
         <div className="space-y-4">
+          {/*Ticket Type Selection */}
+          {hasTicketTypes && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Ticket Type
+              </label>
+              <div className="space-y-2">
+                {ev.ticketTypes.map((ticketType, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setSelectedTicketType(ticketType);
+                      setTicketQuantity(1); 
+                    }}
+                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                      selectedTicketType?.name === ticketType.name
+                        ? "border-[#FF6B35] bg-[#FFF6F2]"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">
+                          {ticketType.name}
+                        </div>
+                        {ticketType.description && (
+                          <div className="text-xs text-gray-600 mt-0.5">
+                            {ticketType.description}
+                          </div>
+                        )}
+                        {ticketType.benefits && ticketType.benefits.length > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            • {ticketType.benefits.join(" • ")}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-[#FF6B35]">
+                          {ticketType.price === 0 
+                            ? "Free" 
+                            : `₦${ticketType.price.toLocaleString()}`
+                          }
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {ticketType.availableTickets} left
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <label className="block text-sm text-gray-700">
             Number of tickets
           </label>
@@ -671,8 +761,8 @@ export default function EventPage() {
             </div>
 
             <button
-              onClick={() => setTicketQuantity(ticketQuantity + 1)}
-              disabled={!isAuthenticated || authLoading || available === 0}
+              onClick={() => setTicketQuantity(Math.min(available, ticketQuantity + 1))}
+              disabled={!isAuthenticated || authLoading || available === 0 || ticketQuantity >= available}
               className="px-4 py-2 text-gray-700 disabled:opacity-50"
             >
               +
@@ -681,7 +771,16 @@ export default function EventPage() {
 
           {available === 0 && (
             <div className="text-sm text-red-600 bg-red-50 p-2 rounded text-center">
-              Sold out!
+              {hasTicketTypes && selectedTicketType 
+                ? `${selectedTicketType.name} tickets sold out!` 
+                : "Sold out!"
+              }
+            </div>
+          )}
+
+          {available > 0 && available <= 10 && (
+            <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded text-center">
+              Only {available} tickets left!
             </div>
           )}
 
@@ -689,17 +788,23 @@ export default function EventPage() {
             <div className="flex justify-between">
               <span>Price</span>
               <span>
-                {ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`}
+                {price === 0 ? "Free" : `₦${price.toLocaleString()}`}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Quantity</span>
               <span>{ticketQuantity}</span>
             </div>
-            <div className="flex justify-between font-semibold text-gray-900 mt-2">
+            {hasTicketTypes && selectedTicketType && (
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Ticket Type</span>
+                <span>{selectedTicketType.name}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold text-gray-900 mt-2 pt-2 border-t">
               <span>Total</span>
               <span>
-                {ev.price === 0 ? "Free" : `₦${total.toLocaleString()}`}
+                {price === 0 ? "Free" : `₦${total.toLocaleString()}`}
               </span>
             </div>
           </div>
@@ -712,7 +817,7 @@ export default function EventPage() {
             <button
               onClick={handleGetTickets}
               disabled={available === 0}
-              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
               <Ticket className="inline-block h-4 w-4 mr-2" />
               {available === 0 ? "Sold Out" : "Get tickets now"}
@@ -724,7 +829,7 @@ export default function EventPage() {
               </div>
               <Link
                 to="/login"
-                className="block w-full bg-[#FF6B35] text-white py-2 rounded font-semibold text-center"
+                className="block w-full bg-[#FF6B35] text-white py-2 rounded font-semibold text-center hover:bg-[#FF8535] transition-colors"
               >
                 Sign in
               </Link>
@@ -747,7 +852,7 @@ export default function EventPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <Link
           to="/discover"
-          className="inline-flex items-center text-[#FF6B35] mb-6"
+          className="inline-flex items-center text-[#FF6B35] mb-6 hover:text-[#FF8535] transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Discover
         </Link>
@@ -762,62 +867,119 @@ export default function EventPage() {
 
           <div className="space-y-6">
             <TicketCard ev={event} />
+            
+            {/* Event Statistics with Ticket Type Breakdown */}
             <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-              <h4 className="font-semibold text-gray-900 mb-2">
+              <h4 className="font-semibold text-gray-900 mb-3">
                 Event statistics
               </h4>
-              <div className="text-sm text-gray-700 grid gap-2">
-                <div className="flex justify-between">
-                  <span>Capacity</span>
-                  <span>{(event.capacity || 0).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Attendees</span>
-                  <span>{(event.attendees || 0).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Available</span>
-                  <span>
-                    {Math.max(
-                      0,
-                      (event.capacity || 0) - (event.attendees || 0)
-                    ).toLocaleString()}
-                  </span>
-                </div>
-                <div className="pt-2">
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-2 bg-[#FF6B35]"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          ((event.attendees || 0) / (event.capacity || 1)) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-600 mt-1">
-                    <span>
-                      {Math.round(
-                        ((event.attendees || 0) / (event.capacity || 1)) * 100
-                      )}
-                      % booked
-                    </span>
-                    <span>
-                      {Math.max(
-                        0,
-                        (event.capacity || 0) - (event.attendees || 0)
-                      )}{" "}
-                      left
-                    </span>
-                  </div>
-                </div>
+              <div className="text-sm text-gray-700 space-y-2">
+                {event.ticketTypes && event.ticketTypes.length > 0 ? (
+                  <>
+                    {/* Show ticket type breakdown */}
+                    <div className="space-y-2 mb-3">
+                      {event.ticketTypes.map((tt, idx) => (
+                        <div key={idx} className="pb-2 border-b border-gray-100 last:border-0">
+                          <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
+                            <span>{tt.name}</span>
+                            <span>₦{tt.price.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span>Capacity: {tt.capacity}</span>
+                            <span>Available: {tt.availableTickets}</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
+                            <div
+                              className="h-1.5 bg-[#FF6B35]"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  ((tt.capacity - tt.availableTickets) / tt.capacity) * 100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Total statistics */}
+                    <div className="pt-2 border-t border-gray-200">
+                      <div className="flex justify-between font-medium">
+                        <span>Total Capacity</span>
+                        <span>{event.capacity.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Attendees</span>
+                        <span>{(event.attendees || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Available</span>
+                        <span>
+                          {event.ticketTypes
+                            .reduce((sum, tt) => sum + tt.availableTickets, 0)
+                            .toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Legacy single ticket type display */}
+                    <div className="flex justify-between">
+                      <span>Capacity</span>
+                      <span>{(event.capacity || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Attendees</span>
+                      <span>{(event.attendees || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Available</span>
+                      <span>
+                        {Math.max(
+                          0,
+                          (event.capacity || 0) - (event.attendees || 0)
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="pt-2">
+                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-2 bg-[#FF6B35]"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              ((event.attendees || 0) / (event.capacity || 1)) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-600 mt-1">
+                        <span>
+                          {Math.round(
+                            ((event.attendees || 0) / (event.capacity || 1)) * 100
+                          )}
+                          % booked
+                        </span>
+                        <span>
+                          {Math.max(
+                            0,
+                            (event.capacity || 0) - (event.attendees || 0)
+                          )}{" "}
+                          left
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                
                 {!authLoading && (
                   <div className="pt-2 text-sm text-gray-700">
                     Your access:{" "}
                     <span
                       className={
-                        isAuthenticated ? "text-green-600" : "text-yellow-600"
+                        isAuthenticated ? "text-green-600 font-medium" : "text-yellow-600 font-medium"
                       }
                     >
                       {isAuthenticated ? "Ready to book" : "Sign in required"}
@@ -832,7 +994,12 @@ export default function EventPage() {
 
       {showCheckout && (
         <CheckoutFlow
-          event={event}
+          event={{
+            ...event,
+            // Pass selected ticket type info to checkout
+            selectedTicketType: selectedTicketType,
+            ticketPrice: selectedTicketType ? selectedTicketType.price : event.price,
+          }}
           ticketQuantity={ticketQuantity}
           onSuccess={handlePaymentSuccess}
           onClose={() => setShowCheckout(false)}

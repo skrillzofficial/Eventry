@@ -331,7 +331,7 @@ const QuickActionsSection = ({ userRole }) => (
               <p className="text-sm text-gray-600">Find new experiences</p>
             </div>
           </Link>
-          <Link to="/dashboard/tickets" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-gray-50 transition-all group transform hover:scale-105">
+          <Link to="/my-tickets" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-gray-50 transition-all group transform hover:scale-105">
             <div className="p-2 bg-[#FF6B35] rounded-lg mr-4 group-hover:scale-110 transition-transform">
               <Ticket className="h-5 w-5 text-white" />
             </div>

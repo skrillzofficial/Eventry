@@ -8,6 +8,8 @@ import {
   MapPin,
   Users,
   Clock,
+  Ticket,
+  TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/layout/Navbar";
@@ -45,12 +47,64 @@ const DiscoverEvents = () => {
 
   useEffect(() => {
     loadEvents();
-    loadCategoriesAndCities();
   }, []);
+
+  useEffect(() => {
+    if (events.length > 0) {
+      loadCategoriesAndCities();
+    }
+  }, [events]);
 
   useEffect(() => {
     filterEvents();
   }, [events, searchTerm, filters]);
+
+  //  Helper function to get price display for ticket types
+  const getPriceDisplay = (event) => {
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      const prices = event.ticketTypes.map(t => t.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      
+      if (minPrice === 0 && maxPrice === 0) {
+        return { text: "Free", range: false };
+      }
+      
+      if (minPrice === maxPrice) {
+        return { 
+          text: minPrice === 0 ? "Free" : `₦${minPrice.toLocaleString()}`,
+          range: false
+        };
+      }
+      
+      return { 
+        text: `₦${minPrice.toLocaleString()} - ₦${maxPrice.toLocaleString()}`,
+        range: true
+      };
+    }
+    
+    // Legacy single price
+    return { 
+      text: event.price === 0 ? "Free" : `₦${event.price.toLocaleString()}`,
+      range: false
+    };
+  };
+
+  //  Helper to get minimum price for filtering
+  const getMinPrice = (event) => {
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      return Math.min(...event.ticketTypes.map(t => t.price));
+    }
+    return event.price || 0;
+  };
+
+  //  Helper to get available tickets count
+  const getAvailableTickets = (event) => {
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      return event.ticketTypes.reduce((sum, tt) => sum + (tt.availableTickets || 0), 0);
+    }
+    return event.availableTickets || event.capacity || 0;
+  };
 
   // Load all events from backend
   const loadEvents = async () => {
@@ -97,14 +151,19 @@ const DiscoverEvents = () => {
             price: event.price || 0,
             capacity: event.capacity || 0,
             ticketsSold: event.ticketsSold || 0,
+            availableTickets: event.availableTickets || 0,
             image: eventImage,
             images: event.images || [],
             tags: event.tags || [event.category].filter(Boolean),
             organizer: event.organizer || { name: "Unknown Organizer" },
             rating: event.rating || 4.5,
-            attendees: event.attendees || Math.floor(Math.random() * 100),
+            attendees: event.totalAttendees || event.attendees || 0,
             status: event.status || "active",
             createdAt: event.createdAt,
+            ticketTypes: Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 
+              ? event.ticketTypes 
+              : null,
+            isFeatured: event.isFeatured || false,
           };
         });
 
@@ -158,7 +217,7 @@ const DiscoverEvents = () => {
     }
   };
 
-  // Filter events
+  // Filter events with ticket type price support
   const filterEvents = () => {
     const results = events.filter((event) => {
       const search = searchTerm.toLowerCase();
@@ -185,14 +244,16 @@ const DiscoverEvents = () => {
         new Date(event.date).toDateString() ===
           new Date(filters.date).toDateString();
 
+      //  Price filtering with ticket types
+      const minPrice = getMinPrice(event);
       const matchesPrice =
         !filters.priceRange ||
-        (filters.priceRange === "free" && event.price === 0) ||
-        (filters.priceRange === "under5k" && event.price <= 5000) ||
+        (filters.priceRange === "free" && minPrice === 0) ||
+        (filters.priceRange === "under5k" && minPrice <= 5000) ||
         (filters.priceRange === "5k-15k" &&
-          event.price > 5000 &&
-          event.price <= 15000) ||
-        (filters.priceRange === "over15k" && event.price > 15000);
+          minPrice > 5000 &&
+          minPrice <= 15000) ||
+        (filters.priceRange === "over15k" && minPrice > 15000);
 
       return (
         matchesSearch &&
@@ -203,15 +264,15 @@ const DiscoverEvents = () => {
       );
     });
 
-    // Sort results
+    //  Sort results with ticket type price support
     results.sort((a, b) => {
       switch (filters.sortBy) {
         case "date":
           return new Date(a.date) - new Date(b.date);
         case "price-low":
-          return a.price - b.price;
+          return getMinPrice(a) - getMinPrice(b);
         case "price-high":
-          return b.price - a.price;
+          return getMinPrice(b) - getMinPrice(a);
         case "rating":
           return (b.rating || 0) - (a.rating || 0);
         case "popularity":
@@ -246,12 +307,6 @@ const DiscoverEvents = () => {
       day: "numeric",
       year: "numeric",
     });
-  };
-
-  // Format price for display
-  const formatPrice = (price) => {
-    if (price === 0) return "Free";
-    return `₦${price.toLocaleString()}`;
   };
 
   // Loading Screen
@@ -327,7 +382,7 @@ const DiscoverEvents = () => {
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-xl"
+              className="flex items-center gap-2 text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-xl transition-colors"
             >
               <SlidersHorizontal className="h-5 w-5 text-[#FF6B35]" /> Filters
             </button>
@@ -346,11 +401,12 @@ const DiscoverEvents = () => {
           <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <select
-                className="border border-gray-300 rounded-xl p-2"
+                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.category}
                 onChange={(e) => handleFilterChange("category", e.target.value)}
               >
-                {categories.map((cat, i) => (
+                <option value="">All Categories</option>
+                {categories.filter(c => c !== "All Categories").map((cat, i) => (
                   <option key={i} value={cat}>
                     {cat}
                   </option>
@@ -358,11 +414,12 @@ const DiscoverEvents = () => {
               </select>
 
               <select
-                className="border border-gray-300 rounded-xl p-2"
+                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.city}
                 onChange={(e) => handleFilterChange("city", e.target.value)}
               >
-                {cities.map((city, i) => (
+                <option value="">All Cities</option>
+                {cities.filter(c => c !== "All Cities").map((city, i) => (
                   <option key={i} value={city}>
                     {city}
                   </option>
@@ -371,13 +428,13 @@ const DiscoverEvents = () => {
 
               <input
                 type="date"
-                className="border border-gray-300 rounded-xl p-2"
+                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.date}
                 onChange={(e) => handleFilterChange("date", e.target.value)}
               />
 
               <select
-                className="border border-gray-300 rounded-xl p-2"
+                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.priceRange}
                 onChange={(e) =>
                   handleFilterChange("priceRange", e.target.value)
@@ -391,7 +448,7 @@ const DiscoverEvents = () => {
               </select>
 
               <select
-                className="border border-gray-300 rounded-xl p-2"
+                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.sortBy}
                 onChange={(e) => handleFilterChange("sortBy", e.target.value)}
               >
@@ -403,7 +460,10 @@ const DiscoverEvents = () => {
               </select>
             </div>
 
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-between items-center mt-4">
+              <p className="text-sm text-gray-600">
+                Showing {filteredEvents.length} of {events.length} events
+              </p>
               <button
                 onClick={clearFilters}
                 className="flex items-center gap-2 text-sm text-[#FF6B35] hover:underline"
@@ -417,57 +477,108 @@ const DiscoverEvents = () => {
         {/* Event Grid */}
         {filteredEvents.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredEvents.map((event) => (
-              <Link
-                to={`/event/${event.id}`}
-                key={event.id}
-                className="bg-white rounded-2xl shadow hover:shadow-lg transition overflow-hidden group"
-              >
-                <div className="relative">
-                  <img
-                    src={event.image}
-                    alt={event.title}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-3 left-3">
-                    <span className="bg-[#FF6B35] text-white px-2 py-1 rounded-full text-xs font-semibold">
-                      {formatPrice(event.price)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
-                    {event.title}
-                  </h3>
-
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      <span>{formatDate(event.date)}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      <span className="truncate">
-                        {event.venue}, {event.city}
+            {filteredEvents.map((event) => {
+              const priceDisplay = getPriceDisplay(event);
+              const availableTickets = getAvailableTickets(event);
+              const isSoldOut = availableTickets === 0;
+              
+              return (
+                <Link
+                  to={`/event/${event.id}`}
+                  key={event.id}
+                  className="bg-white rounded-2xl shadow hover:shadow-xl transition-all overflow-hidden group relative"
+                >
+                  {/* Featured Badge */}
+                  {event.isFeatured && (
+                    <div className="absolute top-3 right-3 z-10">
+                      <span className="bg-white/90 backdrop-blur-sm text-[#FF6B35] px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        Featured
                       </span>
                     </div>
+                  )}
 
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>{event.attendees} attending</span>
+                  <div className="relative">
+                    <img
+                      src={event.image}
+                      alt={event.title}
+                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {/*  Price badge with range support */}
+                    <div className="absolute top-3 left-3">
+                      <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
+                        priceDisplay.text === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
+                      }`}>
+                        {priceDisplay.text}
+                      </span>
+                    </div>
+                    
+                    {/* Ticket type indicator */}
+                    {event.ticketTypes && event.ticketTypes.length > 1 && (
+                      <div className="absolute bottom-3 left-3">
+                        <span className="bg-white/90 backdrop-blur-sm text-gray-900 px-2 py-1 rounded-full text-xs font-medium">
+                          {event.ticketTypes.length} ticket types
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Sold Out Overlay */}
+                    {isSoldOut && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold">
+                          SOLD OUT
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
+                      {event.title}
+                    </h3>
+
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-[#FF6B35]" />
+                        <span>{formatDate(event.date)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-[#FF6B35]" />
+                        <span className="truncate">
+                          {event.venue}, {event.city}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-[#FF6B35]" />
+                        <span>{event.attendees} attending</span>
+                      </div>
+
+                      {/* Available tickets display */}
+                      <div className="flex items-center gap-2">
+                        <Ticket className="h-4 w-4 text-[#FF6B35]" />
+                        <span className={availableTickets <= 10 && availableTickets > 0 ? "text-orange-600 font-medium" : ""}>
+                          {isSoldOut ? "Sold out" : `${availableTickets} tickets left`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full font-medium">
+                        {event.category}
+                      </span>
+                      
+                      {priceDisplay.range && (
+                        <span className="text-xs text-gray-500">
+                          Multiple prices
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full">
-                      {event.category}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12">

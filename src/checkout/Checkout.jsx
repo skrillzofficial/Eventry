@@ -1,4 +1,3 @@
-// components/CheckoutFlow.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   X, 
@@ -10,7 +9,8 @@ import {
   AlertCircle,
   Zap,
   Coins,
-  Banknote
+  Banknote,
+  Ticket
 } from 'lucide-react';
 
 const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
@@ -25,7 +25,12 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     phone: ''
   });
 
-  const totalAmountUSD = event.price * ticketQuantity;
+  // Get price based on ticket type or legacy price
+  const ticketPrice = event.ticketPrice || event.selectedTicketType?.price || event.price;
+  const ticketTypeName = event.selectedTicketType?.name || 'General';
+  
+  const totalAmountNGN = ticketPrice * ticketQuantity;
+  const totalAmountUSD = totalAmountNGN / 1600; // Approximate NGN to USD conversion
   const totalAmountSOL = (totalAmountUSD / solPrice).toFixed(4);
 
   // Demo payment processing
@@ -53,10 +58,11 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
       setTimeout(() => {
         onSuccess({
           type: paymentMethod,
-          amount: paymentMethod === 'crypto' ? totalAmountSOL : totalAmountUSD,
-          currency: paymentMethod === 'crypto' ? 'SOL' : 'USD',
+          amount: paymentMethod === 'crypto' ? totalAmountSOL : totalAmountNGN,
+          currency: paymentMethod === 'crypto' ? 'SOL' : 'NGN',
           transactionId: 'DEMO_' + Math.random().toString(36).substr(2, 9).toUpperCase(),
           tickets: ticketQuantity,
+          ticketType: ticketTypeName,
           event: event
         });
       }, 2000);
@@ -106,22 +112,50 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
           <p className="text-gray-600 mb-6">
             Your tickets for <strong>{event.title}</strong> have been confirmed.
           </p>
+          
+          {/*Enhanced success summary with ticket type */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <div className="flex justify-between text-sm mb-2">
               <span className="text-gray-600">Transaction ID:</span>
-              <span className="font-mono">DEMO_{Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
+              <span className="font-mono text-xs">DEMO_{Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
             </div>
+            
+            {/* Show ticket type if available */}
+            {event.selectedTicketType && (
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-gray-600">Ticket Type:</span>
+                <span className="font-semibold text-[#FF6B35]">{ticketTypeName}</span>
+              </div>
+            )}
+            
             <div className="flex justify-between text-sm mb-2">
               <span className="text-gray-600">Tickets:</span>
-              <span>{ticketQuantity} × ₦{event.price.toLocaleString()}</span>
+              <span>{ticketQuantity} × ₦{ticketPrice.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between font-semibold">
+            
+            {/* Show ticket benefits if available */}
+            {event.selectedTicketType?.benefits && event.selectedTicketType.benefits.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-200 text-left">
+                <p className="text-xs font-medium text-gray-700 mb-1">Your ticket includes:</p>
+                <ul className="text-xs text-gray-600 space-y-0.5">
+                  {event.selectedTicketType.benefits.map((benefit, idx) => (
+                    <li key={idx} className="flex items-start">
+                      <CheckCircle className="h-3 w-3 text-green-500 mr-1 mt-0.5 flex-shrink-0" />
+                      <span>{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            <div className="flex justify-between font-semibold mt-3 pt-3 border-t border-gray-200">
               <span>Total Paid:</span>
-              <span>
-                {paymentMethod === 'crypto' ? `${totalAmountSOL} SOL` : `₦${totalAmountUSD.toLocaleString()}`}
+              <span className="text-[#FF6B35]">
+                {paymentMethod === 'crypto' ? `${totalAmountSOL} SOL` : `₦${totalAmountNGN.toLocaleString()}`}
               </span>
             </div>
           </div>
+          
           <p className="text-sm text-gray-500 mb-6">
             Tickets have been sent to your email. See you at the event!
           </p>
@@ -140,7 +174,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl z-10">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Complete Purchase</h2>
             <button
@@ -184,20 +218,64 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
         </div>
 
         <div className="p-6">
-          {/* Order Summary */}
+          {/*Enhanced Order Summary with ticket type details */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-gray-900 mb-3">Order Summary</h3>
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Ticket className="h-4 w-4 text-[#FF6B35]" />
+              Order Summary
+            </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">{event.title}</span>
-                <span className="font-medium">₦{event.price.toLocaleString()} × {ticketQuantity}</span>
+                <span className="text-gray-600">Event</span>
+                <span className="font-medium text-gray-900">{event.title}</span>
               </div>
-              <div className="border-t border-gray-200 pt-2">
+              
+              {/* Show ticket type if available */}
+              {event.selectedTicketType && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ticket Type</span>
+                  <span className="font-semibold text-[#FF6B35]">{ticketTypeName}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between">
+                <span className="text-gray-600">Price per ticket</span>
+                <span className="font-medium">₦{ticketPrice.toLocaleString()}</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-gray-600">Quantity</span>
+                <span className="font-medium">{ticketQuantity}</span>
+              </div>
+              
+              {/* Show ticket description if available */}
+              {event.selectedTicketType?.description && (
+                <div className="pt-2 border-t border-gray-200">
+                  <p className="text-xs text-gray-500">{event.selectedTicketType.description}</p>
+                </div>
+              )}
+              
+              {/* Show ticket benefits if available */}
+              {event.selectedTicketType?.benefits && event.selectedTicketType.benefits.length > 0 && (
+                <div className="pt-2 border-t border-gray-200">
+                  <p className="text-xs font-medium text-gray-700 mb-1">Includes:</p>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    {event.selectedTicketType.benefits.map((benefit, idx) => (
+                      <li key={idx} className="flex items-start">
+                        <CheckCircle className="h-3 w-3 text-[#FF6B35] mr-1 mt-0.5 flex-shrink-0" />
+                        <span>{benefit}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="border-t border-gray-200 pt-2 mt-2">
                 <div className="flex justify-between font-semibold">
                   <span>Total Amount</span>
                   <span className="text-[#FF6B35]">
-                    ₦{totalAmountUSD.toLocaleString()}
-                    <span className="text-gray-500 text-xs ml-2">
+                    ₦{totalAmountNGN.toLocaleString()}
+                    <span className="text-gray-500 text-xs ml-2 font-normal">
                       (~{totalAmountSOL} SOL)
                     </span>
                   </span>
@@ -317,7 +395,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                   </div>
                   <p className="text-sm text-blue-700 mb-3">
                     You'll be redirected to your wallet to confirm the payment of{' '}
-                    <strong>{totalAmountSOL} SOL</strong>
+                    <strong>{totalAmountSOL} SOL</strong> (~₦{totalAmountNGN.toLocaleString()})
                   </p>
                   <div className="text-xs text-blue-600 space-y-1">
                     <div className="flex justify-between">
@@ -335,9 +413,9 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                   <div className="flex items-center justify-between mb-4">
                     <span className="font-medium text-gray-900">Card Details</span>
                     <div className="flex space-x-2">
-                      <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
-                      <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
-                      <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
+                      <div className="w-8 h-5 bg-gradient-to-r from-blue-600 to-blue-400 rounded-sm"></div>
+                      <div className="w-8 h-5 bg-gradient-to-r from-red-600 to-orange-400 rounded-sm"></div>
+                      <div className="w-8 h-5 bg-gradient-to-r from-blue-800 to-blue-600 rounded-sm"></div>
                     </div>
                   </div>
                   
@@ -350,6 +428,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                         value="4242 4242 4242 4242"
                         readOnly
                       />
+                      <p className="text-xs text-gray-500 mt-1">Demo card for testing</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <input
@@ -374,19 +453,23 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
               {/* Security Features */}
               <div className="flex items-center justify-center space-x-4 text-xs text-gray-500 mb-6">
                 <div className="flex items-center">
-                  <Shield className="h-4 w-4 mr-1" />
+                  <Shield className="h-4 w-4 mr-1 text-green-600" />
                   <span>Secure Payment</span>
                 </div>
                 <div className="flex items-center">
-                  <Banknote className="h-4 w-4 mr-1" />
+                  <Banknote className="h-4 w-4 mr-1 text-green-600" />
                   <span>Encrypted</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
+                  <span>Verified</span>
                 </div>
               </div>
 
               {/* Error Message */}
               {error && (
                 <div className="flex items-center space-x-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                  <AlertCircle className="h-4 w-4" />
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm">{error}</span>
                 </div>
               )}
@@ -396,15 +479,21 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-semibold hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-semibold hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
                 >
                   {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                       Processing...
-                    </div>
+                    </>
                   ) : (
-                    `Pay ${paymentMethod === 'crypto' ? `${totalAmountSOL} SOL` : `₦${totalAmountUSD.toLocaleString()}`}`
+                    <>
+                      <CreditCard className="h-5 w-5" />
+                      {paymentMethod === 'crypto' 
+                        ? `Pay ${totalAmountSOL} SOL` 
+                        : `Pay ₦${totalAmountNGN.toLocaleString()}`
+                      }
+                    </>
                   )}
                 </button>
                 

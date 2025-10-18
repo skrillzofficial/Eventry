@@ -20,6 +20,7 @@ import {
   FileText,
   Shield,
   Gift,
+  Ticket,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -50,17 +51,6 @@ const eventSchema = yup.object().shape({
   venue: yup.string().required("Venue is required"),
   address: yup.string().required("Address is required"),
   city: yup.string().required("City is required"),
-  price: yup
-    .number()
-    .typeError("Price must be a number")
-    .min(0, "Price cannot be negative")
-    .required("Ticket price is required"),
-  capacity: yup
-    .number()
-    .typeError("Capacity must be a number")
-    .min(1, "Capacity must be at least 1")
-    .max(100000, "Capacity cannot exceed 100,000")
-    .required("Capacity is required"),
 });
 
 const CreateEvent = () => {
@@ -68,7 +58,13 @@ const CreateEvent = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploadedImages, setUploadedImages] = useState([]);
   const [imageFiles, setImageFiles] = useState([]);
-  
+
+  // Ticket type management
+  const [ticketTypes, setTicketTypes] = useState([
+    { name: "Regular", price: "", capacity: "", description: "", benefits: [] },
+  ]);
+  const [useLegacyPricing, setUseLegacyPricing] = useState(false);
+
   // New state for dynamic fields
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState("");
@@ -76,7 +72,7 @@ const CreateEvent = () => {
   const [includeInput, setIncludeInput] = useState("");
   const [requirements, setRequirements] = useState([]);
   const [requirementInput, setRequirementInput] = useState("");
-  
+
   const navigate = useNavigate();
 
   const {
@@ -121,9 +117,67 @@ const CreateEvent = () => {
     "Other",
   ];
 
+  const TICKET_TYPES = ["Regular", "VIP", "VVIP"];
+
+  // Ticket type management
+  const addTicketType = () => {
+    if (ticketTypes.length < 3) {
+      const availableTypes = TICKET_TYPES.filter(
+        (type) => !ticketTypes.find((t) => t.name === type)
+      );
+      if (availableTypes.length > 0) {
+        setTicketTypes([
+          ...ticketTypes,
+          {
+            name: availableTypes[0],
+            price: "",
+            capacity: "",
+            description: "",
+            benefits: [],
+          },
+        ]);
+      }
+    }
+  };
+
+  const removeTicketType = (index) => {
+    if (ticketTypes.length > 1) {
+      setTicketTypes(ticketTypes.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateTicketType = (index, field, value) => {
+    const updated = [...ticketTypes];
+    updated[index] = { ...updated[index], [field]: value };
+    setTicketTypes(updated);
+  };
+
+  const addTicketBenefit = (ticketIndex, benefit) => {
+    if (benefit.trim()) {
+      const updated = [...ticketTypes];
+      updated[ticketIndex].benefits = [
+        ...updated[ticketIndex].benefits,
+        benefit.trim(),
+      ];
+      setTicketTypes(updated);
+    }
+  };
+
+  const removeTicketBenefit = (ticketIndex, benefitIndex) => {
+    const updated = [...ticketTypes];
+    updated[ticketIndex].benefits = updated[ticketIndex].benefits.filter(
+      (_, i) => i !== benefitIndex
+    );
+    setTicketTypes(updated);
+  };
+
   // Tag management
   const addTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim()) && tags.length < 10) {
+    if (
+      tagInput.trim() &&
+      !tags.includes(tagInput.trim()) &&
+      tags.length < 10
+    ) {
       setTags([...tags, tagInput.trim()]);
       setTagInput("");
     }
@@ -201,17 +255,35 @@ const CreateEvent = () => {
 
   const onSubmit = async (data) => {
     try {
+      // Validate ticket types
+      if (!useLegacyPricing) {
+        const invalidTickets = ticketTypes.filter(
+          (t) =>
+            !t.price ||
+            !t.capacity ||
+            parseFloat(t.price) < 0 ||
+            parseInt(t.capacity) < 1
+        );
+
+        if (invalidTickets.length > 0) {
+          setError("root.serverError", {
+            message:
+              "Please fill in valid price and capacity for all ticket types",
+          });
+          return;
+        }
+      }
+
       const formData = new FormData();
 
       // Append basic event data
       formData.append("title", data.title);
       formData.append("description", data.description);
-      
-      // long description if provided
+
       if (data.longDescription) {
         formData.append("longDescription", data.longDescription);
       }
-      
+
       formData.append("category", data.category);
       formData.append("date", data.date);
       formData.append("time", data.time);
@@ -219,23 +291,36 @@ const CreateEvent = () => {
       formData.append("venue", data.venue);
       formData.append("address", data.address);
       formData.append("city", data.city);
-      formData.append("price", data.price);
-      formData.append("capacity", data.capacity);
 
-      // Append tags, includes, and requirements as JSON strings
+      // Append ticket types or legacy pricing
+      if (!useLegacyPricing) {
+        const validTicketTypes = ticketTypes.map((t) => ({
+          name: t.name,
+          price: parseFloat(t.price),
+          capacity: parseInt(t.capacity),
+          description: t.description || "",
+          benefits: t.benefits || [],
+        }));
+        formData.append("ticketTypes", JSON.stringify(validTicketTypes));
+      } else {
+        formData.append("price", data.price || 0);
+        formData.append("capacity", data.capacity || 1);
+      }
+
+      //  Append dynamic fields as JSON strings
       if (tags.length > 0) {
         formData.append("tags", JSON.stringify(tags));
       }
-      
+
       if (includes.length > 0) {
         formData.append("includes", JSON.stringify(includes));
       }
-      
+
       if (requirements.length > 0) {
         formData.append("requirements", JSON.stringify(requirements));
       }
 
-      // Append images
+      // Append new images
       imageFiles.forEach((file) => {
         formData.append("images", file);
       });
@@ -245,7 +330,8 @@ const CreateEvent = () => {
         tags,
         includes,
         requirements,
-        imageCount: imageFiles.length,
+        ticketTypes: !useLegacyPricing ? ticketTypes : null,
+        newImages: imageFiles.length,
       });
 
       const result = await apiCall(eventAPI.createEvent, formData);
@@ -270,7 +356,6 @@ const CreateEvent = () => {
       });
     }
   };
-
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -597,49 +682,226 @@ const CreateEvent = () => {
             </div>
           </div>
 
-          {/* Ticket Information */}
+          {/* Ticket Types */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Ticket Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ticket Price (₦) *
-                </label>
-                <input
-                  type="number"
-                  {...register("price")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                  placeholder="0"
-                  min="0"
-                  step="0.01"
-                />
-                {errors.price && (
-                  <p className="text-red-600 text-sm mt-1">
-                    {errors.price.message}
-                  </p>
-                )}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Ticket className="h-5 w-5 text-[#FF6B35]" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Ticket Types & Pricing
+                </h3>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Capacity *
-                </label>
-                <input
-                  type="number"
-                  {...register("capacity")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                  placeholder="Maximum attendees"
-                  min="1"
-                />
-                {errors.capacity && (
-                  <p className="text-red-600 text-sm mt-1">
-                    {errors.capacity.message}
-                  </p>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setUseLegacyPricing(!useLegacyPricing)}
+                className="text-sm text-[#FF6B35] hover:underline"
+              >
+                {useLegacyPricing
+                  ? "Use Multiple Ticket Types"
+                  : "Use Single Price"}
+              </button>
             </div>
+
+            {!useLegacyPricing ? (
+              <div className="space-y-6">
+                {ticketTypes.map((ticket, index) => (
+                  <div
+                    key={index}
+                    className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <select
+                        value={ticket.name}
+                        onChange={(e) =>
+                          updateTicketType(index, "name", e.target.value)
+                        }
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-semibold"
+                      >
+                        {TICKET_TYPES.map((type) => (
+                          <option
+                            key={type}
+                            value={type}
+                            disabled={ticketTypes.some(
+                              (t, i) => i !== index && t.name === type
+                            )}
+                          >
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                      {ticketTypes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeTicketType(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Price (₦) *
+                        </label>
+                        <input
+                          type="number"
+                          value={ticket.price}
+                          onChange={(e) =>
+                            updateTicketType(index, "price", e.target.value)
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Capacity *
+                        </label>
+                        <input
+                          type="number"
+                          value={ticket.capacity}
+                          onChange={(e) =>
+                            updateTicketType(index, "capacity", e.target.value)
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                          placeholder="Number of tickets"
+                          min="1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={ticket.description}
+                        onChange={(e) =>
+                          updateTicketType(index, "description", e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                        placeholder="e.g., Includes front row seating"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Benefits (Optional)
+                      </label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          id={`benefit-input-${index}`}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                          placeholder="e.g., VIP lounge access"
+                          onKeyPress={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const input = e.target;
+                              addTicketBenefit(index, input.value);
+                              input.value = "";
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById(
+                              `benefit-input-${index}`
+                            );
+                            addTicketBenefit(index, input.value);
+                            input.value = "";
+                          }}
+                          className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {ticket.benefits.length > 0 && (
+                        <div className="space-y-1">
+                          {ticket.benefits.map((benefit, benefitIndex) => (
+                            <div
+                              key={benefitIndex}
+                              className="flex items-center justify-between bg-white px-3 py-2 rounded border border-gray-200"
+                            >
+                              <span className="text-sm text-gray-700">
+                                • {benefit}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeTicketBenefit(index, benefitIndex)
+                                }
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {ticketTypes.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={addTicketType}
+                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-[#FF6B35] hover:text-[#FF6B35] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Another Ticket Type
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ticket Price (₦) *
+                  </label>
+                  <input
+                    type="number"
+                    {...register("price")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    placeholder="0"
+                    min="0"
+                    step="0.01"
+                  />
+                  {errors.price && (
+                    <p className="text-red-600 text-sm mt-1">
+                      {errors.price.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Capacity *
+                  </label>
+                  <input
+                    type="number"
+                    {...register("capacity")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    placeholder="Maximum attendees"
+                    min="1"
+                  />
+                  {errors.capacity && (
+                    <p className="text-red-600 text-sm mt-1">
+                      {errors.capacity.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* What's Included */}
@@ -651,15 +913,18 @@ const CreateEvent = () => {
               </h3>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              List what attendees will get with their ticket (e.g., refreshments, materials, certificates)
+              List what attendees will get with their ticket (e.g.,
+              refreshments, materials, certificates)
             </p>
-            
+
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
                 value={includeInput}
                 onChange={(e) => setIncludeInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addInclude())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addInclude())
+                }
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 placeholder="e.g., Refreshments and meals"
               />
@@ -703,15 +968,18 @@ const CreateEvent = () => {
               </h3>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              List what attendees need to bring or have (e.g., Valid ID, laptop, business card)
+              List what attendees need to bring or have (e.g., Valid ID, laptop,
+              business card)
             </p>
-            
+
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
                 value={requirementInput}
                 onChange={(e) => setRequirementInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addRequirement())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addRequirement())
+                }
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 placeholder="e.g., Valid government-issued ID"
               />
@@ -757,13 +1025,15 @@ const CreateEvent = () => {
             <p className="text-sm text-gray-600 mb-4">
               Add tags to help people discover your event (max 10 tags)
             </p>
-            
+
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addTag())
+                }
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 placeholder="e.g., startup, innovation, AI"
               />
