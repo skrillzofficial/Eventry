@@ -57,13 +57,13 @@ export const authAPI = {
 
   getCurrentUser: () => apiClient.get("/auth/me"),
   logout: () => apiClient.post("/auth/logout"),
-  updateProfile: (userData) => apiClient.put("/auth/profile", userData),
+  updateProfile: (userData) => apiClient.patch("/profile", userData),
 };
 
 // User API calls
 export const userAPI = {
   getUserProfile: (userId) => apiClient.get(`/users/${userId}`),
-  updateUser: (userId, userData) => apiClient.put(`/users/${userId}`, userData),
+  updateUser: (userId, userData) => apiClient.patch(`/users/${userId}`, userData),
 };
 
 // Event API calls

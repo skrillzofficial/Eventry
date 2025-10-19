@@ -58,12 +58,11 @@ const Profile = () => {
       
       // Populate form with current user data
       if (authUser) {
-        setValue('name', authUser.name || authUser.fullName || '');
+        setValue('name', authUser.firstName || authUser.firstName || '');
         setValue('email', authUser.email || '');
         setValue('phone', authUser.phone || authUser.phoneNumber || '');
         setValue('bio', authUser.bio || '');
         setValue('location', authUser.location || authUser.city || '');
-        setValue('dateOfBirth', authUser.dateOfBirth || '');
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -153,12 +152,11 @@ const Profile = () => {
     try {
       // Call update profile API
       const result = await apiCall(authAPI.updateProfile, {
-        name: data.name,
+        name: data.firstName,
         email: data.email,
         phone: data.phone,
         bio: data.bio,
         location: data.location,
-        dateOfBirth: data.dateOfBirth
       });
       
       if (result.success) {
@@ -282,7 +280,7 @@ const Profile = () => {
                       <img src={authUser.avatar} alt={authUser.name} className="w-24 h-24 rounded-full object-cover" />
                     ) : (
                       <span className="text-3xl">
-                        {(authUser?.name || authUser?.fullName || 'U').charAt(0).toUpperCase()}
+                        {(authUser?.firstName || authUser?.Name || 'U').charAt(0).toUpperCase()}
                       </span>
                     )}
                   </div>
@@ -298,12 +296,8 @@ const Profile = () => {
                     </label>
                   )}
                 </div>
-                <h2 className="text-xl font-bold text-white">{authUser?.name || authUser?.fullName}</h2>
+                <h2 className="text-xl font-bold text-white">{authUser?.firstName || authUser?.Name}</h2>
                 <p className="text-gray-300 capitalize">{userRole}</p>
-                <p className="text-sm text-gray-400 flex items-center justify-center mt-1">
-                  <MapPin className="w-3 h-3 mr-1" />
-                  {authUser?.location || authUser?.city || 'Location not set'}
-                </p>
               </div>
 
               {/* Navigation Tabs */}
@@ -401,7 +395,7 @@ const Profile = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         <User className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
-                        Full Name
+                        First Name
                       </label>
                       <input
                         type="text"
@@ -447,19 +441,6 @@ const Profile = () => {
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
                         placeholder="+234 XXX XXX XXXX"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        <Calendar className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
-                        Date of Birth
-                      </label>
-                      <input
-                        type="date"
-                        {...register('dateOfBirth')}
-                        disabled={!isEditing}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
                       />
                     </div>
 
