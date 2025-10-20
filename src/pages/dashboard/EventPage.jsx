@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   MapPin,
@@ -11,18 +11,28 @@ import {
   Share2,
   ArrowLeft,
   Shield,
-  CheckCircle,
-  TrendingUp,
-  Twitter,
-  MessageCircle,
   Sparkles,
   AlertCircle,
+  Navigation,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import CheckoutFlow from "../../checkout/Checkout";
 import { eventAPI, apiCall } from "../../services/api";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Fix Leaflet default icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
 
 // Local images
 import eventOne from "../../assets/Vision one.png";
@@ -53,10 +63,24 @@ export default function EventPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [error, setError] = useState(null);
 
+  // Map refs only
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+
+  // Load event data
   useEffect(() => {
     if (id) {
       loadEvent();
     }
+
+    return () => {
+      // Cleanup map only
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
   }, [id]);
 
   const loadEvent = async () => {
@@ -110,11 +134,6 @@ export default function EventPage() {
               ? eventData.tags
               : [eventData.category].filter(Boolean),
 
-          includes:
-            Array.isArray(eventData.includes) && eventData.includes.length > 0
-              ? eventData.includes
-              : ["Event access", "Networking opportunities"],
-
           requirements: (() => {
             if (Array.isArray(eventData.requirements)) {
               return eventData.requirements;
@@ -145,20 +164,25 @@ export default function EventPage() {
           agenda: Array.isArray(eventData.agenda) ? eventData.agenda : [],
           faqs: Array.isArray(eventData.faqs) ? eventData.faqs : [],
           longDescription: eventData.longDescription || eventData.description,
-          
-          //Handle ticket types
-          ticketTypes: Array.isArray(eventData.ticketTypes) && eventData.ticketTypes.length > 0
-            ? eventData.ticketTypes
-            : null,
+
+          location: eventData.location || null,
+
+          ticketTypes:
+            Array.isArray(eventData.ticketTypes) &&
+            eventData.ticketTypes.length > 0
+              ? eventData.ticketTypes
+              : null,
         };
-        
+
         setEvent(eventWithImages);
-        
-        //Auto-select first ticket type
-        if (eventWithImages.ticketTypes && eventWithImages.ticketTypes.length > 0) {
+
+        if (
+          eventWithImages.ticketTypes &&
+          eventWithImages.ticketTypes.length > 0
+        ) {
           setSelectedTicketType(eventWithImages.ticketTypes[0]);
         }
-        
+
         loadRelatedEvents(eventData.category, eventData._id || eventData.id);
       } else {
         throw new Error(result.error || "Failed to load event");
@@ -222,7 +246,12 @@ export default function EventPage() {
     loadEvent();
   };
 
-  const toggleFavorite = () => setIsFavorite((s) => !s);
+  const toggleFavorite = () => {
+    if (!isAuthenticated) {
+      console.log("Sign in to save favorites");
+    }
+    setIsFavorite((s) => !s);
+  };
 
   const shareEvent = (platform) => {
     const url = window.location.href;
@@ -237,18 +266,18 @@ export default function EventPage() {
 
   const handleGetTickets = () => {
     if (!isAuthenticated) {
+      alert("Please sign in to purchase tickets");
       return;
     }
     setShowCheckout(true);
   };
 
-  //Helper to get price range for events with ticket types
   const getPriceDisplay = (ev) => {
     if (ev.ticketTypes && ev.ticketTypes.length > 0) {
-      const prices = ev.ticketTypes.map(t => t.price);
+      const prices = ev.ticketTypes.map((t) => t.price);
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
-      
+
       if (minPrice === 0 && maxPrice === 0) {
         return "Free";
       }
@@ -257,57 +286,93 @@ export default function EventPage() {
       }
       return `₦${minPrice.toLocaleString()} - ₦${maxPrice.toLocaleString()}`;
     }
-    
-    // Fallback to legacy price
+
     return ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Navbar />
-        <div className="max-w-5xl mx-auto px-4 py-24">
-          <div className="flex justify-center">
-            <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
-          </div>
-        </div>
-        <div className="bg-black">
-          <Footer />
-        </div>
-      </div>
-    );
-  }
+  // Simple function to open directions in Google Maps
+  const openDirections = () => {
+    if (!event) return;
 
-  if (error || !event) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Navbar />
-        <div className="max-w-4xl mx-auto px-4 py-20">
-          <div className="bg-white border border-red-100 rounded-2xl p-8 shadow-sm text-center">
-            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="h-8 w-8 text-red-500" />
-            </div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              Event Not Found
-            </h2>
-            <p className="text-gray-600 mb-4">
-              {error || "The event you're looking for doesn't exist."}
-            </p>
-            <Link
-              to="/discover"
-              className="inline-flex items-center text-[#FF6B35] font-semibold"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Return to Discover
-            </Link>
-          </div>
-        </div>
-        <div className="bg-black">
-          <Footer />
-        </div>
-      </div>
-    );
-  }
+    let lat, lng;
+
+    // Get coordinates from event data
+    if (event.location?.coordinates) {
+      lat = event.location.coordinates.lat;
+      lng = event.location.coordinates.lng;
+    } else if (event.coordinates) {
+      lat = event.coordinates.latitude;
+      lng = event.coordinates.longitude;
+    } else {
+      // If no coordinates, use address for directions
+      const address = encodeURIComponent(
+        `${event.venue}, ${event.address}, ${event.city}`
+      );
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${address}`;
+      window.open(url, "_blank");
+      return;
+    }
+
+    // Use coordinates for directions
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    window.open(url, "_blank");
+  };
+
+  // Simple map initialization
+  const initializeMap = () => {
+    if (!event || !mapRef.current) return;
+
+    try {
+      // Get coordinates from event
+      let lat, lng;
+
+      if (event.location?.coordinates) {
+        lat = event.location.coordinates.lat;
+        lng = event.location.coordinates.lng;
+      } else if (event.coordinates) {
+        lat = event.coordinates.latitude;
+        lng = event.coordinates.longitude;
+      } else {
+        // Default to Lagos coordinates if no location data
+        lat = 6.5244;
+        lng = 3.3792;
+      }
+
+      // Initialize map
+      mapInstanceRef.current = L.map(mapRef.current).setView([lat, lng], 15);
+
+      // Add tile layer
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(mapInstanceRef.current);
+
+      // Add marker
+      markerRef.current = L.marker([lat, lng])
+        .addTo(mapInstanceRef.current)
+        .bindPopup(
+          `<b>${event.title}</b><br>${event.venue}<br>${event.address}, ${event.city}`
+        )
+        .openPopup();
+    } catch (error) {
+      console.error("Error initializing map:", error);
+    }
+  };
+
+  // Initialize map when location tab is active
+  useEffect(() => {
+    if (activeTab === "location" && event && mapRef.current) {
+      // Clean up existing map
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+
+      // Small delay to ensure DOM is ready
+      setTimeout(initializeMap, 100);
+    }
+  }, [activeTab, event]);
 
   // Subcomponents
   const EventHeader = ({ ev }) => {
@@ -381,13 +446,16 @@ export default function EventPage() {
                 {getPriceDisplay(ev)}
               </div>
               <div className="text-sm text-gray-500 mb-4">
-                {ev.ticketTypes && ev.ticketTypes.length > 1 ? "Price range" : "per ticket"}
+                {ev.ticketTypes && ev.ticketTypes.length > 1
+                  ? "Price range"
+                  : "per ticket"}
               </div>
 
               <div className="flex items-center justify-center gap-2 mb-3">
                 <button
                   onClick={toggleFavorite}
                   className="p-2 rounded-md border border-gray-200 hover:bg-gray-50"
+                  title={!isAuthenticated ? "Sign in to save favorites" : ""}
                 >
                   <Heart
                     className={
@@ -442,6 +510,59 @@ export default function EventPage() {
     </div>
   );
 
+  const LocationTab = ({ ev }) => {
+    return (
+      <>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-semibold text-gray-900">Location</h3>
+          <button
+            onClick={openDirections}
+            className="flex items-center gap-2 px-3 py-2 bg-[#FF6B35] text-white rounded-lg text-sm font-medium hover:bg-[#FF8535] transition-colors"
+          >
+            <Navigation className="h-4 w-4" />
+            Get Directions
+          </button>
+        </div>
+
+        <div className="bg-gray-50 border border-gray-100 rounded p-4">
+          <div className="flex items-start gap-3 mb-4">
+            <MapPin className="h-5 w-5 text-[#FF6B35] mt-1" />
+            <div>
+              <div className="font-semibold text-gray-900">
+                {ev.venue || "Venue not specified"}
+              </div>
+              <div className="text-gray-600">
+                {ev.address || "Address not available"}
+              </div>
+              <div className="text-gray-600">
+                {ev.city || "City not specified"}
+              </div>
+            </div>
+          </div>
+
+          {/* Simple Map Container */}
+          <div
+            ref={mapRef}
+            className="h-64 w-full bg-white border border-gray-100 rounded"
+            style={{ zIndex: 1, minHeight: "256px" }}
+          />
+
+          {/* Loading state */}
+          <div
+            ref={mapRef}
+            className="relative h-64 w-full bg-white border border-gray-100 rounded"
+          >
+            {!event && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <div className="animate-spin h-8 w-8 border-2 border-[#FF6B35] border-t-transparent rounded-full"></div>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const DetailsTabs = ({ ev }) => {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
@@ -480,18 +601,6 @@ export default function EventPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-[#FF6B35]" /> What's
-                    included
-                  </h4>
-                  <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                    {ev.includes.map((inc, i) => (
-                      <li key={i}>{inc}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
                     <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
                   </h4>
                   <ul className="list-disc pl-5 text-gray-700 space-y-1">
@@ -519,6 +628,7 @@ export default function EventPage() {
               )}
             </>
           )}
+
           {activeTab === "organizer" && (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
@@ -560,29 +670,7 @@ export default function EventPage() {
             </>
           )}
 
-          {activeTab === "location" && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                Location
-              </h3>
-              <div className="bg-gray-50 border border-gray-100 rounded p-4">
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-[#FF6B35] mt-1" />
-                  <div>
-                    <div className="font-semibold text-gray-900">
-                      {ev.venue}
-                    </div>
-                    <div className="text-gray-600">{ev.address}</div>
-                    <div className="text-gray-600">{ev.city}</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 h-48 bg-white border border-gray-100 rounded flex items-center justify-center text-gray-500">
-                  Map placeholder for {ev.venue}, {ev.city}
-                </div>
-              </div>
-            </>
-          )}
+          {activeTab === "location" && <LocationTab ev={ev} />}
 
           {activeTab === "reviews" && (
             <>
@@ -662,35 +750,31 @@ export default function EventPage() {
     );
   };
 
-  // Enhanced Ticket Card with Ticket Type Selection
   const TicketCard = ({ ev }) => {
     const hasTicketTypes = ev.ticketTypes && ev.ticketTypes.length > 0;
-    
-    // Calculate available tickets based on ticket type or legacy
+
     const getAvailableTickets = () => {
       if (hasTicketTypes && selectedTicketType) {
         return selectedTicketType.availableTickets;
       }
       return Math.max(0, ev.capacity - (ev.attendees || 0));
     };
-    
+
     const available = getAvailableTickets();
-    
-    // Calculate total price
+
     const getPrice = () => {
       if (hasTicketTypes && selectedTicketType) {
         return selectedTicketType.price;
       }
       return ev.price;
     };
-    
+
     const price = getPrice();
     const total = price * ticketQuantity;
 
     return (
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
         <div className="space-y-4">
-          {/*Ticket Type Selection */}
           {hasTicketTypes && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -702,7 +786,7 @@ export default function EventPage() {
                     key={index}
                     onClick={() => {
                       setSelectedTicketType(ticketType);
-                      setTicketQuantity(1); 
+                      setTicketQuantity(1);
                     }}
                     className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
                       selectedTicketType?.name === ticketType.name
@@ -720,18 +804,18 @@ export default function EventPage() {
                             {ticketType.description}
                           </div>
                         )}
-                        {ticketType.benefits && ticketType.benefits.length > 0 && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            • {ticketType.benefits.join(" • ")}
-                          </div>
-                        )}
+                        {ticketType.benefits &&
+                          ticketType.benefits.length > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              • {ticketType.benefits.join(" • ")}
+                            </div>
+                          )}
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-[#FF6B35]">
-                          {ticketType.price === 0 
-                            ? "Free" 
-                            : `₦${ticketType.price.toLocaleString()}`
-                          }
+                          {ticketType.price === 0
+                            ? "Free"
+                            : `₦${ticketType.price.toLocaleString()}`}
                         </div>
                         <div className="text-xs text-gray-500">
                           {ticketType.availableTickets} left
@@ -750,19 +834,19 @@ export default function EventPage() {
           <div className="flex items-center border border-gray-100 rounded">
             <button
               onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-              disabled={!isAuthenticated || authLoading || available === 0}
+              disabled={available === 0}
               className="px-4 py-2 text-gray-700 disabled:opacity-50"
             >
               -
             </button>
-
             <div className="flex-1 text-center text-gray-900 font-medium">
               {ticketQuantity}
             </div>
-
             <button
-              onClick={() => setTicketQuantity(Math.min(available, ticketQuantity + 1))}
-              disabled={!isAuthenticated || authLoading || available === 0 || ticketQuantity >= available}
+              onClick={() =>
+                setTicketQuantity(Math.min(available, ticketQuantity + 1))
+              }
+              disabled={available === 0 || ticketQuantity >= available}
               className="px-4 py-2 text-gray-700 disabled:opacity-50"
             >
               +
@@ -771,10 +855,9 @@ export default function EventPage() {
 
           {available === 0 && (
             <div className="text-sm text-red-600 bg-red-50 p-2 rounded text-center">
-              {hasTicketTypes && selectedTicketType 
-                ? `${selectedTicketType.name} tickets sold out!` 
-                : "Sold out!"
-              }
+              {hasTicketTypes && selectedTicketType
+                ? `${selectedTicketType.name} tickets sold out!`
+                : "Sold out!"}
             </div>
           )}
 
@@ -787,9 +870,7 @@ export default function EventPage() {
           <div className="text-sm text-gray-600">
             <div className="flex justify-between">
               <span>Price</span>
-              <span>
-                {price === 0 ? "Free" : `₦${price.toLocaleString()}`}
-              </span>
+              <span>{price === 0 ? "Free" : `₦${price.toLocaleString()}`}</span>
             </div>
             <div className="flex justify-between">
               <span>Quantity</span>
@@ -803,9 +884,7 @@ export default function EventPage() {
             )}
             <div className="flex justify-between font-semibold text-gray-900 mt-2 pt-2 border-t">
               <span>Total</span>
-              <span>
-                {price === 0 ? "Free" : `₦${total.toLocaleString()}`}
-              </span>
+              <span>{price === 0 ? "Free" : `₦${total.toLocaleString()}`}</span>
             </div>
           </div>
 
@@ -823,28 +902,94 @@ export default function EventPage() {
               {available === 0 ? "Sold Out" : "Get tickets now"}
             </button>
           ) : (
-            <div className="space-y-3 text-center">
-              <div className="text-sm text-yellow-700 flex items-center justify-center gap-2">
-                <AlertCircle className="h-4 w-4" /> Please sign in to purchase
+            <div className="space-y-3">
+              <div className="text-sm text-gray-600 bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-yellow-900 mb-1">
+                    Sign in required
+                  </div>
+                  <div className="text-xs text-yellow-700">
+                    Create an account or sign in to purchase tickets for this
+                    event
+                  </div>
+                </div>
               </div>
               <Link
                 to="/login"
-                className="block w-full bg-[#FF6B35] text-white py-2 rounded font-semibold text-center hover:bg-[#FF8535] transition-colors"
+                state={{ returnTo: `/event/${id}` }}
+                className="block w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold text-center hover:bg-[#FF8535] transition-colors"
               >
-                Sign in
+                Sign in to purchase
+              </Link>
+              <Link
+                to="/register"
+                state={{ returnTo: `/event/${id}` }}
+                className="block w-full bg-white text-[#FF6B35] py-3 rounded-lg font-semibold text-center border-2 border-[#FF6B35] hover:bg-[#FFF6F2] transition-colors"
+              >
+                Create account
               </Link>
             </div>
           )}
 
           <div className="text-xs text-gray-500 text-center mt-2">
-            Secure payment • Instant confirmation
+            {isAuthenticated
+              ? "Secure payment • Instant confirmation"
+              : "Browse events • Sign in to book"}
           </div>
         </div>
       </div>
     );
   };
 
-  // Page layout
+  // Show loading only while fetching event data
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <div className="max-w-5xl mx-auto px-4 py-24">
+          <div className="flex justify-center">
+            <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
+          </div>
+        </div>
+        <div className="bg-black">
+          <Footer />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <div className="max-w-4xl mx-auto px-4 py-20">
+          <div className="bg-white border border-red-100 rounded-2xl p-8 shadow-sm text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="h-8 w-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Event Not Found
+            </h2>
+            <p className="text-gray-600 mb-4">
+              {error || "The event you're looking for doesn't exist."}
+            </p>
+            <Link
+              to="/discover"
+              className="inline-flex items-center text-[#FF6B35] font-semibold"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Return to Discover
+            </Link>
+          </div>
+        </div>
+        <div className="bg-black">
+          <Footer />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white text-gray-800">
       <Navbar />
@@ -867,8 +1012,7 @@ export default function EventPage() {
 
           <div className="space-y-6">
             <TicketCard ev={event} />
-            
-            {/* Event Statistics with Ticket Type Breakdown */}
+
             <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
               <h4 className="font-semibold text-gray-900 mb-3">
                 Event statistics
@@ -876,10 +1020,12 @@ export default function EventPage() {
               <div className="text-sm text-gray-700 space-y-2">
                 {event.ticketTypes && event.ticketTypes.length > 0 ? (
                   <>
-                    {/* Show ticket type breakdown */}
                     <div className="space-y-2 mb-3">
                       {event.ticketTypes.map((tt, idx) => (
-                        <div key={idx} className="pb-2 border-b border-gray-100 last:border-0">
+                        <div
+                          key={idx}
+                          className="pb-2 border-b border-gray-100 last:border-0"
+                        >
                           <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
                             <span>{tt.name}</span>
                             <span>₦{tt.price.toLocaleString()}</span>
@@ -894,7 +1040,9 @@ export default function EventPage() {
                               style={{
                                 width: `${Math.min(
                                   100,
-                                  ((tt.capacity - tt.availableTickets) / tt.capacity) * 100
+                                  ((tt.capacity - tt.availableTickets) /
+                                    tt.capacity) *
+                                    100
                                 )}%`,
                               }}
                             />
@@ -902,8 +1050,7 @@ export default function EventPage() {
                         </div>
                       ))}
                     </div>
-                    
-                    {/* Total statistics */}
+
                     <div className="pt-2 border-t border-gray-200">
                       <div className="flex justify-between font-medium">
                         <span>Total Capacity</span>
@@ -925,7 +1072,6 @@ export default function EventPage() {
                   </>
                 ) : (
                   <>
-                    {/* Legacy single ticket type display */}
                     <div className="flex justify-between">
                       <span>Capacity</span>
                       <span>{(event.capacity || 0).toLocaleString()}</span>
@@ -950,7 +1096,8 @@ export default function EventPage() {
                           style={{
                             width: `${Math.min(
                               100,
-                              ((event.attendees || 0) / (event.capacity || 1)) * 100
+                              ((event.attendees || 0) / (event.capacity || 1)) *
+                                100
                             )}%`,
                           }}
                         />
@@ -958,7 +1105,8 @@ export default function EventPage() {
                       <div className="flex justify-between text-xs text-gray-600 mt-1">
                         <span>
                           {Math.round(
-                            ((event.attendees || 0) / (event.capacity || 1)) * 100
+                            ((event.attendees || 0) / (event.capacity || 1)) *
+                              100
                           )}
                           % booked
                         </span>
@@ -973,17 +1121,28 @@ export default function EventPage() {
                     </div>
                   </>
                 )}
-                
+
                 {!authLoading && (
-                  <div className="pt-2 text-sm text-gray-700">
-                    Your access:{" "}
-                    <span
-                      className={
-                        isAuthenticated ? "text-green-600 font-medium" : "text-yellow-600 font-medium"
-                      }
-                    >
-                      {isAuthenticated ? "Ready to book" : "Sign in required"}
-                    </span>
+                  <div className="pt-2 border-t border-gray-200 mt-2">
+                    <div className="text-sm text-gray-700">
+                      Your status:{" "}
+                      <span
+                        className={
+                          isAuthenticated
+                            ? "text-green-600 font-medium"
+                            : "text-gray-600 font-medium"
+                        }
+                      >
+                        {isAuthenticated
+                          ? "Ready to book"
+                          : "Browsing as guest"}
+                      </span>
+                    </div>
+                    {!isAuthenticated && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Sign in to purchase tickets
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -992,13 +1151,14 @@ export default function EventPage() {
         </div>
       </div>
 
-      {showCheckout && (
+      {showCheckout && isAuthenticated && (
         <CheckoutFlow
           event={{
             ...event,
-            // Pass selected ticket type info to checkout
             selectedTicketType: selectedTicketType,
-            ticketPrice: selectedTicketType ? selectedTicketType.price : event.price,
+            ticketPrice: selectedTicketType
+              ? selectedTicketType.price
+              : event.price,
           }}
           ticketQuantity={ticketQuantity}
           onSuccess={handlePaymentSuccess}
@@ -1006,7 +1166,6 @@ export default function EventPage() {
         />
       )}
 
-      {/* Footer */}
       <div className="bg-black">
         <Footer />
       </div>

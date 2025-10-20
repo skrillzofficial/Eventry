@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
 body {
   font-family: Bricolage Grotesque;
 }
@@ -32,4 +34,25 @@ body {
 .Blend-overlay {
   background-color: rgba(0, 0, 0, 0.5);
   background-blend-mode: overlay;
+}
+/* Fix for Leaflet icons */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+.leaflet-marker-icon {
+  margin-left: -12px !important;
+  margin-top: -41px !important;
+}
+
+.leaflet-popup {
+  position: absolute;
+  text-align: center;
+}
+
+.leaflet-popup-content-wrapper {
+  padding: 1px;
+  text-align: left;
+  border-radius: 8px;
 }

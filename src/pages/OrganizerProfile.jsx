@@ -18,7 +18,6 @@ import {
   Download,
   Share2,
   Sparkles,
-  Loader,
   RefreshCw,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -56,51 +55,36 @@ const OrganizerDashboard = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log("🔄 Starting to load organizer data...");
 
-      // Try to get organizer statistics first (if your backend supports it)
-      const statsResult = await apiCall(eventAPI.getOrganizerStatistics);
+      // Use only the events API call
+      const result = await apiCall(organizerAPI.getMyEvents);
+      console.log(" API Response:", result);
 
-      if (statsResult.success && statsResult.data) {
-        // Backend provides statistics directly
-        const backendStats = statsResult.data;
-        setStats({
-          totalEvents: backendStats.totalEvents || 0,
-          activeEvents: backendStats.activeEvents || 0,
-          totalAttendees: backendStats.totalAttendees || 0,
-          totalRevenue: backendStats.totalRevenue || 0,
-          ticketsSold: backendStats.ticketsSold || 0,
-          conversionRate: backendStats.conversionRate || 0,
-          walletBalance:
-            backendStats.availableBalance ||
-            Math.round((backendStats.totalRevenue || 0) * 0.85),
-          averageTicketPrice: backendStats.averageTicketPrice || 0,
-          capacityUsage: backendStats.capacityUsage || 0,
-        });
-
-        // Also load events for display
-        const eventsResult = await apiCall(organizerAPI.getMyEvents);
-        if (eventsResult.success) {
-          const events = eventsResult.data?.events || eventsResult.data || [];
-          processAndDisplayEvents(events);
+      if (result.success) {
+        const events = result.data?.events || result.data || [];
+        console.log(" Events loaded:", events.length);
+        
+        if (events.length > 0) {
+          console.log(" Events status breakdown:");
+          events.forEach((event, index) => {
+            console.log(`  ${index + 1}. "${event.title}" - Status: "${event.status}" - Date: ${event.date}`);
+          });
         }
+        
+        processAndDisplayEvents(events);
+        calculateStatistics(events);
       } else {
-        // Fallback: Calculate statistics from events
-        const result = await apiCall(organizerAPI.getMyEvents);
-
-        if (result.success) {
-          const events = result.data?.events || result.data || [];
-          processAndDisplayEvents(events);
-          calculateStatistics(events);
-        } else {
-          throw new Error(result.error || "Failed to load events");
-        }
+        console.log(" API call failed:", result.error);
+        throw new Error(result.error || "Failed to load events");
       }
     } catch (error) {
-      console.error("Error loading organizer data:", error);
+      console.error(" Error loading organizer data:", error);
       setError(error.message || "Failed to load dashboard data");
       setStats({
         totalEvents: 0,
         activeEvents: 0,
+        publishedEvents: 0,
         totalAttendees: 0,
         totalRevenue: 0,
         ticketsSold: 0,
@@ -113,22 +97,32 @@ const OrganizerDashboard = () => {
   };
 
   const processAndDisplayEvents = (events) => {
-    const processedEvents = events.map((event) => ({
-      ...event,
-      id: event._id || event.id,
-      attendees: event.ticketsSold || event.attendees || 0,
-      revenue: (event.price || 0) * (event.ticketsSold || event.attendees || 0),
-      ticketsSold: event.ticketsSold || event.attendees || 0,
-      capacity: event.capacity || 100,
-      location: `${event.venue || "TBA"}, ${event.city || "Nigeria"}`,
-      status: determineEventStatus(event),
-    }));
+    console.log("🔄 Processing events for display:", events.length, "events");
+
+    const processedEvents = events.map((event) => {
+      const ticketsSold = event.totalAttendees || 0;
+      const revenue = event.totalRevenue || (event.price || 0) * ticketsSold;
+      const capacity = event.capacity || 100;
+      
+      return {
+        ...event,
+        id: event._id || event.id,
+        attendees: ticketsSold,
+        revenue: revenue,
+        ticketsSold: ticketsSold,
+        capacity: capacity,
+        location: `${event.venue || "TBA"}, ${event.city || "Nigeria"}`,
+        status: determineEventStatus(event),
+      };
+    });
+
+    console.log(" Processed events:", processedEvents);
 
     setAllEvents(processedEvents);
 
     const today = new Date();
     const activeEvents = processedEvents.filter(
-      (event) => new Date(event.date) >= today && event.status !== "cancelled"
+      (event) => new Date(event.date) >= today && event.status === "published"
     );
 
     setRecentEvents(processedEvents.slice(0, 5));
@@ -139,40 +133,75 @@ const OrganizerDashboard = () => {
   };
 
   const calculateStatistics = (events) => {
-    const processedEvents = events.map((event) => ({
-      ...event,
-      attendees: event.ticketsSold || event.attendees || 0,
-      revenue: (event.price || 0) * (event.ticketsSold || event.attendees || 0),
-    }));
+    console.log(" Calculating statistics from", events.length, "events");
+    
+    // Count different types of events
+    const totalEvents = events.length;
+    
+    // Published events: any event with status "published"
+    const publishedEvents = events.filter(event => 
+      event.status === "published"
+    ).length;
 
+    // Active events: upcoming AND published
     const today = new Date();
-    const activeEvents = processedEvents.filter(
-      (event) => new Date(event.date) >= today && event.status !== "cancelled"
+    const activeEvents = events.filter(event => {
+      const eventDate = new Date(event.date);
+      return eventDate >= today && event.status === "published";
+    }).length;
+
+    // Completed events: past events that were published
+    const completedEvents = events.filter(event => {
+      const eventDate = new Date(event.date);
+      return eventDate < today && event.status === "published";
+    }).length;
+
+    // Calculate totals from ALL events
+    const totalAttendees = events.reduce(
+      (sum, event) => sum + (event.totalAttendees || 0),
+      0
+    );
+    
+    const totalRevenue = events.reduce(
+      (sum, event) => sum + (event.totalRevenue || 0),
+      0
     );
 
-    const totalAttendees = processedEvents.reduce(
-      (sum, event) => sum + (event.attendees || 0),
-      0
-    );
-    const totalRevenue = processedEvents.reduce(
-      (sum, event) => sum + (event.revenue || 0),
-      0
-    );
+    // Calculate conversion rate (tickets sold vs capacity)
+    const totalCapacity = events.reduce((sum, event) => sum + (event.capacity || 0), 0);
+    const conversionRate = totalCapacity > 0 
+      ? Math.round((totalAttendees / totalCapacity) * 100)
+      : 0;
+
+    // Calculate average capacity usage per event
+    const capacityUsage = events.length > 0
+      ? Math.round(events.reduce((sum, event) => {
+          const capacity = event.capacity || 100;
+          const sold = event.totalAttendees || 0;
+          return sum + (sold / capacity) * 100;
+        }, 0) / events.length)
+      : 0;
+
+    // Calculate average ticket price
+    const averageTicketPrice = totalAttendees > 0 
+      ? Math.round(totalRevenue / totalAttendees)
+      : 0;
 
     const statsData = {
-      totalEvents: processedEvents.length,
-      activeEvents: activeEvents.length,
-      completedEvents: processedEvents.length - activeEvents.length,
+      totalEvents: totalEvents,
+      activeEvents: activeEvents,
+      publishedEvents: publishedEvents,
+      completedEvents: completedEvents,
       totalAttendees: totalAttendees,
       totalRevenue: totalRevenue,
       ticketsSold: totalAttendees,
-      conversionRate: calculateConversionRate(processedEvents),
+      conversionRate: conversionRate,
       walletBalance: Math.round(totalRevenue * 0.85),
-      averageTicketPrice:
-        totalRevenue > 0 ? Math.round(totalRevenue / totalAttendees) : 0,
-      capacityUsage: calculateAverageCapacity(processedEvents),
+      averageTicketPrice: averageTicketPrice,
+      capacityUsage: capacityUsage,
     };
 
+    console.log("📊Final statistics:", statsData);
     setStats(statsData);
   };
 
@@ -188,47 +217,15 @@ const OrganizerDashboard = () => {
 
     if (event.status === "cancelled") return "cancelled";
     if (eventDate < today) return "completed";
-    if ((event.ticketsSold || 0) >= (event.capacity || 100)) return "sold-out";
+    if ((event.totalAttendees || 0) >= (event.capacity || 100)) return "sold-out";
     return "active";
-  };
-
-  const calculateConversionRate = (events) => {
-    const totalCapacity = events.reduce((sum, e) => sum + (e.capacity || 0), 0);
-    const totalSold = events.reduce(
-      (sum, e) => sum + (e.ticketsSold || e.attendees || 0),
-      0
-    );
-    return totalCapacity > 0
-      ? Math.round((totalSold / totalCapacity) * 100)
-      : 0;
-  };
-
-  const calculateAverageCapacity = (events) => {
-    if (events.length === 0) return 0;
-    const avgCapacity =
-      events.reduce((sum, e) => {
-        const capacity = e.capacity || 100;
-        const sold = e.ticketsSold || e.attendees || 0;
-        return sum + (sold / capacity) * 100;
-      }, 0) / events.length;
-    return Math.round(avgCapacity);
   };
 
   const generateMonthlyRevenue = (events) => {
     const monthlyData = {};
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
 
     const now = new Date();
@@ -241,8 +238,7 @@ const OrganizerDashboard = () => {
     events.forEach((event) => {
       const date = new Date(event.date);
       const monthYear = `${months[date.getMonth()]} ${date.getFullYear()}`;
-      const revenue =
-        (event.price || 0) * (event.ticketsSold || event.attendees || 0);
+      const revenue = event.totalRevenue || (event.price || 0) * (event.totalAttendees || 0);
 
       if (monthlyData.hasOwnProperty(monthYear)) {
         monthlyData[monthYear] += revenue;
@@ -357,6 +353,7 @@ Generated: ${new Date().toLocaleString()}
           </div>
         )}
 
+      
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
@@ -405,30 +402,25 @@ Generated: ${new Date().toLocaleString()}
             title="Total Events"
             value={stats.totalEvents || 0}
             icon={Calendar}
-            change={
-              stats.activeEvents > 0 ? `${stats.activeEvents} active` : null
-            }
+            change={stats.publishedEvents > 0 ? `${stats.publishedEvents} published` : null}
+          />
+          <StatCard
+            title="Published Events"
+            value={stats.publishedEvents || 0}
+            icon={CheckCircle}
+            change={stats.totalEvents > 0 ? `${Math.round((stats.publishedEvents / stats.totalEvents) * 100)}% published` : null}
           />
           <StatCard
             title="Active Events"
             value={stats.activeEvents || 0}
             icon={Eye}
-          />
-          <StatCard
-            title="Total Attendees"
-            value={(stats.totalAttendees || 0).toLocaleString()}
-            icon={Users}
-            change={stats.totalAttendees > 0 ? "All time" : null}
+            change={stats.publishedEvents > 0 ? `${Math.round((stats.activeEvents / stats.publishedEvents) * 100)}% active` : null}
           />
           <StatCard
             title="Total Revenue"
             value={`₦${(stats.totalRevenue || 0).toLocaleString()}`}
             icon={DollarSign}
-            change={
-              stats.walletBalance > 0
-                ? `₦${stats.walletBalance.toLocaleString()} available`
-                : null
-            }
+            change={stats.walletBalance > 0 ? `₦${stats.walletBalance.toLocaleString()} available` : null}
           />
         </div>
 
@@ -464,7 +456,6 @@ Generated: ${new Date().toLocaleString()}
     </div>
   );
 };
-
 
 const StatCard = ({ title, value, icon: Icon, change }) => (
   <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism hover:scale-105 transition-all duration-300">
