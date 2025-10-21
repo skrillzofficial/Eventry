@@ -6,6 +6,8 @@ const Checkout = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [fetchingEvent, setFetchingEvent] = useState(true);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -26,17 +28,77 @@ const Checkout = () => {
   }, [eventId]);
 
   const fetchEventDetails = async () => {
+    setFetchingEvent(true);
+    setError(null);
+    
     try {
-      const response = await axios.get(`/api/v1/events/${eventId}`);
-      setEvent(response.data.event);
-      setTicketTypes(response.data.event.ticketTypes || [{
-        name: 'Regular',
-        price: response.data.event.price,
-        availableTickets: response.data.event.availableTickets
-      }]);
+      const response = await axios.get(`https://ecommerce-backend-tb8u.onrender.com
+/api/v1/events/${eventId}`);
+      
+      // Log to see actual structure
+      console.log('Full API Response:', response.data);
+      
+      // Handle different response structures
+      let eventData;
+      
+      // Check if event is nested in response.data.event or directly in response.data
+      if (response.data.event) {
+        eventData = response.data.event;
+      } else if (response.data.data && response.data.data.event) {
+        eventData = response.data.data.event;
+      } else if (response.data._id) {
+        // Event data is directly in response.data
+        eventData = response.data;
+      } else {
+        throw new Error('Unexpected API response structure');
+      }
+
+      console.log('Event Data:', eventData);
+
+      if (!eventData) {
+        throw new Error('Event not found in response');
+      }
+
+      setEvent(eventData);
+
+      // Handle ticket types
+      if (eventData.ticketTypes && Array.isArray(eventData.ticketTypes) && eventData.ticketTypes.length > 0) {
+        // Event has multiple ticket types
+        setTicketTypes(eventData.ticketTypes);
+        setFormData(prev => ({
+          ...prev,
+          tickets: [{
+            ticketType: eventData.ticketTypes[0].name,
+            quantity: 1
+          }]
+        }));
+      } else {
+        // Single ticket type (fallback)
+        const fallbackTicket = {
+          name: 'Regular',
+          price: eventData.price || 0,
+          availableTickets: eventData.availableTickets || eventData.capacity || 10
+        };
+        setTicketTypes([fallbackTicket]);
+        setFormData(prev => ({
+          ...prev,
+          tickets: [{
+            ticketType: 'Regular',
+            quantity: 1
+          }]
+        }));
+      }
     } catch (error) {
       console.error('Error fetching event:', error);
-      alert('Failed to load event details');
+      console.error('Error details:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || 'Failed to load event details';
+      setError(errorMessage);
+      
+      // Don't show alert if we're showing error state
+      // alert(errorMessage);
+    } finally {
+      setFetchingEvent(false);
     }
   };
 
@@ -133,12 +195,36 @@ const Checkout = () => {
     }
   };
 
-  if (!event) {
+  // Loading state
+  if (fetchingEvent) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading event details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !event) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h2>
+            <p className="text-gray-600 mb-6">{error || 'Unable to load event details'}</p>
+            <button 
+              onClick={() => navigate('/events')} 
+              className="px-6 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+            >
+              Back to Events
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -213,6 +299,8 @@ const Checkout = () => {
             <div className="space-y-4">
               {formData.tickets.map((ticket, index) => {
                 const ticketType = ticketTypes.find(tt => tt.name === ticket.ticketType);
+                const maxQuantity = Math.min(ticketType?.availableTickets || 10, 10);
+                
                 return (
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-3">
@@ -242,7 +330,7 @@ const Checkout = () => {
                           onChange={(e) => handleTicketChange(index, 'quantity', parseInt(e.target.value))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         >
-                          {[...Array(ticketType?.availableTickets || 1).keys()].map(num => (
+                          {[...Array(maxQuantity).keys()].map(num => (
                             <option key={num + 1} value={num + 1}>
                               {num + 1}
                             </option>

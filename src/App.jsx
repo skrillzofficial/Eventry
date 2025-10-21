@@ -64,7 +64,10 @@ function App() {
             <Route path="/dashboard/profile" element={<Profile />} />
             <Route path="/dashboard/settings" element={<Settings />} />
             <Route path="/dashboard/wallet" element={<WalletComponent />} />
-            <Route path="/dashboard/checkout" element={<CheckoutFlow />} />
+            
+            {/* FIXED: Checkout route with eventId parameter */}
+            <Route path="/checkout/:eventId" element={<CheckoutFlow />} />
+            
             <Route path="/my-tickets" element={<MyTickets />} />
 
             {/* Auth Routes */}
