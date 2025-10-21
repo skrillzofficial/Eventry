@@ -1,0 +1,190 @@
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const PaymentVerification = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [verificationStatus, setVerificationStatus] = useState('verifying');
+  const [transaction, setTransaction] = useState(null);
+  const [tickets, setTickets] = useState([]);
+
+  useEffect(() => {
+    verifyPayment();
+  }, []);
+
+  const verifyPayment = async () => {
+    const reference = searchParams.get('reference');
+    
+    if (!reference) {
+      setVerificationStatus('error');
+      return;
+    }
+
+    try {
+      const response = await axios.get(`/api/transactions/verify/${reference}`);
+      
+      if (response.data.success) {
+        setVerificationStatus('success');
+        setTransaction(response.data.data.transaction);
+        setTickets(response.data.data.tickets || []);
+        
+        setTimeout(() => {
+          navigate('/bookings');
+        }, 5000);
+      } else {
+        setVerificationStatus('failed');
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      setVerificationStatus('error');
+    }
+  };
+
+  const renderContent = () => {
+    switch (verificationStatus) {
+      case 'verifying':
+        return (
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verifying Your Payment</h2>
+            <p className="text-gray-600">Please wait while we confirm your payment...</p>
+          </div>
+        );
+
+      case 'success':
+        return (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
+            <p className="text-gray-600 mb-6">Your tickets have been booked successfully.</p>
+            
+            {transaction && (
+              <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Details</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b border-gray-200 pb-2">
+                    <span className="text-gray-600">Transaction ID:</span>
+                    <span className="font-medium">{transaction.reference}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-200 pb-2">
+                    <span className="text-gray-600">Amount Paid:</span>
+                    <span className="font-medium">₦{transaction.totalAmount?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Event:</span>
+                    <span className="font-medium text-right">{transaction.eventTitle}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tickets.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Tickets</h3>
+                <div className="space-y-3">
+                  {tickets.map((ticket, index) => (
+                    <div key={index} className="bg-white p-4 rounded-lg border-l-4 border-orange-500">
+                      <p className="font-medium">Ticket {index + 1}: {ticket.ticketType}</p>
+                      <p className="text-sm text-gray-600">Ticket Number: {ticket.ticketNumber}</p>
+                      {ticket.qrCode && (
+                        <p className="text-sm text-gray-600">QR Code: {ticket.qrCode}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
+              <button 
+                onClick={() => navigate('/bookings')}
+                className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+              >
+                View My Bookings
+              </button>
+              <button 
+                onClick={() => navigate('/events')}
+                className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Browse More Events
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-500">
+              You will be redirected to your bookings in 5 seconds...
+            </p>
+          </div>
+        );
+
+      case 'failed':
+        return (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Failed</h2>
+            <p className="text-gray-600 mb-6">Your payment could not be processed. Please try again.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                onClick={() => navigate(-1)}
+                className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+              >
+                Try Again
+              </button>
+              <button 
+                onClick={() => navigate('/events')}
+                className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Browse Events
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'error':
+      default:
+        return (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Error</h2>
+            <p className="text-gray-600 mb-6">Something went wrong. Please contact support.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                onClick={() => navigate('/support')}
+                className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+              >
+                Contact Support
+              </button>
+              <button 
+                onClick={() => navigate('/')}
+                className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Go Home
+              </button>
+            </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        {renderContent()}
+      </div>
+    </div>
+  );
+};
+
+export default PaymentVerification;

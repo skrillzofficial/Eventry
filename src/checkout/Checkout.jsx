@@ -1,516 +1,346 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  CreditCard, 
-  Wallet, 
-  Shield, 
-  CheckCircle, 
-  Clock,
-  AlertCircle,
-  Zap,
-  Coins,
-  Banknote,
-  Ticket
-} from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
 
-const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
-  const [paymentMethod, setPaymentMethod] = useState('crypto'); // 'crypto' or 'fiat'
+const Checkout = () => {
+  const { eventId } = useParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [solPrice, setSolPrice] = useState(100); // Demo SOL price in USD
-  const [currentStep, setCurrentStep] = useState('payment'); // 'payment', 'processing', 'success'
-  const [userDetails, setUserDetails] = useState({
-    name: '',
+  const [formData, setFormData] = useState({
+    fullName: '',
     email: '',
-    phone: ''
+    phone: '',
+    tickets: [
+      {
+        ticketType: 'Regular',
+        quantity: 1
+      }
+    ]
   });
 
-  // Get price based on ticket type or legacy price
-  const ticketPrice = event.ticketPrice || event.selectedTicketType?.price || event.price;
-  const ticketTypeName = event.selectedTicketType?.name || 'General';
-  
-  const totalAmountNGN = ticketPrice * ticketQuantity;
-  const totalAmountUSD = totalAmountNGN / 1600; // Approximate NGN to USD conversion
-  const totalAmountSOL = (totalAmountUSD / solPrice).toFixed(4);
+  const [event, setEvent] = useState(null);
+  const [ticketTypes, setTicketTypes] = useState([]);
 
-  // Demo payment processing
-  const processPayment = async () => {
-    setLoading(true);
-    setError(null);
-    
+  useEffect(() => {
+    fetchEventDetails();
+  }, [eventId]);
+
+  const fetchEventDetails = async () => {
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulate random success (90% success rate for demo)
-      const isSuccess = Math.random() > 0.1;
-      
-      if (!isSuccess) {
-        throw new Error(paymentMethod === 'crypto' 
-          ? 'Transaction failed. Please try again.' 
-          : 'Payment declined. Please check your card details.'
-        );
-      }
+      const response = await axios.get(`/api/v1/events/${eventId}`);
+      setEvent(response.data.event);
+      setTicketTypes(response.data.event.ticketTypes || [{
+        name: 'Regular',
+        price: response.data.event.price,
+        availableTickets: response.data.event.availableTickets
+      }]);
+    } catch (error) {
+      console.error('Error fetching event:', error);
+      alert('Failed to load event details');
+    }
+  };
 
-      setCurrentStep('success');
-      
-      // Call success callback after a delay
-      setTimeout(() => {
-        onSuccess({
-          type: paymentMethod,
-          amount: paymentMethod === 'crypto' ? totalAmountSOL : totalAmountNGN,
-          currency: paymentMethod === 'crypto' ? 'SOL' : 'NGN',
-          transactionId: 'DEMO_' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-          tickets: ticketQuantity,
-          ticketType: ticketTypeName,
-          event: event
-        });
-      }, 2000);
-      
-    } catch (err) {
-      setError(err.message);
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleTicketChange = (index, field, value) => {
+    const updatedTickets = [...formData.tickets];
+    updatedTickets[index] = {
+      ...updatedTickets[index],
+      [field]: value
+    };
+    setFormData({
+      ...formData,
+      tickets: updatedTickets
+    });
+  };
+
+  const addTicketType = () => {
+    if (ticketTypes.length > formData.tickets.length) {
+      setFormData({
+        ...formData,
+        tickets: [
+          ...formData.tickets,
+          {
+            ticketType: ticketTypes[formData.tickets.length]?.name || 'Regular',
+            quantity: 1
+          }
+        ]
+      });
+    }
+  };
+
+  const removeTicketType = (index) => {
+    if (formData.tickets.length > 1) {
+      const updatedTickets = formData.tickets.filter((_, i) => i !== index);
+      setFormData({
+        ...formData,
+        tickets: updatedTickets
+      });
+    }
+  };
+
+  const calculateTotal = () => {
+    return formData.tickets.reduce((total, ticket) => {
+      const ticketType = ticketTypes.find(tt => tt.name === ticket.ticketType);
+      return total + (ticketType?.price || 0) * ticket.quantity;
+    }, 0);
+  };
+
+  const calculateServiceFee = (total) => {
+    return Math.round((total * 0.025) + 100);
+  };
+
+  const handlePayment = async () => {
+    if (!formData.fullName || !formData.email) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const paymentData = {
+        eventId,
+        tickets: formData.tickets,
+        userInfo: {
+          name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone
+        }
+      };
+
+      const response = await axios.post('/api/initialize', paymentData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.data.success) {
+        window.location.href = response.data.data.authorizationUrl;
+      } else {
+        alert('Failed to initialize payment: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('Payment initialization failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (paymentMethod === 'fiat' && (!userDetails.name || !userDetails.email)) {
-      setError('Please fill in all required fields');
-      return;
-    }
-    
-    setCurrentStep('processing');
-    processPayment();
-  };
-
-  const updateUserDetails = (field, value) => {
-    setUserDetails(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // Steps configuration
-  const steps = [
-    { id: 'payment', name: 'Payment Method', status: currentStep === 'payment' ? 'current' : 'upcoming' },
-    { id: 'processing', name: 'Processing', status: currentStep === 'processing' ? 'current' : 'upcoming' },
-    { id: 'success', name: 'Confirmation', status: currentStep === 'success' ? 'current' : 'upcoming' }
-  ];
-
-  if (currentStep === 'success') {
+  if (!event) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl max-w-md w-full p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h3>
-          <p className="text-gray-600 mb-6">
-            Your tickets for <strong>{event.title}</strong> have been confirmed.
-          </p>
-          
-          {/*Enhanced success summary with ticket type */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-gray-600">Transaction ID:</span>
-              <span className="font-mono text-xs">DEMO_{Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
-            </div>
-            
-            {/* Show ticket type if available */}
-            {event.selectedTicketType && (
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-gray-600">Ticket Type:</span>
-                <span className="font-semibold text-[#FF6B35]">{ticketTypeName}</span>
-              </div>
-            )}
-            
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-gray-600">Tickets:</span>
-              <span>{ticketQuantity} × ₦{ticketPrice.toLocaleString()}</span>
-            </div>
-            
-            {/* Show ticket benefits if available */}
-            {event.selectedTicketType?.benefits && event.selectedTicketType.benefits.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-200 text-left">
-                <p className="text-xs font-medium text-gray-700 mb-1">Your ticket includes:</p>
-                <ul className="text-xs text-gray-600 space-y-0.5">
-                  {event.selectedTicketType.benefits.map((benefit, idx) => (
-                    <li key={idx} className="flex items-start">
-                      <CheckCircle className="h-3 w-3 text-green-500 mr-1 mt-0.5 flex-shrink-0" />
-                      <span>{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            <div className="flex justify-between font-semibold mt-3 pt-3 border-t border-gray-200">
-              <span>Total Paid:</span>
-              <span className="text-[#FF6B35]">
-                {paymentMethod === 'crypto' ? `${totalAmountSOL} SOL` : `₦${totalAmountNGN.toLocaleString()}`}
-              </span>
-            </div>
-          </div>
-          
-          <p className="text-sm text-gray-500 mb-6">
-            Tickets have been sent to your email. See you at the event!
-          </p>
-          <button
-            onClick={onClose}
-            className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
-          >
-            Close
-          </button>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading event details...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl z-10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Complete Purchase</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+  const subtotal = calculateTotal();
+  const serviceFee = calculateServiceFee(subtotal);
+  const totalAmount = subtotal + serviceFee;
 
-          {/* Progress Steps */}
-          <div className="flex items-center justify-between mb-2">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center flex-1">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-medium ${
-                  step.status === 'current' 
-                    ? 'border-[#FF6B35] bg-[#FF6B35] text-white' 
-                    : step.id === 'success' && currentStep === 'success'
-                    ? 'border-green-500 bg-green-500 text-white'
-                    : 'border-gray-300 text-gray-500'
-                }`}>
-                  {step.id === 'success' ? <CheckCircle className="h-4 w-4" /> : index + 1}
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-2 ${
-                    steps[index + 1].status === 'current' || steps[index + 1].status === 'completed'
-                      ? 'bg-[#FF6B35]' 
-                      : 'bg-gray-300'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between text-xs text-gray-500">
-            {steps.map(step => (
-              <span key={step.id} className="flex-1 text-center first:text-left last:text-right">
-                {step.name}
-              </span>
-            ))}
-          </div>
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Checkout</h1>
+          <p className="text-lg text-gray-600">Complete your booking for {event.title}</p>
         </div>
 
-        <div className="p-6">
-          {/*Enhanced Order Summary with ticket type details */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Ticket className="h-4 w-4 text-[#FF6B35]" />
-              Order Summary
-            </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Event</span>
-                <span className="font-medium text-gray-900">{event.title}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Form */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Attendee Information</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  id="fullName"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  required
+                />
               </div>
-              
-              {/* Show ticket type if available */}
-              {event.selectedTicketType && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Ticket Type</span>
-                  <span className="font-semibold text-[#FF6B35]">{ticketTypeName}</span>
-                </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-6">Ticket Selection</h2>
+            
+            <div className="space-y-4">
+              {formData.tickets.map((ticket, index) => {
+                const ticketType = ticketTypes.find(tt => tt.name === ticket.ticketType);
+                return (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-3">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Ticket Type
+                        </label>
+                        <select
+                          value={ticket.ticketType}
+                          onChange={(e) => handleTicketChange(index, 'ticketType', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        >
+                          {ticketTypes.map((type) => (
+                            <option key={type.name} value={type.name}>
+                              {type.name} - ₦{type.price?.toLocaleString()}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Quantity
+                        </label>
+                        <select
+                          value={ticket.quantity}
+                          onChange={(e) => handleTicketChange(index, 'quantity', parseInt(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        >
+                          {[...Array(ticketType?.availableTickets || 1).keys()].map(num => (
+                            <option key={num + 1} value={num + 1}>
+                              {num + 1}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {formData.tickets.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeTicketType(index)}
+                          className="px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 mt-6 sm:mt-0"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="text-right font-semibold text-gray-900">
+                      Subtotal: ₦{((ticketType?.price || 0) * ticket.quantity).toLocaleString()}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {ticketTypes.length > formData.tickets.length && (
+                <button
+                  type="button"
+                  onClick={addTicketType}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  + Add Another Ticket Type
+                </button>
               )}
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Price per ticket</span>
-                <span className="font-medium">₦{ticketPrice.toLocaleString()}</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Quantity</span>
-                <span className="font-medium">{ticketQuantity}</span>
-              </div>
-              
-              {/* Show ticket description if available */}
-              {event.selectedTicketType?.description && (
-                <div className="pt-2 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">{event.selectedTicketType.description}</p>
-                </div>
-              )}
-              
-              {/* Show ticket benefits if available */}
-              {event.selectedTicketType?.benefits && event.selectedTicketType.benefits.length > 0 && (
-                <div className="pt-2 border-t border-gray-200">
-                  <p className="text-xs font-medium text-gray-700 mb-1">Includes:</p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    {event.selectedTicketType.benefits.map((benefit, idx) => (
-                      <li key={idx} className="flex items-start">
-                        <CheckCircle className="h-3 w-3 text-[#FF6B35] mr-1 mt-0.5 flex-shrink-0" />
-                        <span>{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              <div className="border-t border-gray-200 pt-2 mt-2">
-                <div className="flex justify-between font-semibold">
-                  <span>Total Amount</span>
-                  <span className="text-[#FF6B35]">
-                    ₦{totalAmountNGN.toLocaleString()}
-                    <span className="text-gray-500 text-xs ml-2 font-normal">
-                      (~{totalAmountSOL} SOL)
-                    </span>
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
 
-          {currentStep === 'processing' ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-[#FF6B35]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Clock className="h-8 w-8 text-[#FF6B35] animate-pulse" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Processing {paymentMethod === 'crypto' ? 'Crypto' : 'Card'} Payment
-              </h3>
-              <p className="text-gray-600">
-                Please wait while we confirm your payment...
+          {/* Right Column - Order Summary */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-fit sticky top-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
+            
+            {/* Event Details */}
+            <div className="mb-6 pb-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{event.title}</h3>
+              <p className="text-gray-600 mb-1">
+                {new Date(event.date).toLocaleDateString()} at {event.time}
               </p>
+              <p className="text-gray-600">{event.venue}, {event.city}</p>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              {/* Payment Method Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Payment Method
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('crypto')}
-                    className={`p-4 border-2 rounded-lg text-left transition-all ${
-                      paymentMethod === 'crypto'
-                        ? 'border-[#FF6B35] bg-[#FF6B35]/5'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center mb-2">
-                      <Coins className={`h-5 w-5 mr-2 ${
-                        paymentMethod === 'crypto' ? 'text-[#FF6B35]' : 'text-gray-400'
-                      }`} />
-                      <span className="font-medium">Pay with Crypto</span>
-                    </div>
-                    <p className="text-xs text-gray-500">SOL, USDC, other tokens</p>
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('fiat')}
-                    className={`p-4 border-2 rounded-lg text-left transition-all ${
-                      paymentMethod === 'fiat'
-                        ? 'border-[#FF6B35] bg-[#FF6B35]/5'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center mb-2">
-                      <CreditCard className={`h-5 w-5 mr-2 ${
-                        paymentMethod === 'fiat' ? 'text-[#FF6B35]' : 'text-gray-400'
-                      }`} />
-                      <span className="font-medium">Pay with Card</span>
-                    </div>
-                    <p className="text-xs text-gray-500">Visa, Mastercard, Verve</p>
-                  </button>
-                </div>
+            {/* Price Breakdown */}
+            <div className="mb-6 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-semibold">₦{subtotal.toLocaleString()}</span>
               </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Service Fee:</span>
+                <span className="font-semibold">₦{serviceFee.toLocaleString()}</span>
+              </div>
+              
+              <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+                <span className="text-lg font-bold text-gray-900">Total Amount:</span>
+                <span className="text-lg font-bold text-orange-600">₦{totalAmount.toLocaleString()}</span>
+              </div>
+            </div>
 
-              {/* User Details Form */}
-              {paymentMethod === 'fiat' && (
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={userDetails.name}
-                      onChange={(e) => updateUserDetails('name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                      placeholder="Enter your full name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={userDetails.email}
-                      onChange={(e) => updateUserDetails('email', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                      placeholder="Enter your email"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={userDetails.phone}
-                      onChange={(e) => updateUserDetails('phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                      placeholder="Enter your phone number"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Details */}
-              {paymentMethod === 'crypto' ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center mb-2">
-                    <Zap className="h-5 w-5 text-blue-600 mr-2" />
-                    <span className="font-medium text-blue-900">Pay with Solana</span>
-                  </div>
-                  <p className="text-sm text-blue-700 mb-3">
-                    You'll be redirected to your wallet to confirm the payment of{' '}
-                    <strong>{totalAmountSOL} SOL</strong> (~₦{totalAmountNGN.toLocaleString()})
-                  </p>
-                  <div className="text-xs text-blue-600 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Network:</span>
-                      <span>Solana Mainnet</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Fee:</span>
-                      <span>~0.000005 SOL</span>
-                    </div>
-                  </div>
+            {/* Pay Now Button */}
+            <button
+              onClick={handlePayment}
+              disabled={loading}
+              className="w-full bg-orange-500 text-white py-3 px-4 rounded-md font-semibold text-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Processing...
                 </div>
               ) : (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="font-medium text-gray-900">Card Details</span>
-                    <div className="flex space-x-2">
-                      <div className="w-8 h-5 bg-gradient-to-r from-blue-600 to-blue-400 rounded-sm"></div>
-                      <div className="w-8 h-5 bg-gradient-to-r from-red-600 to-orange-400 rounded-sm"></div>
-                      <div className="w-8 h-5 bg-gradient-to-r from-blue-800 to-blue-600 rounded-sm"></div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Card Number"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                        value="4242 4242 4242 4242"
-                        readOnly
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Demo card for testing</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        placeholder="MM/YY"
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                        value="12/28"
-                        readOnly
-                      />
-                      <input
-                        type="text"
-                        placeholder="CVC"
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                        value="123"
-                        readOnly
-                      />
-                    </div>
-                  </div>
-                </div>
+                `Pay ₦${totalAmount.toLocaleString()}`
               )}
+            </button>
 
-              {/* Security Features */}
-              <div className="flex items-center justify-center space-x-4 text-xs text-gray-500 mb-6">
-                <div className="flex items-center">
-                  <Shield className="h-4 w-4 mr-1 text-green-600" />
-                  <span>Secure Payment</span>
-                </div>
-                <div className="flex items-center">
-                  <Banknote className="h-4 w-4 mr-1 text-green-600" />
-                  <span>Encrypted</span>
-                </div>
-                <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
-                  <span>Verified</span>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="flex items-center space-x-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm">{error}</span>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-semibold hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-5 w-5" />
-                      {paymentMethod === 'crypto' 
-                        ? `Pay ${totalAmountSOL} SOL` 
-                        : `Pay ₦${totalAmountNGN.toLocaleString()}`
-                      }
-                    </>
-                  )}
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full py-3 text-gray-600 hover:text-gray-800 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
+            {/* Security Notice */}
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-500 flex items-center justify-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+                Your payment is secure and encrypted
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default CheckoutFlow;
+export default Checkout;
