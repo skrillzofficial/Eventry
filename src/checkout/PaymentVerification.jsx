@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import apiClient from '../services/api';
+import { transactionAPI } from '../services/api';
 
 const PaymentVerification = () => {
   const [searchParams] = useSearchParams();
@@ -22,7 +22,7 @@ const PaymentVerification = () => {
     }
 
     try {
-      // Using configured apiClient with proper base URL
+      // Using your configured apiClient with proper base URL
       const response = await apiClient.get(`/transactions/verify/${reference}`);
       
       if (response.data.success) {
