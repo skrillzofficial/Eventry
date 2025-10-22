@@ -4,7 +4,7 @@ export const BACKEND_URL =
   import.meta.env.VITE_API_URL ||
   "https://ecommerce-backend-tb8u.onrender.com/api/v1";
 
-//  axios instance with base configuration (for authenticated requests)
+// Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: BACKEND_URL,
   headers: {
@@ -41,25 +41,6 @@ apiClient.interceptors.response.use(
   }
 );
 
-// PUBLIC API CLIENT (No Authentication)
-
-export const publicApiClient = axios.create({
-  baseURL: BACKEND_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 50000,
-});
-
-// Public API client 
-publicApiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Don't logout on 401 for public endpoints
-    return Promise.reject(error);
-  }
-);
-
 // Auth API calls
 export const authAPI = {
   login: (email, password, userType = "attendee") =>
@@ -88,11 +69,11 @@ export const userAPI = {
 
 // Event API calls
 export const eventAPI = {
-  // Public routes - using publicApiClient
-  getFeaturedEvents: () => publicApiClient.get("/events/featured"),
-  getUpcomingEvents: () => publicApiClient.get("/events/upcoming"),
-  getAllEvents: (params = {}) => publicApiClient.get("/events", { params }),
-  getEventById: (id) => publicApiClient.get(`/events/${id}`),
+  // Public routes
+  getFeaturedEvents: () => apiClient.get("/events/featured"),
+  getUpcomingEvents: () => apiClient.get("/events/upcoming"),
+  getAllEvents: (params = {}) => apiClient.get("/events", { params }),
+  getEventById: (id) => apiClient.get(`/events/${id}`),
 
   // Protected routes (require authentication)
   getMyBookings: (params = {}) =>
@@ -103,7 +84,7 @@ export const eventAPI = {
     apiClient.delete(`/events/${eventId}/cancel-booking`),
   toggleLikeEvent: (eventId) => apiClient.post(`/events/${eventId}/like`),
 
-  // Organizer-only routes
+  // Organizer-only routes - UPDATED WITH PROPER ENDPOINTS
   getOrganizerEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
 
@@ -143,7 +124,7 @@ export const eventAPI = {
     apiClient.patch(`/events/${eventId}/status`, { status }),
 };
 
-// Organizer-specific API calls
+// Organizer-specific API calls - NEW DEDICATED SECTION
 export const organizerAPI = {
   // Event Management
   getMyEvents: (params = {}) =>
@@ -168,6 +149,9 @@ export const organizerAPI = {
   unpublishEvent: (eventId) =>
     apiClient.patch(`/events/organizer/events/${eventId}/unpublish`),
 
+  duplicateEvent: (eventId) =>
+    apiClient.post(`/events/organizer/events/${eventId}/duplicate`),
+
   // Attendee management
   getEventAttendees: (eventId, params = {}) =>
     apiClient.get(`/events/organizer/events/${eventId}/attendees`, { params }),
@@ -183,9 +167,9 @@ export const organizerAPI = {
 
 // Transaction API calls
 export const transactionAPI = {
-  // Public route - no auth required - USES publicApiClient
+  // Public route - no auth required
   verifyPayment: (reference) =>
-    publicApiClient.get(`/transactions/verify/${reference}`),
+    apiClient.get(`/transactions/verify/${reference}`),
 
   // Protected routes - require authentication
   initializePayment: (paymentData) =>
@@ -210,7 +194,6 @@ export const transactionAPI = {
   getRevenueStats: (params = {}) =>
     apiClient.get("/transactions/stats/revenue", { params }),
 };
-
 // Superadmin API calls
 export const superadminAPI = {
   // User Management
