@@ -63,7 +63,8 @@ export const authAPI = {
 // User API calls
 export const userAPI = {
   getUserProfile: (userId) => apiClient.get(`/users/${userId}`),
-  updateUser: (userId, userData) => apiClient.patch(`/users/${userId}`, userData),
+  updateUser: (userId, userData) =>
+    apiClient.patch(`/users/${userId}`, userData),
 };
 
 // Event API calls
@@ -75,133 +76,156 @@ export const eventAPI = {
   getEventById: (id) => apiClient.get(`/events/${id}`),
 
   // Protected routes (require authentication)
-  getMyBookings: (params = {}) => apiClient.get("/events/my-bookings", { params }),
-  bookEventTicket: (eventId, bookingData) => 
+  getMyBookings: (params = {}) =>
+    apiClient.get("/events/my-bookings", { params }),
+  bookEventTicket: (eventId, bookingData) =>
     apiClient.post(`/events/${eventId}/book`, bookingData),
-  cancelBooking: (eventId) => 
+  cancelBooking: (eventId) =>
     apiClient.delete(`/events/${eventId}/cancel-booking`),
-  toggleLikeEvent: (eventId) => 
-    apiClient.post(`/events/${eventId}/like`),
+  toggleLikeEvent: (eventId) => apiClient.post(`/events/${eventId}/like`),
 
   // Organizer-only routes - UPDATED WITH PROPER ENDPOINTS
-  getOrganizerEvents: (params = {}) => 
+  getOrganizerEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
-  
-  getOrganizerStatistics: () => 
-    apiClient.get("/events/organizer/statistics"),
-  
-  createEvent: (eventData) => 
+
+  getOrganizerStatistics: () => apiClient.get("/events/organizer/statistics"),
+
+  createEvent: (eventData) =>
     apiClient.post("/events/create", eventData, {
       timeout: 120000,
       headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+        "Content-Type": "multipart/form-data",
+      },
     }),
-  
-  updateEvent: (eventId, eventData) => 
+
+  updateEvent: (eventId, eventData) =>
     apiClient.patch(`/events/${eventId}`, eventData, {
-      headers: eventData instanceof FormData ? {
-        'Content-Type': 'multipart/form-data'
-      } : {
-        'Content-Type': 'application/json'
-      }
+      headers:
+        eventData instanceof FormData
+          ? {
+              "Content-Type": "multipart/form-data",
+            }
+          : {
+              "Content-Type": "application/json",
+            },
     }),
-  
-  deleteEventImage: (eventId, imageIndex) => 
+
+  deleteEventImage: (eventId, imageIndex) =>
     apiClient.delete(`/events/${eventId}/images/${imageIndex}`),
-  
-  cancelEvent: (eventId) => 
-    apiClient.patch(`/events/${eventId}/cancel`),
-  
-  deleteEvent: (eventId) => 
-    apiClient.delete(`/events/${eventId}`),
-  
+
+  cancelEvent: (eventId) => apiClient.patch(`/events/${eventId}/cancel`),
+
+  deleteEvent: (eventId) => apiClient.delete(`/events/${eventId}`),
+
   // Additional organizer endpoints
-  getEventAnalytics: (eventId) => 
-    apiClient.get(`/events/${eventId}/analytics`),
-  
-  updateEventStatus: (eventId, status) => 
+  getEventAnalytics: (eventId) => apiClient.get(`/events/${eventId}/analytics`),
+
+  updateEventStatus: (eventId, status) =>
     apiClient.patch(`/events/${eventId}/status`, { status }),
 };
 
 // Organizer-specific API calls - NEW DEDICATED SECTION
 export const organizerAPI = {
   // Event Management
-  getMyEvents: (params = {}) => 
+  getMyEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
-  
-  getEventStats: (eventId) => 
+
+  getEventStats: (eventId) =>
     apiClient.get(`/events/organizer/events/${eventId}/stats`),
-  
-  getRevenueAnalytics: (params = {}) => 
+
+  getRevenueAnalytics: (params = {}) =>
     apiClient.get("/events/organizer/analytics/revenue", { params }),
-  
-  getAttendanceAnalytics: (params = {}) => 
+
+  getAttendanceAnalytics: (params = {}) =>
     apiClient.get("/events/organizer/analytics/attendance", { params }),
-  
+
   // Dashboard Statistics
-  getDashboardStats: () => 
-    apiClient.get("/events/organizer/dashboard/stats"),
-  
+  getDashboardStats: () => apiClient.get("/events/organizer/dashboard/stats"),
+
   // Event operations with organizer context
-  publishEvent: (eventId) => 
+  publishEvent: (eventId) =>
     apiClient.patch(`/events/organizer/events/${eventId}/publish`),
-  
-  unpublishEvent: (eventId) => 
+
+  unpublishEvent: (eventId) =>
     apiClient.patch(`/events/organizer/events/${eventId}/unpublish`),
-  
-  duplicateEvent: (eventId) => 
+
+  duplicateEvent: (eventId) =>
     apiClient.post(`/events/organizer/events/${eventId}/duplicate`),
-  
+
   // Attendee management
-  getEventAttendees: (eventId, params = {}) => 
+  getEventAttendees: (eventId, params = {}) =>
     apiClient.get(`/events/organizer/events/${eventId}/attendees`, { params }),
-  
-  exportAttendees: (eventId) => 
+
+  exportAttendees: (eventId) =>
     apiClient.get(`/events/organizer/events/${eventId}/attendees/export`, {
-      responseType: 'blob'
+      responseType: "blob",
     }),
-  
-  sendBulkMessage: (eventId, messageData) => 
+
+  sendBulkMessage: (eventId, messageData) =>
     apiClient.post(`/events/organizer/events/${eventId}/message`, messageData),
 };
 
+// Transaction API calls
+export const transactionAPI = {
+  // Public route - no auth required
+  verifyPayment: (reference) =>
+    apiClient.get(`/transactions/verify/${reference}`),
+
+  // Protected routes - require authentication
+  initializePayment: (paymentData) =>
+    apiClient.post("/transactions/initialize", paymentData),
+
+  getMyTransactions: (params = {}) =>
+    apiClient.get("/transactions/my-transactions", { params }),
+
+  getTransaction: (transactionId) =>
+    apiClient.get(`/transactions/${transactionId}`),
+
+  // Organizer routes
+  getEventTransactions: (eventId, params = {}) =>
+    apiClient.get(`/transactions/event/${eventId}`, { params }),
+
+  requestRefund: (transactionId, refundData) =>
+    apiClient.post(`/transactions/${transactionId}/refund`, refundData),
+
+  processRefund: (transactionId, refundData) =>
+    apiClient.put(`/transactions/${transactionId}/refund/process`, refundData),
+
+  getRevenueStats: (params = {}) =>
+    apiClient.get("/transactions/stats/revenue", { params }),
+};
 // Superadmin API calls
 export const superadminAPI = {
   // User Management
-  createSuperadmin: (userData) => 
+  createSuperadmin: (userData) =>
     apiClient.post("/admin/users/register", userData),
-  
-  getAllUsers: (params = {}) => 
-    apiClient.get("/admin/users", { params }),
-  
-  updateUserRole: (userId, roleData) => 
+
+  getAllUsers: (params = {}) => apiClient.get("/admin/users", { params }),
+
+  updateUserRole: (userId, roleData) =>
     apiClient.patch(`/admin/users/${userId}/role`, roleData),
-  
-  updateUserStatus: (userId, statusData) => 
+
+  updateUserStatus: (userId, statusData) =>
     apiClient.patch(`/admin/users/${userId}/status`, statusData),
-  
-  suspendUser: (userId, suspendData) => 
+
+  suspendUser: (userId, suspendData) =>
     apiClient.patch(`/admin/users/${userId}/suspend`, suspendData),
-  
-  deleteUser: (userId) => 
-    apiClient.delete(`/admin/users/${userId}/delete`),
+
+  deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}/delete`),
 
   // Event Management
-  getAllEventsAdmin: (params = {}) => 
+  getAllEventsAdmin: (params = {}) =>
     apiClient.get("/admin/events", { params }),
-  
-  updateEventAdmin: (eventId, eventData) => 
+
+  updateEventAdmin: (eventId, eventData) =>
     apiClient.patch(`/admin/events/${eventId}`, eventData),
-  
-  deleteEventAdmin: (eventId) => 
-    apiClient.delete(`/admin/events/${eventId}`),
+
+  deleteEventAdmin: (eventId) => apiClient.delete(`/admin/events/${eventId}`),
 
   // Platform Statistics
-  getPlatformStats: () => 
-    apiClient.get("/admin/stats"),
-  
-  getPlatformAnalytics: (params = {}) => 
+  getPlatformStats: () => apiClient.get("/admin/stats"),
+
+  getPlatformAnalytics: (params = {}) =>
     apiClient.get("/admin/analytics", { params }),
 };
 
@@ -209,10 +233,10 @@ export const superadminAPI = {
 export const apiCall = async (apiFunction, ...args) => {
   try {
     const response = await apiFunction(...args);
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: response.data,
-      status: response.status
+      status: response.status,
     };
   } catch (error) {
     console.error("API call failed:", error);
@@ -222,13 +246,14 @@ export const apiCall = async (apiFunction, ...args) => {
     let errorDetails = null;
 
     if (error.code === "ECONNABORTED" && error.message.includes("timeout")) {
-      errorMessage = "Request took too long. Please check your connection and try again.";
+      errorMessage =
+        "Request took too long. Please check your connection and try again.";
       errorCode = 408;
     } else if (error.response?.data) {
       // Handle different error response formats
       const errorData = error.response.data;
-      
-      if (typeof errorData === 'string') {
+
+      if (typeof errorData === "string") {
         errorMessage = errorData;
       } else if (errorData.message) {
         errorMessage = errorData.message;
@@ -257,7 +282,7 @@ export const apiCall = async (apiFunction, ...args) => {
       success: false,
       error: errorMessage,
       status: errorCode,
-      details: errorDetails
+      details: errorDetails,
     };
   }
 };
@@ -273,10 +298,10 @@ export const apiCallWithProgress = (apiFunction, onProgress, ...args) => {
           );
           onProgress(percentCompleted);
         }
-      }
+      },
     })
-      .then(response => resolve({ success: true, data: response.data }))
-      .catch(error => {
+      .then((response) => resolve({ success: true, data: response.data }))
+      .catch((error) => {
         const errorMessage = error.response?.data?.message || error.message;
         reject({ success: false, error: errorMessage });
       });
@@ -286,19 +311,19 @@ export const apiCallWithProgress = (apiFunction, onProgress, ...args) => {
 // Helper function to handle API responses consistently
 export const handleApiResponse = (result, options = {}) => {
   const { onSuccess, onError, showToast } = options;
-  
+
   if (result.success) {
     if (onSuccess) onSuccess(result.data);
     if (showToast && options.successMessage) {
       // You can integrate with your toast notification system here
-      console.log('Success:', options.successMessage);
+      console.log("Success:", options.successMessage);
     }
     return result.data;
   } else {
     if (onError) onError(result.error);
     if (showToast !== false) {
-      // Show error toast 
-      console.error('Error:', result.error);
+      // Show error toast
+      console.error("Error:", result.error);
     }
     throw new Error(result.error);
   }

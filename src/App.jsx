@@ -19,6 +19,7 @@ import WalletComponent from "./pages/dashboard/Wallet";
 import CheckoutFlow from "./checkout/Checkout";
 import MyEvents from "./pages/dashboard/MyEvents";
 import MyTickets from "./pages/dashboard/MyTickets"; 
+import PaymentVerification from "././checkout/PaymentVerification";
 
 // Auth Pages
 import SignUp from "./Auths/SignUp";
@@ -65,8 +66,11 @@ function App() {
             <Route path="/dashboard/settings" element={<Settings />} />
             <Route path="/dashboard/wallet" element={<WalletComponent />} />
             
-            {/* FIXED: Checkout route with eventId parameter */}
+            {/* Checkout route with eventId parameter */}
             <Route path="/checkout/:eventId" element={<CheckoutFlow />} />
+
+              {/*  Payment Verification */}
+            <Route path="/payment/verify" element={<PaymentVerification />} />
             
             <Route path="/my-tickets" element={<MyTickets />} />
 

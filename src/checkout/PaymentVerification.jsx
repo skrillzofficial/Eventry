@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../services/api';
 
 const PaymentVerification = () => {
   const [searchParams] = useSearchParams();
@@ -22,21 +22,24 @@ const PaymentVerification = () => {
     }
 
     try {
-      const response = await axios.get(`/api/transactions/verify/${reference}`);
+      // Using configured apiClient with proper base URL
+      const response = await apiClient.get(`/transactions/verify/${reference}`);
       
       if (response.data.success) {
         setVerificationStatus('success');
-        setTransaction(response.data.data.transaction);
-        setTickets(response.data.data.tickets || []);
+        setTransaction(response.data.data?.transaction || response.data.transaction);
+        setTickets(response.data.data?.tickets || response.data.tickets || []);
         
+        // Redirect to my-tickets after 5 seconds
         setTimeout(() => {
-          navigate('/bookings');
+          navigate('/my-tickets');
         }, 5000);
       } else {
         setVerificationStatus('failed');
       }
     } catch (error) {
       console.error('Verification error:', error);
+      console.error('Error details:', error.response?.data);
       setVerificationStatus('error');
     }
   };
@@ -75,10 +78,12 @@ const PaymentVerification = () => {
                     <span className="text-gray-600">Amount Paid:</span>
                     <span className="font-medium">₦{transaction.totalAmount?.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Event:</span>
-                    <span className="font-medium text-right">{transaction.eventTitle}</span>
-                  </div>
+                  {transaction.eventTitle && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Event:</span>
+                      <span className="font-medium text-right">{transaction.eventTitle}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -88,7 +93,7 @@ const PaymentVerification = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Tickets</h3>
                 <div className="space-y-3">
                   {tickets.map((ticket, index) => (
-                    <div key={index} className="bg-white p-4 rounded-lg border-l-4 border-orange-500">
+                    <div key={ticket._id || index} className="bg-white p-4 rounded-lg border-l-4 border-orange-500">
                       <p className="font-medium">Ticket {index + 1}: {ticket.ticketType}</p>
                       <p className="text-sm text-gray-600">Ticket Number: {ticket.ticketNumber}</p>
                       {ticket.qrCode && (
@@ -102,13 +107,13 @@ const PaymentVerification = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <button 
-                onClick={() => navigate('/bookings')}
+                onClick={() => navigate('/my-tickets')}
                 className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                View My Bookings
+                View My Tickets
               </button>
               <button 
-                onClick={() => navigate('/events')}
+                onClick={() => navigate('/discover')}
                 className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
               >
                 Browse More Events
@@ -116,7 +121,7 @@ const PaymentVerification = () => {
             </div>
 
             <p className="text-sm text-gray-500">
-              You will be redirected to your bookings in 5 seconds...
+              You will be redirected to your tickets in 5 seconds...
             </p>
           </div>
         );
@@ -133,16 +138,16 @@ const PaymentVerification = () => {
             <p className="text-gray-600 mb-6">Your payment could not be processed. Please try again.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/discover')}
                 className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                Try Again
+                Browse Events
               </button>
               <button 
-                onClick={() => navigate('/events')}
+                onClick={() => navigate('/')}
                 className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
               >
-                Browse Events
+                Go Home
               </button>
             </div>
           </div>
@@ -158,13 +163,13 @@ const PaymentVerification = () => {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Error</h2>
-            <p className="text-gray-600 mb-6">Something went wrong. Please contact support.</p>
+            <p className="text-gray-600 mb-6">Something went wrong verifying your payment. Please contact support if your payment was deducted.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
-                onClick={() => navigate('/support')}
+                onClick={() => navigate('/my-tickets')}
                 className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                Contact Support
+                View My Tickets
               </button>
               <button 
                 onClick={() => navigate('/')}
