@@ -22,8 +22,8 @@ const PaymentVerification = () => {
     }
 
     try {
-      // Using your configured apiClient with proper base URL
-      const response = await apiClient.get(`/transactions/verify/${reference}`);
+      // Use transactionAPI.verifyPayment instead of apiClient directly
+      const response = await transactionAPI.verifyPayment(reference);
       
       if (response.data.success) {
         setVerificationStatus('success');
@@ -44,6 +44,7 @@ const PaymentVerification = () => {
     }
   };
 
+  // ... rest of your component code remains the same
   const renderContent = () => {
     switch (verificationStatus) {
       case 'verifying':
