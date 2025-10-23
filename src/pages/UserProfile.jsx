@@ -2,20 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Calendar, 
-  Users, 
-  TrendingUp, 
   Ticket, 
   Wallet,
   ArrowRight,
   Eye,
-  Sparkles,
   MapPin,
-  Star,
   AlertCircle,
-  Heart,
   Clock,
   CheckCircle,
-  Gift
+  Users,
 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
@@ -272,11 +267,10 @@ const UserProfile = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <div className="inline-flex items-center px-4 py-2 bg-[#FF6B35]/10 rounded-full text-[#FF6B35] text-sm mb-4">
-            <Sparkles className="h-4 w-4 mr-2" />
             Welcome Back!
           </div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Hello, <span className="text-[#FF6B35]">{userName}</span>! 👋
+            Hello, <span className="text-[#FF6B35]">{userName}</span>
           </h1>
           <p className="text-gray-600 mt-2">
             Discover amazing events and manage your tickets seamlessly
@@ -383,6 +377,26 @@ const QuickActionsSection = () => (
           <p className="text-sm text-gray-600">View all tickets</p>
         </div>
       </Link>
+      
+      <Link to="/wallet" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-[#FF6B35]/5 transition-all group">
+        <div className="p-3 bg-green-500 rounded-lg mr-4 group-hover:scale-110 transition-transform">
+          <Wallet className="h-5 w-5 text-white" />
+        </div>
+        <div>
+          <p className="font-medium text-gray-900">Top Up Wallet</p>
+          <p className="text-sm text-gray-600">Add funds</p>
+        </div>
+      </Link>
+      
+      <Link to="/profile/settings" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-[#FF6B35]/5 transition-all group">
+        <div className="p-3 bg-blue-500 rounded-lg mr-4 group-hover:scale-110 transition-transform">
+          <Users className="h-5 w-5 text-white" />
+        </div>
+        <div>
+          <p className="font-medium text-gray-900">Profile Settings</p>
+          <p className="text-sm text-gray-600">Update profile</p>
+        </div>
+      </Link>
     </div>
   </div>
 );
@@ -462,8 +476,8 @@ const UpcomingBookingsSection = ({ bookings }) => {
       </div>
       <div className="space-y-3">
         {upcomingBookings.length > 0 ? (
-          upcomingBookings.map(booking => (
-            <UpcomingBookingItem key={booking._id || booking.id} booking={booking} />
+          upcomingBookings.map((booking, index) => (
+            <UpcomingBookingItem key={booking._id || booking.id || `booking-${index}`} booking={booking} />
           ))
         ) : (
           <div className="text-center py-6 text-gray-500">
@@ -564,7 +578,7 @@ const ActivityItem = ({ icon: Icon, title, description, time, type }) => (
 
 // Event History Item Component
 const EventHistoryItem = ({ event }) => {
-  const imageUrl = event.images?.[0] || event.image || event.imageUrl || 'https://via.placeholder.com/150';
+  const imageUrl = event.images?.[0] || event.image || event.imageUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="150" height="150"%3E%3Crect fill="%23ddd" width="150" height="150"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="14" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
   
   return (
     <Link to={`/event/${event._id || event.id}`}>
@@ -573,7 +587,9 @@ const EventHistoryItem = ({ event }) => {
           src={imageUrl} 
           alt={event.title || event.name}
           className="w-16 h-16 rounded-lg object-cover"
-          onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
+          onError={(e) => { 
+            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="150" height="150"%3E%3Crect fill="%23ddd" width="150" height="150"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="14" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
+          }}
         />
         <div className="flex-1">
           <p className="font-medium text-gray-900 text-sm group-hover:text-[#FF6B35] transition-colors">
