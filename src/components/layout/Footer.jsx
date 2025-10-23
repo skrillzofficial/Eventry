@@ -41,9 +41,9 @@ const Footer = () => {
             >
               Team
             </Link>
-            <a href="#" className="hover:text-[#00FFD1] transition-colors">
+            <Link to="/contact" className="hover:text-[#00FFD1] transition-colors">
               Help
-            </a>
+            </Link>
             <a href="#" className="hover:text-[#00FFD1] transition-colors">
               Privacy Policy
             </a>

@@ -40,6 +40,10 @@ const Home = () => {
   // FAQ data
   const faqs = [
     {
+      question: "Who can use Eventry?",
+      answer: "Anyone! Eventry is built for event organizers, hosts, and attendees. Organizers can plan and manage events efficiently, while attendees can discover and book events that interest them. Our platform is designed to be user-friendly for all experience levels."
+    },
+    {
       question: "How do I create an event on Eventry?",
       answer: "Creating an event is simple! Click on 'Create Event' in the navigation menu, fill in your event details including title, date, venue, and ticket information. You can upload images, set ticket prices, and publish your event instantly. Our platform guides you through each step."
     },
@@ -62,10 +66,6 @@ const Home = () => {
     {
       question: "How much does it cost to use Eventry?",
       answer: "Creating an account and browsing events is completely free! For event organizers, we charge a small service fee per ticket sold. There are no upfront costs or hidden fees. You only pay when you successfully sell tickets."
-    },
-    {
-      question: "Can I sell tickets offline as well?",
-      answer: "Yes! Eventry allows you to manage both online and offline ticket sales. You can mark tickets as sold at the door and keep track of all sales in one central dashboard with real-time updates."
     },
     {
       question: "What happens if an event is cancelled?",

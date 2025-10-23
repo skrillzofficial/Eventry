@@ -378,7 +378,7 @@ const QuickActionsSection = () => (
         </div>
       </Link>
       
-      <Link to="/wallet" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-[#FF6B35]/5 transition-all group">
+      <Link to="/dashboard/wallet" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-[#FF6B35]/5 transition-all group">
         <div className="p-3 bg-green-500 rounded-lg mr-4 group-hover:scale-110 transition-transform">
           <Wallet className="h-5 w-5 text-white" />
         </div>
@@ -388,7 +388,7 @@ const QuickActionsSection = () => (
         </div>
       </Link>
       
-      <Link to="/profile/settings" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-[#FF6B35]/5 transition-all group">
+      <Link to="/dashboard/profile" className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-[#FF6B35]/5 transition-all group">
         <div className="p-3 bg-blue-500 rounded-lg mr-4 group-hover:scale-110 transition-transform">
           <Users className="h-5 w-5 text-white" />
         </div>
