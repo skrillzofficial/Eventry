@@ -5,45 +5,186 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-   const isOrganizer = user?.userType === "organizer" || user?.role === "organizer";
+  // Computed property for organizer check
+  const isOrganizer = user?.role === "organizer";
+  const userRole = user?.role || null;
 
-  // Initialize auth state
+  // Initialize auth state on mount
   useEffect(() => {
-    const initializeAuth = async () => {
-      const storedToken = localStorage.getItem("token");
-      const storedUser = localStorage.getItem("user");
-
-      if (storedToken && storedUser) {
-        try {
-          // Verify token is still valid
-          const result = await apiCall(authAPI.getCurrentUser);
-          if (result.success) {
-            setToken(storedToken);
-            setUser(result.data.user);
-            setIsAuthenticated(true);
-            localStorage.setItem("user", JSON.stringify(result.data.user));
-          } else {
-            // Token is invalid
-            console.log("Token invalid during initialization");
-            await performLogout();
-          }
-        } catch (error) {
-          console.error("Auth initialization error:", error);
-          await performLogout();
-        }
-      }
-      setLoading(false);
-    };
-
     initializeAuth();
   }, []);
 
-  // Perform actual logout 
-  const performLogout = async () => {
+  const initializeAuth = async () => {
+    console.log("🔄 Initializing auth...");
+    
+    const storedToken = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+
+    if (!storedToken || !storedUser) {
+      console.log("❌ No stored credentials found");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Parse stored user
+      const parsedUser = JSON.parse(storedUser);
+      console.log("📦 Stored user:", parsedUser);
+
+      // Verify token is still valid by fetching current user
+      const result = await apiCall(authAPI.getCurrentUser);
+      
+      if (result.success && result.data?.user) {
+        const freshUser = result.data.user;
+        console.log("✅ Token valid, user verified:", freshUser);
+        
+        setToken(storedToken);
+        setUser(freshUser);
+        setIsAuthenticated(true);
+        
+        // Update localStorage with fresh data
+        localStorage.setItem("user", JSON.stringify(freshUser));
+        
+        // Clean up any legacy keys
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("userType");
+      } else {
+        console.log("❌ Token invalid or expired");
+        await clearAuth();
+      }
+    } catch (error) {
+      console.error("❌ Auth initialization error:", error);
+      await clearAuth();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Clear all auth state
+  const clearAuth = async () => {
+    console.log("🧹 Clearing auth state...");
+    
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+    
+    // Clear all possible auth-related keys
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userType");
+  };
+
+  // Set authentication state (internal use)
+  const setAuthState = async (userData, authToken) => {
+    try {
+      console.log("🔐 Setting auth state for:", userData.email, "| Role:", userData.role);
+      
+      // Normalize user data - ONLY use 'role' field
+      const normalizedUser = {
+        ...userData,
+        role: userData.role || userData.userType || "attendee",
+      };
+      
+      // Remove any userType field to avoid confusion
+      delete normalizedUser.userType;
+
+      setUser(normalizedUser);
+      setToken(authToken);
+      setIsAuthenticated(true);
+
+      localStorage.setItem("token", authToken);
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
+      
+      // Clean up any legacy keys
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userType");
+
+      console.log("✅ Auth state set successfully");
+      console.log("👤 User role:", normalizedUser.role);
+
+      return { success: true };
+    } catch (error) {
+      console.error("❌ Error setting auth state:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Login with email/password
+  const login = async (email, password, userType = "attendee") => {
+    try {
+      console.log("🔑 Attempting login:", email, "| Type:", userType);
+
+      const result = await apiCall(authAPI.login, email, password, userType);
+
+      if (result.success && result.data) {
+        const { user: userData, token: authToken } = result.data;
+        
+        console.log("✅ Login successful");
+        console.log("👤 User data:", userData);
+        
+        await setAuthState(userData, authToken);
+        
+        return { 
+          success: true, 
+          user: userData,
+          role: userData.role 
+        };
+      } else {
+        console.log("❌ Login failed:", result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error("❌ Login error:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Register new user
+  const register = async (userData) => {
+    try {
+      console.log("📝 Attempting registration:", userData.email);
+
+      const result = await apiCall(authAPI.register, userData);
+
+      if (result.success) {
+        // Check if registration auto-logs in user
+        if (result.data?.user && result.data?.token) {
+          console.log("✅ Registration successful with auto-login");
+          await setAuthState(result.data.user, result.data.token);
+          
+          return {
+            success: true,
+            requiresVerification: false,
+            data: result.data,
+          };
+        } else {
+          console.log("✅ Registration successful, verification required");
+          return {
+            success: true,
+            requiresVerification: true,
+            message: result.data?.message || "Please verify your email",
+            data: result.data,
+          };
+        }
+      } else {
+        console.log("❌ Registration failed:", result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error("❌ Registration error:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Logout
+  const logout = async () => {
+    console.log("👋 Logging out...");
+    
     try {
       if (token) {
         await apiCall(authAPI.logout);
@@ -51,110 +192,49 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Logout API error:", error);
     } finally {
-      setUser(null);
-      setToken(null);
-      setIsAuthenticated(false);
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      await clearAuth();
+      console.log("✅ Logged out successfully");
     }
   };
 
-  // Internal login function 
-  const setLoginState = async (userData, authToken) => {
-    try {
-      console.log("Setting login state for user:", userData);
-      const userWithType = {
-        ...userData,
-        userType: userData.userType || userData.role,
-      };
-
-      setUser(userWithType);
-      setToken(authToken);
-      setIsAuthenticated(true);
-
-      localStorage.setItem("token", authToken);
-      localStorage.setItem("user", JSON.stringify(userWithType));
-
-      return { success: true };
-    } catch (error) {
-      console.error("Login context error:", error);
-      return { success: false, error: error.message };
+  // Update user profile locally
+  const updateUser = (updates) => {
+    if (!user) return;
+    
+    const updatedUser = { ...user, ...updates };
+    
+    // Ensure role is preserved correctly
+    if (updates.role) {
+      updatedUser.role = updates.role;
     }
-  };
-
-  // Login with credentials 
-  const login = async (email, password, userType = "attendee") => {
-    try {
-      console.log("Attempting login with:", { email, userType });
-
-      const result = await apiCall(authAPI.login, email, password, userType);
-
-      if (result.success) {
-        const { user: userData, token: authToken } = result.data;
-        return await setLoginState(userData, authToken);
-      } else {
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
-  // Register function
-  const register = async (userData) => {
-    try {
-      const result = await apiCall(authAPI.register, userData);
-
-      if (result.success) {
-        // Check if registration returns user and token (auto-login)
-        if (result.data.user && result.data.token) {
-          const { user: registeredUser, token: authToken } = result.data;
-          await setLoginState(registeredUser, authToken);
-          return {
-            success: true,
-            requiresVerification: false,
-            data: result.data,
-          };
-        } else {
-          // Registration successful but requires email verification
-          return {
-            success: true,
-            requiresVerification: true,
-            message: result.data.message || result.message,
-            data: result.data,
-          };
-        }
-      } else {
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
-  // Logout function
-  const logout = async () => {
-    await performLogout();
-  };
-
-  // Update user profile
-  const updateUser = (userData) => {
-    const updatedUser = { ...user, ...userData };
+    
     setUser(updatedUser);
     localStorage.setItem("user", JSON.stringify(updatedUser));
+    
+    console.log("✅ User updated locally:", updatedUser);
   };
 
   // Refresh user data from server
   const refreshUser = async () => {
     try {
+      console.log("🔄 Refreshing user data...");
+      
       const result = await apiCall(authAPI.getCurrentUser);
-      if (result.success) {
-        setUser(result.data.user);
-        localStorage.setItem("user", JSON.stringify(result.data.user));
-        return { success: true };
+      
+      if (result.success && result.data?.user) {
+        const freshUser = result.data.user;
+        
+        setUser(freshUser);
+        localStorage.setItem("user", JSON.stringify(freshUser));
+        
+        console.log("✅ User data refreshed:", freshUser);
+        return { success: true, user: freshUser };
       }
+      
+      console.log("❌ Failed to refresh user:", result.error);
       return { success: false, error: result.error };
     } catch (error) {
+      console.error("❌ Error refreshing user:", error);
       return { success: false, error: error.message };
     }
   };
@@ -165,9 +245,10 @@ export const AuthProvider = ({ children }) => {
     loading,
     isAuthenticated,
     isOrganizer,
+    userRole,
     login,
-    loginWithCredentials: login, 
-    setAuthState: setLoginState, 
+    loginWithCredentials: login,
+    setAuthState,
     register,
     logout,
     updateUser,
