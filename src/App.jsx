@@ -42,7 +42,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen Loading Blend-overrlay">
+      <div className="flex items-center justify-center h-screen">
         <div className="flex flex-col items-center space-y-6">
           <RingLoader color="#FF6B35" loading={loading} size={80} />
         </div>

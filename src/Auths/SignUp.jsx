@@ -5,7 +5,7 @@ import * as yup from "yup";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Check, X, ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import google from "../assets/google.png";
-import Brandlogo from "../assets/1.png";
+import Brandlogo from "../assets/eventry white logo.PNG";
 import { AuthContext } from "../context/AuthContext";
 
 const PASSWORD_MIN_LENGTH = 6;
@@ -239,12 +239,11 @@ export default function SignUp() {
             <div className="md:w-2/5 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] p-8 text-white relative hidden md:block">
               <div className="relative z-10">
                 <Link to="/" className="flex items-center mb-8 group">
-                  <img className="h-8 w-auto" src={Brandlogo} alt="Eventry Logo" />
+                  <img className="h-13 w-auto" src={Brandlogo} alt="Eventry Logo" />
                   <span className="ml-2 text-2xl font-bold group-hover:text-gray-100 transition-colors">Eventry</span>
                 </Link>
                 
                 <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm mb-6">
-                  <Sparkles className="h-4 w-4 mr-2" />
                   Join the Revolution
                 </div>
 

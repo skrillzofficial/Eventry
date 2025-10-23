@@ -17,8 +17,10 @@ import {
   AlertCircle,
   Download,
   Share2,
-  Sparkles,
   RefreshCw,
+  FileText,
+  Zap,
+  Rocket,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
@@ -55,9 +57,8 @@ const OrganizerDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("🔄 Starting to load organizer data...");
+      console.log(" Starting to load organizer data...");
 
-      // Use only the events API call
       const result = await apiCall(organizerAPI.getMyEvents);
       console.log(" API Response:", result);
 
@@ -75,7 +76,7 @@ const OrganizerDashboard = () => {
         processAndDisplayEvents(events);
         calculateStatistics(events);
       } else {
-        console.log(" API call failed:", result.error);
+        console.log("API call failed:", result.error);
         throw new Error(result.error || "Failed to load events");
       }
     } catch (error) {
@@ -97,7 +98,7 @@ const OrganizerDashboard = () => {
   };
 
   const processAndDisplayEvents = (events) => {
-    console.log("🔄 Processing events for display:", events.length, "events");
+    console.log(" Processing events for display:", events.length, "events");
 
     const processedEvents = events.map((event) => {
       const ticketsSold = event.totalAttendees || 0;
@@ -135,28 +136,23 @@ const OrganizerDashboard = () => {
   const calculateStatistics = (events) => {
     console.log(" Calculating statistics from", events.length, "events");
     
-    // Count different types of events
     const totalEvents = events.length;
     
-    // Published events: any event with status "published"
     const publishedEvents = events.filter(event => 
       event.status === "published"
     ).length;
 
-    // Active events: upcoming AND published
     const today = new Date();
     const activeEvents = events.filter(event => {
       const eventDate = new Date(event.date);
       return eventDate >= today && event.status === "published";
     }).length;
 
-    // Completed events: past events that were published
     const completedEvents = events.filter(event => {
       const eventDate = new Date(event.date);
       return eventDate < today && event.status === "published";
     }).length;
 
-    // Calculate totals from ALL events
     const totalAttendees = events.reduce(
       (sum, event) => sum + (event.totalAttendees || 0),
       0
@@ -167,13 +163,11 @@ const OrganizerDashboard = () => {
       0
     );
 
-    // Calculate conversion rate (tickets sold vs capacity)
     const totalCapacity = events.reduce((sum, event) => sum + (event.capacity || 0), 0);
     const conversionRate = totalCapacity > 0 
       ? Math.round((totalAttendees / totalCapacity) * 100)
       : 0;
 
-    // Calculate average capacity usage per event
     const capacityUsage = events.length > 0
       ? Math.round(events.reduce((sum, event) => {
           const capacity = event.capacity || 100;
@@ -182,7 +176,6 @@ const OrganizerDashboard = () => {
         }, 0) / events.length)
       : 0;
 
-    // Calculate average ticket price
     const averageTicketPrice = totalAttendees > 0 
       ? Math.round(totalRevenue / totalAttendees)
       : 0;
@@ -201,7 +194,7 @@ const OrganizerDashboard = () => {
       capacityUsage: capacityUsage,
     };
 
-    console.log("📊Final statistics:", statsData);
+    console.log(" Final statistics:", statsData);
     setStats(statsData);
   };
 
@@ -273,7 +266,6 @@ Date: ${new Date(event.date).toLocaleDateString()}
 Location: ${event.location}
 
 PERFORMANCE METRICS
--------------------------------------------
 Tickets Sold: ${event.ticketsSold}
 Capacity: ${event.capacity}
 Capacity Usage: ${Math.round((event.ticketsSold / event.capacity) * 100)}%
@@ -298,15 +290,15 @@ Generated: ${new Date().toLocaleString()}
 
   if (!isAuthenticated || !isOrganizer) {
     return (
-      <div className="min-h-screen Organizerimg Blend-overlay">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-20">
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 text-center glass-morphism">
+          <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-white mb-2">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
               Access Denied
             </h2>
-            <p className="text-gray-300 mb-4">
+            <p className="text-gray-600 mb-4">
               You need to be an organizer to access this dashboard.
             </p>
             <Link
@@ -326,11 +318,11 @@ Generated: ${new Date().toLocaleString()}
 
   if (loading) {
     return (
-      <div className="min-h-screen Organizerimg Blend-overlay">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mb-4"></div>
-          <p className="text-white">Loading your dashboard...</p>
+          <p className="text-gray-900">Loading your dashboard...</p>
         </div>
         <div className="bg-[#FF6B35]">
           <Footer />
@@ -340,61 +332,64 @@ Generated: ${new Date().toLocaleString()}
   }
 
   return (
-    <div className="min-h-screen Organizerimg Blend-overlay">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
-          <div className="mb-6 bg-red-500/20 border border-red-500/50 rounded-lg p-4 backdrop-blur-sm">
-            <p className="text-red-200 flex items-center">
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-700 flex items-center">
               <AlertCircle className="w-5 h-5 mr-2" />
               {error}
             </p>
           </div>
         )}
 
-      
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-white">
+                <h1 className="text-3xl font-bold text-gray-900">
                   Organizer Dashboard
                 </h1>
-                <div className="flex items-center gap-1 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                  <Sparkles className="w-4 h-4 text-[#FF6B35]" />
+                <div className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] rounded-full">
                   <span className="text-xs font-medium text-white">
-                    Pro Organizer
+                    Organizer
                   </span>
                 </div>
                 <button
                   onClick={handleRefresh}
                   disabled={refreshing}
-                  className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition"
+                  className="p-2 bg-white rounded-lg hover:bg-gray-100 transition shadow-sm"
                   title="Refresh data"
                 >
                   <RefreshCw
-                    className={`w-4 h-4 text-white ${
+                    className={`w-4 h-4 text-gray-700 ${
                       refreshing ? "animate-spin" : ""
                     }`}
                   />
                 </button>
               </div>
-              <p className="text-gray-300">
+              <p className="text-gray-600">
                 Welcome back, {user?.name || user?.fullName || "Organizer"}!
                 Manage your events and track performance.
               </p>
             </div>
             <Link
               to="/create-event"
-              className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#E55A2B] transition-all duration-200 hover:scale-105 flex items-center"
+              className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#E55A2B] transition-all duration-200 hover:scale-105 flex items-center shadow-lg"
             >
               <Plus className="w-5 h-5 mr-2" />
               Create New Event
             </Link>
           </div>
         </div>
+
+        {/* How It Works Section - Only show if no events */}
+        {stats.totalEvents === 0 && (
+          <HowItWorksSection />
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -457,20 +452,113 @@ Generated: ${new Date().toLocaleString()}
   );
 };
 
+// How It Works Section Component
+const HowItWorksSection = () => (
+  <div className="mb-8 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-2xl p-8 shadow-xl">
+    <div className="text-center mb-8">
+      <h2 className="text-3xl font-bold text-white mb-2">
+        🚀 Get Started in 3 Simple Steps
+      </h2>
+      <p className="text-white/90">
+        Create your first event and start selling tickets in minutes!
+      </p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Step 1 */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 group">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+            <FileText className="w-8 h-8 text-[#FF6B35]" />
+          </div>
+          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-3 -mt-2">
+            <span className="text-2xl font-bold text-white">1</span>
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">
+            Open Create Event
+          </h3>
+          <p className="text-white/80 text-sm">
+            Click the "Create New Event" button to start your journey
+          </p>
+          <Link
+            to="/create-event"
+            className="mt-4 text-white font-semibold hover:underline flex items-center text-sm"
+          >
+            Start Here <ArrowRight className="w-4 h-4 ml-1" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Step 2 */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 group">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+            <Zap className="w-8 h-8 text-[#FF6B35]" />
+          </div>
+          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-3 -mt-2">
+            <span className="text-2xl font-bold text-white">2</span>
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">
+            Fill the Form
+          </h3>
+          <p className="text-white/80 text-sm">
+            Add event details, date, venue, ticket price, and images
+          </p>
+          <div className="mt-4 text-white/60 text-xs">
+            Takes less than 5 minutes ⚡
+          </div>
+        </div>
+      </div>
+
+      {/* Step 3 */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 group">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+            <Rocket className="w-8 h-8 text-[#FF6B35]" />
+          </div>
+          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-3 -mt-2">
+            <span className="text-2xl font-bold text-white">3</span>
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">
+            Publish & Go Live
+          </h3>
+          <p className="text-white/80 text-sm">
+            Review and publish your event to start selling tickets instantly
+          </p>
+          <div className="mt-4 flex items-center text-white/90 text-xs font-semibold">
+            <CheckCircle className="w-4 h-4 mr-1" />
+            You're Live! 🎉
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="mt-8 text-center">
+      <Link
+        to="/create-event"
+        className="inline-flex items-center bg-white text-[#FF6B35] px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-all duration-200 hover:scale-105 shadow-2xl"
+      >
+        <Plus className="w-6 h-6 mr-2" />
+        Create Your First Event Now
+      </Link>
+    </div>
+  </div>
+);
+
 const StatCard = ({ title, value, icon: Icon, change }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism hover:scale-105 transition-all duration-300">
+  <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 hover:scale-105">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-gray-300">{title}</p>
-        <p className="text-2xl font-bold text-white mt-1">{value}</p>
+        <p className="text-sm font-medium text-gray-600">{title}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
         {change && (
-          <p className="text-sm text-green-400 flex items-center mt-1">
+          <p className="text-sm text-green-600 flex items-center mt-1">
             <TrendingUp className="h-4 w-4 mr-1" />
             {change}
           </p>
         )}
       </div>
-      <div className="p-3 bg-[#FF6B35]/20 rounded-lg">
+      <div className="p-3 bg-[#FF6B35]/10 rounded-lg">
         <Icon className="h-6 w-6 text-[#FF6B35]" />
       </div>
     </div>
@@ -478,52 +566,52 @@ const StatCard = ({ title, value, icon: Icon, change }) => (
 );
 
 const QuickActionsSection = () => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-    <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
+  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <Link
         to="/create-event"
-        className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
+        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
       >
-        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
           <Plus className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-white">Create Event</span>
+        <span className="text-sm font-medium text-gray-900">Create Event</span>
       </Link>
       <Link
         to="/dashboard/organizer/events"
-        className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
+        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
       >
-        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
           <Calendar className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-white">My Events</span>
+        <span className="text-sm font-medium text-gray-900">My Events</span>
       </Link>
       <Link
         to="/discover"
-        className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
+        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
       >
-        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
           <Users className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-white">Browse Events</span>
+        <span className="text-sm font-medium text-gray-900">Browse Events</span>
       </Link>
       <Link
         to="/profile"
-        className="flex flex-col items-center p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
+        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
       >
-        <div className="p-3 bg-[#FF6B35]/20 rounded-lg mb-2 group-hover:scale-110 transition-transform">
+        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
           <BarChart3 className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-white">Profile</span>
+        <span className="text-sm font-medium text-gray-900">Profile</span>
       </Link>
     </div>
   </div>
 );
 
 const RevenueSection = ({ revenueData, totalRevenue }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-    <h3 className="text-lg font-semibold text-white mb-4">Revenue Analytics</h3>
+  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Analytics</h3>
     {revenueData.values &&
     revenueData.values.length > 0 &&
     revenueData.values.some((v) => v > 0) ? (
@@ -545,7 +633,7 @@ const RevenueSection = ({ revenueData, totalRevenue }) => (
                   }}
                   title={`₦${value.toLocaleString()}`}
                 />
-                <span className="text-xs text-gray-300 mt-2 group-hover:text-white transition-colors">
+                <span className="text-xs text-gray-600 mt-2 group-hover:text-gray-900 transition-colors">
                   {revenueData.labels[index]}
                 </span>
               </div>
@@ -553,7 +641,7 @@ const RevenueSection = ({ revenueData, totalRevenue }) => (
           })}
         </div>
         <div className="flex justify-between items-center mt-4">
-          <span className="text-sm text-gray-300">
+          <span className="text-sm text-gray-600">
             Monthly revenue distribution
           </span>
           <span className="text-sm font-semibold text-[#FF6B35]">
@@ -581,9 +669,9 @@ const EventsManagementSection = ({
   onShareEvent,
   onDownloadReport,
 }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
+  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-white">Recent Events</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Recent Events</h3>
       <Link
         to="/my-events"
         className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center transition-all duration-200 hover:scale-105"
@@ -621,15 +709,15 @@ const EventCard = ({ event, onShare, onDownload }) => {
   const getStatusColor = () => {
     switch (event.status) {
       case "active":
-        return "bg-green-400/20 text-green-400";
+        return "bg-green-100 text-green-700";
       case "completed":
-        return "bg-gray-400/20 text-gray-400";
+        return "bg-gray-100 text-gray-700";
       case "cancelled":
-        return "bg-red-400/20 text-red-400";
+        return "bg-red-100 text-red-700";
       case "sold-out":
-        return "bg-blue-400/20 text-blue-400";
+        return "bg-blue-100 text-blue-700";
       default:
-        return "bg-[#FF6B35]/20 text-[#FF6B35]";
+        return "bg-orange-100 text-orange-700";
     }
   };
 
@@ -651,7 +739,7 @@ const EventCard = ({ event, onShare, onDownload }) => {
   const capacityPercentage = (event.ticketsSold / event.capacity) * 100;
 
   return (
-    <div className="flex items-center justify-between p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-102">
+    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:shadow-md">
       <div className="flex-1">
         <div className="flex items-center space-x-3">
           <div className={`p-2 rounded-full ${getStatusColor()}`}>
@@ -659,23 +747,23 @@ const EventCard = ({ event, onShare, onDownload }) => {
           </div>
           <div>
             <Link to={`/event/${event.id}`}>
-              <h4 className="font-semibold text-white hover:text-[#FF6B35] transition-colors">
+              <h4 className="font-semibold text-gray-900 hover:text-[#FF6B35] transition-colors">
                 {event.title}
               </h4>
             </Link>
-            <div className="flex items-center space-x-4 text-sm text-gray-300 mt-1">
+            <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
               <span className="flex items-center">
                 <MapPin className="h-3 w-3 mr-1 text-[#FF6B35]" />
                 {event.location}
               </span>
               <span>{new Date(event.date).toLocaleDateString()}</span>
               <span
-                className={`px-2 py-1 rounded-full text-xs ${
+                className={`px-2 py-1 rounded-full text-xs font-medium ${
                   capacityPercentage >= 80
-                    ? "bg-green-400/20 text-green-400"
+                    ? "bg-green-100 text-green-700"
                     : capacityPercentage >= 50
-                    ? "bg-yellow-400/20 text-yellow-400"
-                    : "bg-red-400/20 text-red-400"
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-red-100 text-red-700"
                 }`}
               >
                 {Math.round(capacityPercentage)}% full
@@ -687,10 +775,10 @@ const EventCard = ({ event, onShare, onDownload }) => {
       <div className="text-right">
         <div className="flex items-center space-x-4">
           <div className="text-sm">
-            <div className="font-semibold text-white">
+            <div className="font-semibold text-gray-900">
               {event.ticketsSold} tickets
             </div>
-            <div className="text-gray-300">
+            <div className="text-gray-600">
               ₦{(event.revenue || 0).toLocaleString()}
             </div>
           </div>
@@ -717,9 +805,9 @@ const EventCard = ({ event, onShare, onDownload }) => {
 };
 
 const UpcomingEventsSection = ({ events }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
+  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-white">Upcoming Events</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Upcoming Events</h3>
       <Link
         to="/my-events"
         className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center transition-all duration-200 hover:scale-105"
@@ -730,14 +818,14 @@ const UpcomingEventsSection = ({ events }) => (
     <div className="space-y-3">
       {events.map((event) => (
         <Link key={event.id} to={`/event/${event.id}`}>
-          <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-all duration-200 hover:scale-102">
+          <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
             <div className="flex-1">
-              <p className="font-medium text-white text-sm">{event.title}</p>
-              <p className="text-xs text-gray-300">
+              <p className="font-medium text-gray-900 text-sm">{event.title}</p>
+              <p className="text-xs text-gray-600">
                 {new Date(event.date).toLocaleDateString()} • {event.city}
               </p>
             </div>
-            <span className="text-xs bg-[#FF6B35]/20 text-[#FF6B35] px-2 py-1 rounded-full">
+            <span className="text-xs bg-[#FF6B35]/10 text-[#FF6B35] px-2 py-1 rounded-full font-medium">
               {event.ticketsSold} sold
             </span>
           </div>
@@ -782,8 +870,8 @@ const BlockchainWalletSection = ({ balance, totalEarned }) => (
 );
 
 const PerformanceMetricsSection = ({ stats }) => (
-  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-    <h3 className="text-lg font-semibold text-white mb-4">
+  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4">
       Performance Metrics
     </h3>
     <div className="space-y-4">
@@ -812,17 +900,17 @@ const PerformanceMetricsSection = ({ stats }) => (
 );
 
 const MetricItem = ({ label, value, trend }) => (
-  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-all duration-200">
-    <span className="text-sm text-gray-300">{label}</span>
+  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-all duration-200">
+    <span className="text-sm text-gray-600">{label}</span>
     <div className="flex items-center space-x-2">
-      <span className="font-semibold text-white">{value}</span>
+      <span className="font-semibold text-gray-900">{value}</span>
       <div
         className={`p-1 rounded ${
           trend === "up"
-            ? "bg-green-400/20 text-green-400"
+            ? "bg-green-100 text-green-600"
             : trend === "down"
-            ? "bg-red-400/20 text-red-400"
-            : "bg-gray-400/20 text-gray-400"
+            ? "bg-red-100 text-red-600"
+            : "bg-gray-100 text-gray-600"
         }`}
       >
         <TrendingUp

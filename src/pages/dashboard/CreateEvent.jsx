@@ -21,6 +21,9 @@ import {
   Shield,
   Gift,
   Ticket,
+  Eye,
+  EyeOff,
+  AlertCircle,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -37,27 +40,27 @@ const eventSchema = yup.object().shape({
     .max(100, "Title must be less than 100 characters"),
   description: yup
     .string()
-    .required("Description is required")
     .min(50, "Description must be at least 50 characters")
     .max(2000, "Description must be less than 2000 characters"),
   longDescription: yup
     .string()
-    .optional()
     .max(5000, "Long description must be less than 5000 characters"),
-  category: yup.string().required("Category is required"),
-  date: yup.string().required("Event date is required"),
-  time: yup.string().required("Event time is required"),
-  endTime: yup.string().required("End time is required"),
-  venue: yup.string().required("Venue is required"),
-  address: yup.string().required("Address is required"),
-  city: yup.string().required("City is required"),
+  category: yup.string(),
+  date: yup.string(),
+  time: yup.string(),
+  endTime: yup.string(),
+  venue: yup.string(),
+  address: yup.string(),
+  city: yup.string(),
 });
 
 const CreateEvent = () => {
   const { isAuthenticated, isOrganizer, user } = useAuth();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [uploadedImages, setUploadedImages] = useState([]);
   const [imageFiles, setImageFiles] = useState([]);
+  const [savingAs, setSavingAs] = useState(null);
 
   // Ticket type management
   const [ticketTypes, setTicketTypes] = useState([
@@ -119,7 +122,7 @@ const CreateEvent = () => {
 
   const TICKET_TYPES = ["Regular", "VIP", "VVIP"];
 
-  // Ticket type management
+  // Ticket type management functions
   const addTicketType = () => {
     if (ticketTypes.length < 3) {
       const availableTypes = TICKET_TYPES.filter(
@@ -187,18 +190,6 @@ const CreateEvent = () => {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
-  // What's Included management
-  const addInclude = () => {
-    if (includeInput.trim() && includes.length < 10) {
-      setIncludes([...includes, includeInput.trim()]);
-      setIncludeInput("");
-    }
-  };
-
-  const removeInclude = (index) => {
-    setIncludes(includes.filter((_, i) => i !== index));
-  };
-
   // Requirements management
   const addRequirement = () => {
     if (requirementInput.trim() && requirements.length < 10) {
@@ -253,23 +244,59 @@ const CreateEvent = () => {
     setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const onSubmit = async (data) => {
-    try {
-      // Validate ticket types
-      if (!useLegacyPricing) {
-        const invalidTickets = ticketTypes.filter(
-          (t) =>
-            !t.price ||
-            !t.capacity ||
-            parseFloat(t.price) < 0 ||
-            parseInt(t.capacity) < 1
-        );
+  // Validate required fields for publishing
+  const validateForPublish = (data) => {
+    const requiredFields = {
+      description: "Description is required to publish",
+      category: "Category is required to publish",
+      date: "Event date is required to publish",
+      time: "Start time is required to publish",
+      endTime: "End time is required to publish",
+      venue: "Venue is required to publish",
+      address: "Address is required to publish",
+      city: "City is required to publish",
+    };
 
-        if (invalidTickets.length > 0) {
+    const errors = [];
+    for (const [field, message] of Object.entries(requiredFields)) {
+      if (!data[field]) {
+        errors.push(message);
+      }
+    }
+
+    // Validate ticket pricing
+    if (!useLegacyPricing) {
+      const invalidTickets = ticketTypes.filter(
+        (t) =>
+          !t.price ||
+          !t.capacity ||
+          parseFloat(t.price) < 0 ||
+          parseInt(t.capacity) < 1
+      );
+      if (invalidTickets.length > 0) {
+        errors.push("All ticket types must have valid price and capacity");
+      }
+    } else {
+      if (!data.price || !data.capacity) {
+        errors.push("Price and capacity are required to publish");
+      }
+    }
+
+    return errors;
+  };
+
+  const onSubmit = async (data, status = "draft") => {
+    try {
+      setSavingAs(status);
+
+      // If publishing, validate required fields
+      if (status === "published") {
+        const validationErrors = validateForPublish(data);
+        if (validationErrors.length > 0) {
           setError("root.serverError", {
-            message:
-              "Please fill in valid price and capacity for all ticket types",
+            message: `Cannot publish event: ${validationErrors.join(", ")}`,
           });
+          setSavingAs(null);
           return;
         }
       }
@@ -278,36 +305,40 @@ const CreateEvent = () => {
 
       // Append basic event data
       formData.append("title", data.title);
-      formData.append("description", data.description);
+      formData.append("status", status);
 
-      if (data.longDescription) {
+      if (data.description) formData.append("description", data.description);
+      if (data.longDescription)
         formData.append("longDescription", data.longDescription);
-      }
-
-      formData.append("category", data.category);
-      formData.append("date", data.date);
-      formData.append("time", data.time);
-      formData.append("endTime", data.endTime);
-      formData.append("venue", data.venue);
-      formData.append("address", data.address);
-      formData.append("city", data.city);
+      if (data.category) formData.append("category", data.category);
+      if (data.date) formData.append("date", data.date);
+      if (data.time) formData.append("time", data.time);
+      if (data.endTime) formData.append("endTime", data.endTime);
+      if (data.venue) formData.append("venue", data.venue);
+      if (data.address) formData.append("address", data.address);
+      if (data.city) formData.append("city", data.city);
 
       // Append ticket types or legacy pricing
       if (!useLegacyPricing) {
-        const validTicketTypes = ticketTypes.map((t) => ({
-          name: t.name,
-          price: parseFloat(t.price),
-          capacity: parseInt(t.capacity),
-          description: t.description || "",
-          benefits: t.benefits || [],
-        }));
-        formData.append("ticketTypes", JSON.stringify(validTicketTypes));
+        const validTicketTypes = ticketTypes
+          .filter((t) => t.price && t.capacity)
+          .map((t) => ({
+            name: t.name,
+            price: parseFloat(t.price),
+            capacity: parseInt(t.capacity),
+            description: t.description || "",
+            benefits: t.benefits || [],
+          }));
+
+        if (validTicketTypes.length > 0) {
+          formData.append("ticketTypes", JSON.stringify(validTicketTypes));
+        }
       } else {
-        formData.append("price", data.price || 0);
-        formData.append("capacity", data.capacity || 1);
+        if (data.price) formData.append("price", data.price);
+        if (data.capacity) formData.append("capacity", data.capacity);
       }
 
-      //  Append dynamic fields as JSON strings
+      // Append dynamic fields
       if (tags.length > 0) {
         formData.append("tags", JSON.stringify(tags));
       }
@@ -320,13 +351,14 @@ const CreateEvent = () => {
         formData.append("requirements", JSON.stringify(requirements));
       }
 
-      // Append new images
+      // Append images
       imageFiles.forEach((file) => {
         formData.append("images", file);
       });
 
-      console.log("Submitting event data:", {
+      console.log(`Submitting event as ${status}:`, {
         ...data,
+        status,
         tags,
         includes,
         requirements,
@@ -337,25 +369,34 @@ const CreateEvent = () => {
       const result = await apiCall(eventAPI.createEvent, formData);
 
       if (result.success) {
-        console.log("Event created successfully:", result.data);
+        console.log(`Event ${status} successfully:`, result.data);
+        setSuccessMessage(
+          status === "draft"
+            ? "Event saved as draft! You can publish it later."
+            : "Event published successfully! It's now live on the platform."
+        );
         setShowSuccess(true);
 
         setTimeout(() => {
           navigate("/dashboard/organizer");
-        }, 2000);
+        }, 2500);
       } else {
-        console.error("Event creation failed:", result.error);
+        console.error(`Event ${status} failed:`, result.error);
         setError("root.serverError", {
-          message: result.error || "Failed to create event. Please try again.",
+          message:
+            result.error || `Failed to ${status} event. Please try again.`,
         });
       }
     } catch (error) {
-      console.error("Error creating event:", error);
+      console.error(`Error ${status} event:`, error);
       setError("root.serverError", {
         message: "An unexpected error occurred. Please try again.",
       });
+    } finally {
+      setSavingAs(null);
     }
   };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -427,12 +468,8 @@ const CreateEvent = () => {
         <div className="w-11/12 mx-auto container">
           <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md mx-auto">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              Event Created Successfully!
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Your event has been created and is now live on the platform.
-            </p>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Success!</h3>
+            <p className="text-gray-600 mb-6">{successMessage}</p>
             <div className="animate-pulse">
               <div className="inline-flex items-center text-sm text-gray-500">
                 <span>Redirecting to dashboard</span>
@@ -463,7 +500,8 @@ const CreateEvent = () => {
             Create New <span className="text-[#FF6B35]">Event</span>
           </h1>
           <p className="text-gray-600 mt-2">
-            Fill in the details below to create your event on our platform.
+            Fill in the details below to create your event. You can save as
+            draft and publish later.
           </p>
         </div>
 
@@ -474,7 +512,7 @@ const CreateEvent = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <form className="space-y-8">
           {/* Event Basic Information */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -500,7 +538,10 @@ const CreateEvent = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category *
+                  Category{" "}
+                  {!watch("category") && (
+                    <span className="text-gray-400">(Required to publish)</span>
+                  )}
                 </label>
                 <select
                   {...register("category")}
@@ -522,7 +563,10 @@ const CreateEvent = () => {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Short Description *
+                  Short Description{" "}
+                  {!watch("description") && (
+                    <span className="text-gray-400">(Required to publish)</span>
+                  )}
                 </label>
                 <textarea
                   {...register("description")}
@@ -562,12 +606,17 @@ const CreateEvent = () => {
           {/* Date & Time */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Date & Time
+              Date & Time{" "}
+              {(!watch("date") || !watch("time") || !watch("endTime")) && (
+                <span className="text-sm text-gray-400 font-normal">
+                  (Required to publish)
+                </span>
+              )}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Event Date *
+                  Event Date
                 </label>
                 <input
                   type="date"
@@ -585,7 +634,7 @@ const CreateEvent = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Time *
+                    Start Time
                   </label>
                   <input
                     type="time"
@@ -601,7 +650,7 @@ const CreateEvent = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Time *
+                    End Time
                   </label>
                   <input
                     type="time"
@@ -621,12 +670,17 @@ const CreateEvent = () => {
           {/* Location */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Location
+              Location{" "}
+              {(!watch("venue") || !watch("address") || !watch("city")) && (
+                <span className="text-sm text-gray-400 font-normal">
+                  (Required to publish)
+                </span>
+              )}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Venue Name *
+                  Venue Name
                 </label>
                 <input
                   type="text"
@@ -643,7 +697,7 @@ const CreateEvent = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Address *
+                  Full Address
                 </label>
                 <input
                   type="text"
@@ -660,7 +714,7 @@ const CreateEvent = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  City *
+                  City
                 </label>
                 <select
                   {...register("city")}
@@ -682,7 +736,7 @@ const CreateEvent = () => {
             </div>
           </div>
 
-          {/* Ticket Types */}
+          {/* Ticket Types  */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -690,6 +744,11 @@ const CreateEvent = () => {
                 <h3 className="text-lg font-semibold text-gray-900">
                   Ticket Types & Pricing
                 </h3>
+                {ticketTypes.every((t) => !t.price || !t.capacity) && (
+                  <span className="text-sm text-gray-400">
+                    (Required to publish)
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -743,7 +802,7 @@ const CreateEvent = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Price (₦) *
+                          Price (₦)
                         </label>
                         <input
                           type="number"
@@ -760,7 +819,7 @@ const CreateEvent = () => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Capacity *
+                          Capacity
                         </label>
                         <input
                           type="number"
@@ -866,7 +925,7 @@ const CreateEvent = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ticket Price (₦) *
+                    Ticket Price (₦)
                   </label>
                   <input
                     type="number"
@@ -885,7 +944,7 @@ const CreateEvent = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Capacity *
+                    Capacity
                   </label>
                   <input
                     type="number"
@@ -904,72 +963,16 @@ const CreateEvent = () => {
             )}
           </div>
 
-          {/* What's Included */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Gift className="h-5 w-5 text-[#FF6B35]" />
-              <h3 className="text-lg font-semibold text-gray-900">
-                What's Included
-              </h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              List what attendees will get with their ticket (e.g.,
-              refreshments, materials, certificates)
-            </p>
-
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                value={includeInput}
-                onChange={(e) => setIncludeInput(e.target.value)}
-                onKeyPress={(e) =>
-                  e.key === "Enter" && (e.preventDefault(), addInclude())
-                }
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                placeholder="e.g., Refreshments and meals"
-              />
-              <button
-                type="button"
-                onClick={addInclude}
-                className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add
-              </button>
-            </div>
-
-            {includes.length > 0 && (
-              <div className="space-y-2">
-                {includes.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg"
-                  >
-                    <span className="text-gray-700">{item}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeInclude(index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Requirements */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center gap-2 mb-4">
               <Shield className="h-5 w-5 text-[#FF6B35]" />
               <h3 className="text-lg font-semibold text-gray-900">
-                Requirements
+                Requirements (Optional)
               </h3>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              List what attendees need to bring or have (e.g., Valid ID, laptop,
-              business card)
+              List what attendees need to bring or have
             </p>
 
             <div className="flex gap-2 mb-4">
@@ -1019,7 +1022,7 @@ const CreateEvent = () => {
             <div className="flex items-center gap-2 mb-4">
               <Tag className="h-5 w-5 text-[#FF6B35]" />
               <h3 className="text-lg font-semibold text-gray-900">
-                Event Tags
+                Event Tags (Optional)
               </h3>
             </div>
             <p className="text-sm text-gray-600 mb-4">
@@ -1075,7 +1078,7 @@ const CreateEvent = () => {
           {/* Event Images */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Event Images (Max 3)
+              Event Images (Optional - Max 3)
             </h3>
             <div className="space-y-4">
               <div>
@@ -1122,41 +1125,82 @@ const CreateEvent = () => {
             </div>
           </div>
 
-          {/* Submit Section */}
+          {/* Submit Section with Draft and Publish Buttons */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
+            <div className="flex flex-col space-y-4">
               <div className="text-center lg:text-left">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Ready to Create Your Event
+                  Save Your Event
                 </h3>
                 <p className="text-gray-600 text-sm">
-                  Your event will be visible to attendees once created.
+                  Save as draft to edit later, or publish to make it live
+                  immediately.
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-end">
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Link
                   to="/dashboard/organizer"
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-center"
                 >
                   Cancel
                 </Link>
+
                 <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                  type="button"
+                  onClick={handleSubmit((data) => onSubmit(data, "draft"))}
+                  disabled={isSubmitting || savingAs === "published"}
+                  className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                 >
-                  {isSubmitting ? (
+                  {savingAs === "draft" ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Creating Event...
+                      Saving Draft...
                     </>
                   ) : (
                     <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Create Event
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Save as Draft
                     </>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleSubmit((data) => onSubmit(data, "published"))}
+                  disabled={isSubmitting || savingAs === "draft"}
+                  className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                >
+                  {savingAs === "published" ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Publish Event
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Helper text */}
+              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+                <p className="font-semibold mb-2"> Quick Tip:</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>
+                    <strong>Draft:</strong> Save incomplete events and finish
+                    them later
+                  </li>
+                  <li>
+                    <strong>Publish:</strong> All required fields must be filled
+                    to publish
+                  </li>
+                  <li>
+                    You can edit or unpublish events anytime from your dashboard
+                  </li>
+                </ul>
               </div>
             </div>
           </div>

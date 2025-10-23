@@ -17,8 +17,9 @@ import {
   Star,
   TrendingUp,
   Ticket,
-  Calendar as CalendarIcon,
+  Calendar,
   Loader,
+  Upload,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
@@ -37,6 +38,9 @@ const Profile = () => {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const {
     register,
@@ -55,13 +59,13 @@ const Profile = () => {
 
   const loadUserData = async () => {
     try {
-      // Populate form with current user data
       if (authUser) {
         setValue("firstName", authUser.firstName || authUser.userName || "");
         setValue("email", authUser.email || "");
         setValue("phone", authUser.phone || authUser.phoneNumber || "");
         setValue("bio", authUser.bio || "");
         setValue("location", authUser.location || authUser.city || "");
+        setImagePreview(authUser.avatar || null);
       }
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -75,13 +79,11 @@ const Profile = () => {
       const userRole = authUser?.role || authUser?.userType || "attendee";
 
       if (userRole === "organizer") {
-        //  getOrganizerEvents instead of getMyEvents
         const eventsResult = await apiCall(eventAPI.getOrganizerEvents);
 
         if (eventsResult.success) {
           const events = eventsResult.data?.events || [];
 
-          // Handle attendees as array
           const totalAttendees = events.reduce((sum, event) => {
             const count =
               event.totalAttendees ||
@@ -110,7 +112,6 @@ const Profile = () => {
           });
         }
       } else {
-        // Fetch attendee stats
         const bookingsResult = await apiCall(eventAPI.getMyBookings);
 
         if (bookingsResult.success) {
@@ -138,7 +139,6 @@ const Profile = () => {
             reviewsWritten: 0,
           });
         } else {
-          // Set default stats if API fails
           setStats({
             eventsAttended: 0,
             ticketsPurchased: 0,
@@ -151,7 +151,6 @@ const Profile = () => {
       }
     } catch (error) {
       console.error("Error loading profile stats:", error);
-      // Set default stats on error
       setStats({
         eventsAttended: 0,
         ticketsPurchased: 0,
@@ -160,24 +159,77 @@ const Profile = () => {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        alert("Please upload an image file");
+        return;
+      }
+
+      setImageFile(file);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return null;
+
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append('avatar', imageFile);
+
+      const result = await apiCall(authAPI.uploadAvatar, formData);
+      
+      if (result.success) {
+        return result.data.avatarUrl;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const onSubmit = async (data) => {
     try {
-      // Call update profile API
+      let avatarUrl = imagePreview;
+
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) {
+          avatarUrl = uploadedUrl;
+        }
+      }
+
       const result = await apiCall(authAPI.updateProfile, {
         firstName: data.firstName,
         email: data.email,
         phone: data.phone,
         bio: data.bio,
         location: data.location,
+        avatar: avatarUrl,
       });
 
       if (result.success) {
-        // Update local user state
-        updateUser(result.data.user || data);
+        updateUser(result.data.user || { ...data, avatar: avatarUrl });
         setUpdateSuccess(true);
         setIsEditing(false);
+        setImageFile(null);
 
-        // Hide success message after 3 seconds
         setTimeout(() => setUpdateSuccess(false), 3000);
       } else {
         alert(result.error || "Failed to update profile");
@@ -192,32 +244,23 @@ const Profile = () => {
     reset();
     loadUserData();
     setIsEditing(false);
-  };
-
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        updateUser({ avatar: e.target.result });
-      };
-      reader.readAsDataURL(file);
-    }
+    setImageFile(null);
+    setImagePreview(authUser?.avatar || null);
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen Homeimg Blend-overlay">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-20">
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 text-center glass-morphism">
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <User className="h-8 w-8 text-red-500" />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
               Sign In Required
             </h2>
-            <p className="text-gray-300 mb-4">
+            <p className="text-gray-600 mb-4">
               Please sign in to view your profile.
             </p>
             <a
@@ -228,20 +271,20 @@ const Profile = () => {
             </a>
           </div>
         </div>
-        <div className="bg-[#FF6B35]">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen Homeimg Blend-overlay flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Navbar />
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mx-auto mb-4"></div>
-          <p className="text-white">Loading profile...</p>
+          <p className="text-gray-600">Loading profile...</p>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -249,47 +292,44 @@ const Profile = () => {
   const userRole = authUser?.role || authUser?.userType || "attendee";
 
   return (
-    <div className="min-h-screen Homeimg Blend-overlay">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Success Message */}
         {updateSuccess && (
-          <div className="mb-6 bg-green-500/20 border border-green-500/50 rounded-lg p-4 backdrop-blur-sm">
-            <p className="text-green-200 flex items-center">
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-700 flex items-center">
               <Shield className="w-5 h-5 mr-2" />
               Profile updated successfully!
             </p>
           </div>
         )}
 
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-white">Profile Settings</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
             {userRole === "organizer" && (
-              <div className="flex items-center gap-1 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                <span className="text-sm font-medium text-white">
+              <div className="flex items-center gap-1 px-3 py-1 bg-orange-50 rounded-full border border-orange-200">
+                <span className="text-sm font-medium text-orange-700">
                   Organizer
                 </span>
               </div>
             )}
           </div>
-          <p className="text-gray-300">
+          <p className="text-gray-600">
             Manage your account information and preferences
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
               <div className="text-center mb-6">
                 <div className="relative inline-block mb-4">
                   <div className="w-24 h-24 bg-[#FF6B35] rounded-full flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
-                    {authUser?.avatar ? (
+                    {imagePreview || authUser?.avatar ? (
                       <img
-                        src={authUser.avatar}
+                        src={imagePreview || authUser.avatar}
                         alt={authUser.firstName}
                         className="w-24 h-24 rounded-full object-cover"
                       />
@@ -302,8 +342,8 @@ const Profile = () => {
                     )}
                   </div>
                   {isEditing && (
-                    <label className="absolute bottom-0 right-0 bg-white/20 backdrop-blur-sm rounded-full p-2 shadow-lg cursor-pointer border border-white/30 transition-all hover:scale-110">
-                      <Camera className="w-4 h-4 text-white" />
+                    <label className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-lg cursor-pointer border border-gray-200 transition-all hover:scale-110 hover:border-[#FF6B35]">
+                      <Camera className="w-4 h-4 text-[#FF6B35]" />
                       <input
                         type="file"
                         accept="image/*"
@@ -312,14 +352,18 @@ const Profile = () => {
                       />
                     </label>
                   )}
+                  {uploadingImage && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                      <Loader className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                  )}
                 </div>
-                <h2 className="text-xl font-bold text-white">
+                <h2 className="text-xl font-bold text-gray-900">
                   {authUser?.firstName || authUser?.userName}
                 </h2>
-                <p className="text-gray-300 capitalize">{userRole}</p>
+                <p className="text-gray-600 capitalize">{userRole}</p>
               </div>
 
-              {/* Navigation Tabs */}
               <nav className="space-y-2">
                 {[
                   { id: "profile", label: "Profile Information", icon: User },
@@ -341,7 +385,7 @@ const Profile = () => {
                     className={`w-full flex items-center px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
                       activeTab === tab.id
                         ? "bg-[#FF6B35] text-white scale-105 shadow-lg"
-                        : "text-gray-300 hover:bg-white/10 hover:scale-102"
+                        : "text-gray-700 hover:bg-gray-100 hover:scale-102"
                     }`}
                   >
                     <tab.icon className="w-4 h-4 mr-3" />
@@ -350,65 +394,19 @@ const Profile = () => {
                 ))}
               </nav>
             </div>
-
-            {/* Quick Stats */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 mt-6 glass-morphism">
-              <h3 className="font-semibold text-white mb-4">Quick Stats</h3>
-              <div className="space-y-3">
-                {userRole === "organizer" ? (
-                  <>
-                    <StatItem
-                      icon={CalendarIcon}
-                      label="Events Hosted"
-                      value={stats.eventsHosted || 0}
-                    />
-                    <StatItem
-                      icon={User}
-                      label="Total Attendees"
-                      value={(stats.totalAttendees || 0).toLocaleString()}
-                    />
-                    <StatItem
-                      icon={Star}
-                      label="Average Rating"
-                      value={stats.averageRating || "0.0"}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <StatItem
-                      icon={Ticket}
-                      label="Events Attended"
-                      value={stats.eventsAttended || 0}
-                    />
-                    <StatItem
-                      icon={Star}
-                      label="Tickets Purchased"
-                      value={stats.ticketsPurchased || 0}
-                    />
-                    <StatItem
-                      icon={TrendingUp}
-                      label="Upcoming Events"
-                      value={stats.upcomingEvents || 0}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
           </div>
 
-          {/* Main Content */}
           <div className="lg:col-span-3">
-            {/* Profile Information Tab */}
             {activeTab === "profile" && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-lg font-semibold text-gray-900">
                     Profile Information
                   </h3>
                   {!isEditing ? (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="flex items-center px-4 py-2 text-sm font-medium text-white hover:text-[#FF8535] transition-all duration-200 hover:scale-105"
+                      className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-[#FF6B35] transition-all duration-200 hover:scale-105"
                     >
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Profile
@@ -417,36 +415,36 @@ const Profile = () => {
                     <div className="flex space-x-2">
                       <button
                         onClick={handleCancelEdit}
-                        className="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-all duration-200 hover:scale-105"
+                        className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-all duration-200 hover:scale-105"
                       >
                         <X className="w-4 h-4 mr-2" />
                         Cancel
                       </button>
                       <button
                         onClick={handleSubmit(onSubmit)}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || uploadingImage}
                         className="flex items-center px-4 py-2 text-sm font-medium bg-[#FF6B35] text-white rounded-lg hover:bg-[#E55A2B] disabled:opacity-50 transition-all duration-200 hover:scale-105"
                       >
-                        {isSubmitting ? (
-                          <>
+                        {isSubmitting || uploadingImage ? (
+                          <React.Fragment>
                             <Loader className="w-4 h-4 mr-2 animate-spin" />
                             Saving...
-                          </>
+                          </React.Fragment>
                         ) : (
-                          <>
+                          <React.Fragment>
                             <Save className="w-4 h-4 mr-2" />
                             Save Changes
-                          </>
+                          </React.Fragment>
                         )}
                       </button>
                     </div>
                   )}
                 </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         <User className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
                         First Name
                       </label>
@@ -456,17 +454,17 @@ const Profile = () => {
                           required: "Name is required",
                         })}
                         disabled={!isEditing}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
                       />
                       {errors.firstName && (
-                        <p className="text-red-400 text-sm mt-1">
+                        <p className="text-red-500 text-sm mt-1">
                           {errors.firstName.message}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         <Mail className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
                         Email Address
                       </label>
@@ -480,17 +478,17 @@ const Profile = () => {
                           },
                         })}
                         disabled={!isEditing}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
                       />
                       {errors.email && (
-                        <p className="text-red-400 text-sm mt-1">
+                        <p className="text-red-500 text-sm mt-1">
                           {errors.email.message}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         <Phone className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
                         Phone Number
                       </label>
@@ -498,26 +496,26 @@ const Profile = () => {
                         type="tel"
                         {...register("phone")}
                         disabled={!isEditing}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
                         placeholder="+234 XXX XXX XXXX"
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Bio
                       </label>
                       <textarea
                         {...register("bio")}
                         disabled={!isEditing}
                         rows={3}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
                         placeholder="Tell us about yourself..."
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         <MapPin className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
                         Location
                       </label>
@@ -525,33 +523,32 @@ const Profile = () => {
                         type="text"
                         {...register("location")}
                         disabled={!isEditing}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
                         placeholder="Lagos, Nigeria"
                       />
                     </div>
                   </div>
 
-                  {/* Account Info */}
-                  <div className="pt-6 border-t border-white/10">
-                    <h4 className="text-sm font-semibold text-white mb-3">
+                  <div className="pt-6 border-t border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">
                       Account Information
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-400">User ID:</span>
-                        <span className="ml-2 text-white">
+                        <span className="text-gray-600">User ID:</span>
+                        <span className="ml-2 text-gray-900">
                           {authUser?._id?.slice(-8) || "N/A"}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Account Type:</span>
-                        <span className="ml-2 text-white capitalize">
+                        <span className="text-gray-600">Account Type:</span>
+                        <span className="ml-2 text-gray-900 capitalize">
                           {userRole}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Member Since:</span>
-                        <span className="ml-2 text-white">
+                        <span className="text-gray-600">Member Since:</span>
+                        <span className="ml-2 text-gray-900">
                           {authUser?.createdAt
                             ? new Date(authUser.createdAt).toLocaleDateString(
                                 "en-NG",
@@ -561,21 +558,20 @@ const Profile = () => {
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Email Verified:</span>
-                        <span className="ml-2 text-white">
+                        <span className="text-gray-600">Email Verified:</span>
+                        <span className="ml-2 text-gray-900">
                           {authUser?.isVerified ? "✓ Yes" : "✗ No"}
                         </span>
                       </div>
                     </div>
                   </div>
-                </form>
+                </div>
               </div>
             )}
 
-            {/* Preferences Tab */}
             {activeTab === "preferences" && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-                <h3 className="text-lg font-semibold text-white mb-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Notification Preferences
                 </h3>
                 <div className="space-y-4">
@@ -603,10 +599,9 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Security Tab */}
             {activeTab === "security" && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-                <h3 className="text-lg font-semibold text-white mb-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Security Settings
                 </h3>
                 <div className="space-y-4">
@@ -618,9 +613,13 @@ const Profile = () => {
                   />
                   <SecurityOption
                     icon={CreditCard}
-                    title="Payment Methods"
-                    description="Manage your saved payment methods"
-                    action="Manage Payments"
+                    title={userRole === "organizer" ? "Withdrawal Methods" : "Payment Methods"}
+                    description={
+                      userRole === "organizer" 
+                        ? "Manage your withdrawal methods for receiving payments"
+                        : "Manage your saved payment methods"
+                    }
+                    action="Manage"
                   />
                   <SecurityOption
                     icon={Globe}
@@ -632,10 +631,9 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Organizer Tools Tab */}
             {activeTab === "organizer" && userRole === "organizer" && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-                <h3 className="text-lg font-semibold text-white mb-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Organizer Tools
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -672,23 +670,10 @@ const Profile = () => {
         </div>
       </div>
 
-      <div className="bg-[#FF6B35]">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 };
-
-// Reusable Components
-const StatItem = ({ icon: Icon, label, value }) => (
-  <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-all duration-200">
-    <div className="flex items-center">
-      <Icon className="w-4 h-4 text-[#FF6B35] mr-2" />
-      <span className="text-sm text-gray-300">{label}</span>
-    </div>
-    <span className="font-semibold text-white">{value}</span>
-  </div>
-);
 
 const PreferenceToggle = ({
   icon: Icon,
@@ -696,12 +681,12 @@ const PreferenceToggle = ({
   description,
   defaultChecked,
 }) => (
-  <div className="flex items-center justify-between p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200">
+  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200">
     <div className="flex items-center space-x-4">
       <Icon className="w-5 h-5 text-[#FF6B35]" />
       <div>
-        <p className="font-medium text-white">{label}</p>
-        <p className="text-sm text-gray-300">{description}</p>
+        <p className="font-medium text-gray-900">{label}</p>
+        <p className="text-sm text-gray-600">{description}</p>
       </div>
     </div>
     <label className="relative inline-flex items-center cursor-pointer">
@@ -710,18 +695,18 @@ const PreferenceToggle = ({
         defaultChecked={defaultChecked}
         className="sr-only peer"
       />
-      <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B35] transition-all duration-200"></div>
+      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B35] transition-all duration-200"></div>
     </label>
   </div>
 );
 
 const SecurityOption = ({ icon: Icon, title, description, action }) => (
-  <div className="flex items-center justify-between p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200">
+  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200">
     <div className="flex items-center space-x-4">
       <Icon className="w-5 h-5 text-[#FF6B35]" />
       <div>
-        <p className="font-medium text-white">{title}</p>
-        <p className="text-sm text-gray-300">{description}</p>
+        <p className="font-medium text-gray-900">{title}</p>
+        <p className="text-sm text-gray-600">{description}</p>
       </div>
     </div>
     <button className="px-4 py-2 text-sm font-medium text-[#FF6B35] hover:text-[#FF8535] transition-all duration-200 hover:scale-105">
@@ -731,10 +716,10 @@ const SecurityOption = ({ icon: Icon, title, description, action }) => (
 );
 
 const OrganizerTool = ({ icon: Icon, title, description, value }) => (
-  <div className="p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200 cursor-pointer hover:scale-105">
+  <div className="p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 cursor-pointer hover:scale-105">
     <Icon className="w-8 h-8 text-[#FF6B35] mb-3 transition-all duration-200 hover:scale-110" />
-    <h4 className="font-semibold text-white mb-2">{title}</h4>
-    <p className="text-sm text-gray-300 mb-2">{description}</p>
+    <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
+    <p className="text-sm text-gray-600 mb-2">{description}</p>
     {value && <p className="text-xs text-[#FF6B35] font-semibold">{value}</p>}
   </div>
 );

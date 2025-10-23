@@ -196,6 +196,102 @@ export const transactionAPI = {
   getRevenueStats: (params = {}) =>
     apiClient.get("/transactions/stats/revenue", { params }),
 };
+//  Wallet API calls
+export const walletAPI = {
+  // Get wallet balance and overview
+  getWalletBalance: () => apiClient.get('/wallet/balance'),
+
+  // Get wallet statistics
+  getWalletStats: (params = {}) => 
+    apiClient.get('/wallet/stats', { params }),
+
+  // Get transaction history
+  getTransactions: (params = {}) => 
+    apiClient.get('/wallet/transactions', { params }),
+
+  // Get specific transaction details
+  getTransactionById: (transactionId) => 
+    apiClient.get(`/wallet/transactions/${transactionId}`),
+
+  // Initiate withdrawal request
+  requestWithdrawal: (withdrawalData) => 
+    apiClient.post('/wallet/withdraw', withdrawalData),
+
+  // Get withdrawal history
+  getWithdrawals: (params = {}) => 
+    apiClient.get('/wallet/withdrawals', { params }),
+
+  // Get payment methods
+  getPaymentMethods: () => 
+    apiClient.get('/wallet/payment-methods'),
+
+  // Add payment method
+  addPaymentMethod: (paymentData) => 
+    apiClient.post('/wallet/payment-methods', paymentData),
+
+  // Update payment method
+  updatePaymentMethod: (methodId, paymentData) => 
+    apiClient.patch(`/wallet/payment-methods/${methodId}`, paymentData),
+
+  // Delete payment method
+  deletePaymentMethod: (methodId) => 
+    apiClient.delete(`/wallet/payment-methods/${methodId}`),
+
+  // Set primary payment method
+  setPrimaryPaymentMethod: (methodId) => 
+    apiClient.patch(`/wallet/payment-methods/${methodId}/set-primary`),
+
+  // Get wallet address
+  getWalletAddress: () => 
+    apiClient.get('/wallet/address'),
+
+  // Generate new wallet address
+  generateWalletAddress: () => 
+    apiClient.post('/wallet/address/generate'),
+
+  // Get earnings by event
+  getEventEarnings: (eventId, params = {}) => 
+    apiClient.get(`/wallet/earnings/event/${eventId}`, { params }),
+
+  // Get monthly earnings summary
+  getMonthlyEarnings: (params = {}) => 
+    apiClient.get('/wallet/earnings/monthly', { params }),
+
+  // Get pending payouts
+  getPendingPayouts: () => 
+    apiClient.get('/wallet/payouts/pending'),
+
+  // Request payout for specific event
+  requestEventPayout: (eventId, payoutData) => 
+    apiClient.post(`/wallet/payouts/event/${eventId}`, payoutData),
+
+  // Get wallet analytics
+  getWalletAnalytics: (params = {}) => 
+    apiClient.get('/wallet/analytics', { params }),
+
+  // Export transactions (CSV/PDF)
+  exportTransactions: (format = 'csv', params = {}) => 
+    apiClient.get(`/wallet/transactions/export/${format}`, {
+      params,
+      responseType: 'blob'
+    }),
+
+  // Get fee structure
+  getFeeStructure: () => 
+    apiClient.get('/wallet/fees'),
+
+  // Verify bank account
+  verifyBankAccount: (bankData) => 
+    apiClient.post('/wallet/verify-bank-account', bankData),
+
+  // Get bank list (for adding bank accounts)
+  getBankList: () => 
+    apiClient.get('/wallet/banks'),
+
+  // Resolve account number (verify account name)
+  resolveAccountNumber: (bankCode, accountNumber) => 
+    apiClient.post('/wallet/resolve-account', { bankCode, accountNumber })
+};
 // Superadmin API calls
 export const superadminAPI = {
   // User Management

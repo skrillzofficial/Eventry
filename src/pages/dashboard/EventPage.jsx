@@ -63,6 +63,7 @@ export default function EventPage() {
   const [activeTab, setActiveTab] = useState("details");
   const [showCheckout, setShowCheckout] = useState(false);
   const [error, setError] = useState(null);
+  const [tabLoading, setTabLoading] = useState(false);
 
   // Map refs only
   const mapRef = useRef(null);
@@ -547,24 +548,25 @@ export default function EventPage() {
             className="h-64 w-full bg-white border border-gray-100 rounded"
             style={{ zIndex: 1, minHeight: "256px" }}
           />
-
-          {/* Loading state */}
-          <div
-            ref={mapRef}
-            className="relative h-64 w-full bg-white border border-gray-100 rounded"
-          >
-            {!event && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                <div className="animate-spin h-8 w-8 border-2 border-[#FF6B35] border-t-transparent rounded-full"></div>
-              </div>
-            )}
-          </div>
         </div>
       </>
     );
   };
 
   const DetailsTabs = ({ ev }) => {
+    const handleTabChange = (e, tabName) => {
+      e.preventDefault();
+      setTabLoading(true);
+      
+      // Use requestAnimationFrame to ensure state updates properly
+      requestAnimationFrame(() => {
+        setActiveTab(tabName);
+        setTimeout(() => {
+          setTabLoading(false);
+        }, 300);
+      });
+    };
+
     return (
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
         <div className="border-b border-gray-100">
@@ -572,7 +574,8 @@ export default function EventPage() {
             {["details", "organizer", "location", "reviews"].map((t) => (
               <button
                 key={t}
-                onClick={() => setActiveTab(t)}
+                onClick={(e) => handleTabChange(e, t)}
+                type="button"
                 className={`py-3 px-2 text-sm font-medium ${
                   activeTab === t
                     ? "text-gray-900 border-b-2 border-[#FF6B35]"
@@ -585,134 +588,145 @@ export default function EventPage() {
           </nav>
         </div>
 
-        <div className="p-6">
-          {activeTab === "details" && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                About this event
-              </h3>
-              <div className="prose max-w-none text-gray-700">
-                <p className="whitespace-pre-wrap">
-                  {ev.longDescription ||
-                    ev.description ||
-                    "No description available"}
-                </p>
+        <div className="p-6 min-h-[300px] relative">
+          {tabLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10 rounded-b-2xl">
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin h-10 w-10 border-4 border-[#FF6B35] border-t-transparent rounded-full"></div>
+                <div className="text-sm text-gray-600 font-medium">Loading...</div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
-                  </h4>
-                  <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                    {ev.requirements.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {ev.tags.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {ev.tags.map((t, idx) => (
-                      <span
-                        key={idx}
-                        className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-full border border-gray-200"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
-
-          {activeTab === "organizer" && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                Organizer
-              </h3>
-              <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-full bg-[#FF6B35] flex items-center justify-center text-white font-semibold text-lg">
-                  {ev.organizer.name?.charAt(0) || "O"}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-gray-900">
-                      {ev.organizer.name}
-                    </h4>
-                    {ev.organizer.verified && (
-                      <Shield className="h-4 w-4 text-green-600" />
-                    )}
-                  </div>
-                  <p className="text-gray-600 mt-1">
-                    {ev.organizer.description || "Event organizer"}
+          
+          <div className={tabLoading ? "opacity-30" : "opacity-100 transition-opacity duration-200"}>
+            {activeTab === "details" && (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  About this event
+                </h3>
+                <div className="prose max-w-none text-gray-700">
+                  <p className="whitespace-pre-wrap">
+                    {ev.longDescription ||
+                      ev.description ||
+                      "No description available"}
                   </p>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <div className="p-3 bg-gray-50 border border-gray-100 rounded">
-                      <div className="text-sm text-gray-500">Events hosted</div>
-                      <div className="font-semibold text-gray-900">
-                        {ev.organizer.eventsHosted || "Multiple"}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
+                    </h4>
+                    <ul className="list-disc pl-5 text-gray-700 space-y-1">
+                      {ev.requirements.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {ev.tags.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {ev.tags.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-full border border-gray-200"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "organizer" && (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Organizer
+                </h3>
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#FF6B35] flex items-center justify-center text-white font-semibold text-lg">
+                    {ev.organizer.name?.charAt(0) || "O"}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-gray-900">
+                        {ev.organizer.name}
+                      </h4>
+                      {ev.organizer.verified && (
+                        <Shield className="h-4 w-4 text-green-600" />
+                      )}
+                    </div>
+                    <p className="text-gray-600 mt-1">
+                      {ev.organizer.description || "Event organizer"}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="p-3 bg-gray-50 border border-gray-100 rounded">
+                        <div className="text-sm text-gray-500">Events hosted</div>
+                        <div className="font-semibold text-gray-900">
+                          {ev.organizer.eventsHosted || "Multiple"}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 border border-gray-100 rounded">
+                        <div className="text-sm text-gray-500">Rating</div>
+                        <div className="font-semibold text-gray-900">
+                          {ev.organizer.rating || ev.rating || "4.5"}
+                        </div>
                       </div>
                     </div>
-                    <div className="p-3 bg-gray-50 border border-gray-100 rounded">
-                      <div className="text-sm text-gray-500">Rating</div>
-                      <div className="font-semibold text-gray-900">
-                        {ev.organizer.rating || ev.rating || "4.5"}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "location" && <LocationTab ev={ev} />}
+
+            {activeTab === "reviews" && (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Reviews</h3>
+                  <div className="text-right">
+                    <div className="text-xl font-semibold">{ev.rating}</div>
+                    <div className="text-sm text-gray-600">
+                      {ev.reviews} reviews
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {[5, 4, 3, 2, 1].map((s) => (
+                    <div key={s} className="flex items-center gap-3">
+                      <div className="w-8 text-sm text-gray-600">{s}</div>
+                      <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-[#FF6B35] h-2"
+                          style={{ width: `${(s / 5) * 100}%` }}
+                        />
+                      </div>
+                      <div className="w-12 text-sm text-gray-600 text-right">
+                        {Math.round((s / 5) * 100)}%
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            </>
-          )}
 
-          {activeTab === "location" && <LocationTab ev={ev} />}
-
-          {activeTab === "reviews" && (
-            <>
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Reviews</h3>
-                <div className="text-right">
-                  <div className="text-xl font-semibold">{ev.rating}</div>
-                  <div className="text-sm text-gray-600">
-                    {ev.reviews} reviews
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {[5, 4, 3, 2, 1].map((s) => (
-                  <div key={s} className="flex items-center gap-3">
-                    <div className="w-8 text-sm text-gray-600">{s}</div>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-[#FF6B35] h-2"
-                        style={{ width: `${(s / 5) * 100}%` }}
-                      />
-                    </div>
-                    <div className="w-12 text-sm text-gray-600 text-right">
-                      {Math.round((s / 5) * 100)}%
+                <div className="mt-4">
+                  <div className="p-4 bg-gray-50 border border-gray-100 rounded">
+                    <div className="font-semibold text-gray-900">Chinedu O.</div>
+                    <div className="text-sm text-gray-600">
+                      "One of the best events I've attended. Great organization
+                      and networking opportunities!"
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-4">
-                <div className="p-4 bg-gray-50 border border-gray-100 rounded">
-                  <div className="font-semibold text-gray-900">Chinedu O.</div>
-                  <div className="text-sm text-gray-600">
-                    "One of the best events I've attended. Great organization
-                    and networking opportunities!"
-                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     );

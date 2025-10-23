@@ -32,7 +32,7 @@ import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState('notifications');
+  const [activeTab, setActiveTab] = useState('security');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [theme, setTheme] = useState('light');
@@ -58,20 +58,6 @@ const Settings = () => {
     const savedSettings = JSON.parse(localStorage.getItem('userSettings') || '{}');
     
     const defaultSettings = {
-      notifications: {
-        email: true,
-        push: true,
-        sms: false,
-        eventReminders: true,
-        promotional: false,
-        newsletter: true
-      },
-      privacy: {
-        profileVisibility: 'public',
-        showAttendance: true,
-        allowMessages: true,
-        dataSharing: false
-      },
       security: {
         twoFactor: false,
         loginAlerts: true,
@@ -161,33 +147,31 @@ const Settings = () => {
     }
   };
 
-  const notificationSettings = watch('notifications') || {};
-
   return (
-    <div className="min-h-screen Homeimg Blend-overlay">
+    <div className="min-h-screen bg-white">
       <Navbar />
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-white text-sm mb-4">
+          <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-full text-gray-700 text-sm mb-4">
             <Sparkles className="h-4 w-4 mr-2" />
             Account Settings
           </div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900">
             Settings & <span className="text-[#FF6B35]">Preferences</span>
           </h1>
-          <p className="text-white/80 mt-2">
+          <p className="text-gray-600 mt-2">
             Manage your account preferences and privacy settings
           </p>
         </div>
 
         {/* Save Status */}
         {saveStatus && (
-          <div className={`mb-6 p-4 rounded-lg backdrop-blur-sm ${
-            saveStatus === 'success' ? 'bg-green-500/20 border border-green-500/30 text-white' :
-            saveStatus === 'error' ? 'bg-red-500/20 border border-red-500/30 text-white' :
-            'bg-blue-500/20 border border-blue-500/30 text-white'
+          <div className={`mb-6 p-4 rounded-lg ${
+            saveStatus === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+            saveStatus === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
+            'bg-blue-50 border border-blue-200 text-blue-800'
           }`}>
             <p className={`flex items-center`}>
               {saveStatus === 'success' ? (
@@ -207,11 +191,9 @@ const Settings = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-all">
               <nav className="space-y-2">
                 {[
-                  { id: 'notifications', label: 'Notifications', icon: Bell },
-                  { id: 'privacy', label: 'Privacy', icon: Shield },
                   { id: 'security', label: 'Security', icon: Lock },
                   { id: 'appearance', label: 'Appearance', icon: Palette },
                   { id: 'language', label: 'Language & Region', icon: Globe },
@@ -224,7 +206,7 @@ const Settings = () => {
                     className={`w-full flex items-center px-3 py-2 text-sm rounded-lg transition-all group ${
                       activeTab === tab.id
                         ? 'bg-[#FF6B35] text-white transform scale-105'
-                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
                     <tab.icon className="w-4 h-4 mr-3 group-hover:scale-110 transition-transform" />
@@ -238,120 +220,12 @@ const Settings = () => {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <form onSubmit={handleSubmit(onSubmit)}>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:shadow-xl transition-all">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-all">
                 
-                {/* Notifications Tab */}
-                {activeTab === 'notifications' && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
-                      <Bell className="w-5 h-5 mr-2 text-[#FF6B35]" />
-                      Notification Preferences
-                    </h3>
-                    <div className="space-y-6">
-                      <SettingSection title="Communication">
-                        <ToggleSetting
-                          name="notifications.email"
-                          label="Email Notifications"
-                          description="Receive updates and announcements via email"
-                          icon={Mail}
-                          register={register}
-                        />
-                        <ToggleSetting
-                          name="notifications.push"
-                          label="Push Notifications"
-                          description="Get browser notifications for important updates"
-                          icon={Bell}
-                          register={register}
-                        />
-                        <ToggleSetting
-                          name="notifications.sms"
-                          label="SMS Alerts"
-                          description="Receive text messages for critical updates"
-                          icon={Phone}
-                          register={register}
-                        />
-                      </SettingSection>
-
-                      <SettingSection title="Event Updates">
-                        <ToggleSetting
-                          name="notifications.eventReminders"
-                          label="Event Reminders"
-                          description="Get reminders for upcoming events you're attending"
-                          icon={Bell}
-                          register={register}
-                        />
-                        <ToggleSetting
-                          name="notifications.promotional"
-                          label="Promotional Offers"
-                          description="Receive special offers and discounts"
-                          icon={MessageSquare}
-                          register={register}
-                        />
-                        <ToggleSetting
-                          name="notifications.newsletter"
-                          label="Weekly Newsletter"
-                          description="Get curated event recommendations"
-                          icon={Mail}
-                          register={register}
-                        />
-                      </SettingSection>
-                    </div>
-                  </div>
-                )}
-
-                {/* Privacy Tab */}
-                {activeTab === 'privacy' && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
-                      <Shield className="w-5 h-5 mr-2 text-[#FF6B35]" />
-                      Privacy Settings
-                    </h3>
-                    <div className="space-y-6">
-                      <SettingSection title="Profile Visibility">
-                        <SelectSetting
-                          name="privacy.profileVisibility"
-                          label="Profile Visibility"
-                          description="Control who can see your profile"
-                          options={[
-                            { value: 'public', label: 'Public' },
-                            { value: 'friends', label: 'Friends Only' },
-                            { value: 'private', label: 'Private' }
-                          ]}
-                          register={register}
-                        />
-                        <ToggleSetting
-                          name="privacy.showAttendance"
-                          label="Show Event Attendance"
-                          description="Allow others to see events you're attending"
-                          icon={Eye}
-                          register={register}
-                        />
-                        <ToggleSetting
-                          name="privacy.allowMessages"
-                          label="Allow Direct Messages"
-                          description="Let other users send you messages"
-                          icon={MessageSquare}
-                          register={register}
-                        />
-                      </SettingSection>
-
-                      <SettingSection title="Data Sharing">
-                        <ToggleSetting
-                          name="privacy.dataSharing"
-                          label="Analytics Sharing"
-                          description="Help improve Eventry by sharing anonymous usage data"
-                          icon={Database}
-                          register={register}
-                        />
-                      </SettingSection>
-                    </div>
-                  </div>
-                )}
-
                 {/* Security Tab */}
                 {activeTab === 'security' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                       <Lock className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Security Settings
                     </h3>
@@ -410,7 +284,7 @@ const Settings = () => {
                 {/* Appearance Tab */}
                 {activeTab === 'appearance' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                       <Palette className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Appearance
                     </h3>
@@ -466,7 +340,7 @@ const Settings = () => {
                 {/* Language & Region Tab */}
                 {activeTab === 'language' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                       <Globe className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Language & Region
                     </h3>
@@ -507,14 +381,14 @@ const Settings = () => {
                 {/* Data Management Tab */}
                 {activeTab === 'data' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                       <Database className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Data Management
                     </h3>
                     <div className="space-y-6">
                       <SettingSection title="Export Data">
-                        <div className="p-4 border border-white/20 rounded-lg bg-white/5">
-                          <p className="text-sm text-white/80 mb-4">
+                        <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                          <p className="text-sm text-gray-600 mb-4">
                             Download a copy of your personal data including profile information, event history, and preferences.
                           </p>
                           <button
@@ -529,8 +403,8 @@ const Settings = () => {
                       </SettingSection>
 
                       <SettingSection title="Clear Data">
-                        <div className="p-4 border border-white/20 rounded-lg bg-white/5">
-                          <p className="text-sm text-white/80 mb-4">
+                        <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                          <p className="text-sm text-gray-600 mb-4">
                             Clear your event history and temporary data. This action cannot be undone.
                           </p>
                           <button
@@ -549,15 +423,15 @@ const Settings = () => {
                 {/* Account Tab */}
                 {activeTab === 'account' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                       <UserX className="w-5 h-5 mr-2 text-[#FF6B35]" />
                       Account Management
                     </h3>
                     <div className="space-y-6">
                       <SettingSection title="Danger Zone">
-                        <div className="p-4 border border-red-500/30 rounded-lg bg-red-500/10">
-                          <h4 className="font-semibold text-white mb-2">Delete Account</h4>
-                          <p className="text-sm text-white/80 mb-4">
+                        <div className="p-4 border border-red-200 rounded-lg bg-red-50">
+                          <h4 className="font-semibold text-gray-900 mb-2">Delete Account</h4>
+                          <p className="text-sm text-gray-600 mb-4">
                             Permanently delete your account and all associated data. This action cannot be undone.
                           </p>
                           <button
@@ -574,11 +448,11 @@ const Settings = () => {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex justify-between items-center pt-6 mt-6 border-t border-white/20">
+                <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-200">
                   <button
                     type="button"
                     onClick={handleResetSettings}
-                    className="flex items-center px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors group"
+                    className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors group"
                   >
                     <RotateCcw className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                     Reset to Default
@@ -588,7 +462,7 @@ const Settings = () => {
                     <button
                       type="button"
                       onClick={() => reset()}
-                      className="px-6 py-2 border border-white/20 text-white rounded-lg font-medium hover:bg-white/10 transition-colors transform hover:scale-105"
+                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors transform hover:scale-105"
                     >
                       Cancel
                     </button>
@@ -618,7 +492,7 @@ const Settings = () => {
 // Reusable Components
 const SettingSection = ({ title, children }) => (
   <div>
-    <h4 className="font-semibold text-white mb-4">{title}</h4>
+    <h4 className="font-semibold text-gray-900 mb-4">{title}</h4>
     <div className="space-y-4">
       {children}
     </div>
@@ -626,28 +500,28 @@ const SettingSection = ({ title, children }) => (
 );
 
 const ToggleSetting = ({ name, label, description, icon: Icon, register }) => (
-  <div className="flex items-center justify-between p-3 border border-white/20 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+  <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-all group">
     <div className="flex items-center space-x-3">
       <Icon className="w-4 h-4 text-[#FF6B35] group-hover:scale-110 transition-transform" />
       <div>
-        <p className="font-medium text-white">{label}</p>
-        <p className="text-sm text-white/80">{description}</p>
+        <p className="font-medium text-gray-900">{label}</p>
+        <p className="text-sm text-gray-600">{description}</p>
       </div>
     </div>
     <label className="relative inline-flex items-center cursor-pointer">
       <input type="checkbox" {...register(name)} className="sr-only peer" />
-      <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B35]"></div>
+      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B35]"></div>
     </label>
   </div>
 );
 
 const SelectSetting = ({ name, label, description, options, register }) => (
   <div className="space-y-2">
-    <label className="font-medium text-white">{label}</label>
-    <p className="text-sm text-white/80">{description}</p>
+    <label className="font-medium text-gray-900">{label}</label>
+    <p className="text-sm text-gray-600">{description}</p>
     <select
       {...register(name)}
-      className="w-full px-3 py-2 border border-white/20 bg-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-all"
+      className="w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] transition-all"
     >
       {options.map(option => (
         <option key={option.value} value={option.value} className="text-gray-900">
@@ -660,17 +534,17 @@ const SelectSetting = ({ name, label, description, options, register }) => (
 
 const PasswordInput = ({ label, name, showPassword, onToggleVisibility, register }) => (
   <div>
-    <label className="font-medium text-white">{label}</label>
+    <label className="font-medium text-gray-900">{label}</label>
     <div className="relative">
       <input
         type={showPassword ? "text" : "password"}
         {...register(name)}
-        className="w-full px-3 py-2 border border-white/20 bg-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] pr-10 transition-all"
+        className="w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] pr-10 transition-all"
       />
       <button
         type="button"
         onClick={onToggleVisibility}
-        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
       >
         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
       </button>
@@ -684,12 +558,12 @@ const ThemeOption = ({ icon: Icon, label, value, currentTheme, onClick }) => (
     onClick={onClick}
     className={`p-4 border-2 rounded-lg text-left transition-all group ${
       currentTheme === value
-        ? 'border-[#FF6B35] bg-[#FF6B35]/20 transform scale-105'
-        : 'border-white/20 hover:border-[#FF6B35] hover:bg-white/10'
+        ? 'border-[#FF6B35] bg-orange-50 transform scale-105'
+        : 'border-gray-300 hover:border-[#FF6B35] hover:bg-gray-50'
     }`}
   >
-    <Icon className="w-6 h-6 mb-2 text-white group-hover:scale-110 transition-transform" />
-    <p className="font-medium text-white">{label}</p>
+    <Icon className="w-6 h-6 mb-2 text-gray-700 group-hover:scale-110 transition-transform" />
+    <p className="font-medium text-gray-900">{label}</p>
   </button>
 );
 

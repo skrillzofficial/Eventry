@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import Brandlogo from "../assets/1.png";
+import Brandlogo from "../assets/eventry white logo.PNG";
 import google from "../assets/google.png";
 
 const loginSchema = yup.object().shape({
@@ -267,7 +267,7 @@ const Login = () => {
               <div className="relative z-10">
                 <Link to="/" className="flex items-center mb-8 group">
                   <img
-                    className="h-8 w-auto"
+                    className="h-13 w-auto"
                     src={Brandlogo}
                     alt="Eventry Logo"
                   />
@@ -277,7 +277,6 @@ const Login = () => {
                 </Link>
 
                 <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm mb-6">
-                  <Sparkles className="h-4 w-4 mr-2" />
                   Welcome Back!
                 </div>
 
@@ -323,7 +322,7 @@ const Login = () => {
               <div className="md:hidden mb-6">
                 <Link to="/" className="flex items-center justify-center">
                   <img
-                    className="h-8 w-auto"
+                    className="h-13 w-auto"
                     src={Brandlogo}
                     alt="Eventry Logo"
                   />
