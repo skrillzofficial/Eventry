@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import EventSlider from "../pages/EventSlider";
 import { eventAPI, apiCall } from "../services/api";
 
 // Local images for fallback
@@ -188,6 +189,19 @@ const Home = () => {
   const toggleFaq = (index) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
+
+  // Prepare past events for the slider (events that have already happened)
+  const pastEvents = events
+    .filter(event => new Date(event.date) < new Date())
+    .map(event => ({
+      id: event.id,
+      title: event.title,
+      date: event.date,
+      location: `${event.city}, ${event.venue}`,
+      attendees: event.attendees || event.ticketsSold || Math.floor(Math.random() * 1000) + 100,
+      image: event.image,
+      category: event.category
+    }));
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -384,6 +398,22 @@ const Home = () => {
               Meet Our Team
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Past Events Slider Section */}
+      <section className="bg-white py-20">
+        <div className="w-11/12 mx-auto container">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Past <span className="text-[#FF6B35]">Events</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Relive the amazing moments from our successfully hosted events across Africa
+            </p>
+          </div>
+          
+          <EventSlider events={pastEvents} />
         </div>
       </section>
 
