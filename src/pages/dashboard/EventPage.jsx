@@ -5,6 +5,7 @@ import {
   Calendar,
   Clock,
   Users,
+  TrendingUp,
   Ticket,
   Star,
   Heart,

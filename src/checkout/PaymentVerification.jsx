@@ -44,7 +44,7 @@ const PaymentVerification = () => {
     }
   };
 
-  // ... rest of your component code remains the same
+
   const renderContent = () => {
     switch (verificationStatus) {
       case 'verifying':

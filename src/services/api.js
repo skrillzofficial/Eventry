@@ -31,8 +31,10 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
+    if (
+      error.response?.status === 401 &&
+      error.response?.data?.message?.includes("Token expired")
+    ) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.dispatchEvent(new Event("storage"));
@@ -44,19 +46,19 @@ apiClient.interceptors.response.use(
 // Auth API calls
 export const authAPI = {
   login: (email, password, userType = "attendee") =>
-    apiClient.post("/auth/login", {
+    apiClient.post("/login", {
       email,
       password,
       userType,
     }),
 
   register: (userData) =>
-    apiClient.post("/auth/register", userData, {
+    apiClient.post("/register", userData, {
       timeout: 180000,
     }),
 
-  getCurrentUser: () => apiClient.get("/auth/me"),
-  logout: () => apiClient.post("/auth/logout"),
+  getCurrentUser: () => apiClient.get("/me"),
+  logout: () => apiClient.post("/logout"),
   updateProfile: (userData) => apiClient.patch("/profile", userData),
 };
 
