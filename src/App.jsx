@@ -29,6 +29,7 @@ import ResendVerification from "./Auths/ResendVerification";
 import ForgotPassword from "./Auths/ForgotPassword";
 import ResetPassword from "./Auths/ResetPassword";
 import EditEvent from "./pages/dashboard/EditEvent";
+import Contact from "./pages/Contact";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,7 @@ function App() {
             {/* Home */}
             <Route path="/" element={<Home />} />
             <Route path="/team" element={<Team />} />
+            <Route path="/contact" element={<Contact/>} />
 
             {/* Dashboard Routes */}
             <Route path="/dashboard" element={<UserProfile />} />
