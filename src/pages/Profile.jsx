@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  Edit, 
-  Save, 
-  X, 
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Edit,
+  Save,
+  X,
   Camera,
   Shield,
   Bell,
@@ -19,18 +18,22 @@ import {
   TrendingUp,
   Ticket,
   Calendar as CalendarIcon,
-  Sparkles,
-  Loader
-} from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import Navbar from '../components/layout/Navbar';
-import Footer from '../components/layout/Footer';
-import { authAPI, eventAPI, apiCall } from '../services/api';
+  Loader,
+} from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
+import { authAPI, eventAPI, apiCall } from "../services/api";
 
 const Profile = () => {
-  const { user: authUser, updateUser, refreshUser, isAuthenticated } = useAuth();
+  const {
+    user: authUser,
+    updateUser,
+    refreshUser,
+    isAuthenticated,
+  } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState("profile");
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [updateSuccess, setUpdateSuccess] = useState(false);
@@ -40,7 +43,7 @@ const Profile = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
     setValue,
-    reset
+    reset,
   } = useForm();
 
   useEffect(() => {
@@ -48,24 +51,20 @@ const Profile = () => {
       loadUserData();
       loadProfileStats();
     }
-  }, [isAuthenticated, authUser]);
+  }, [isAuthenticated, authUser?._id]);
 
   const loadUserData = async () => {
-    setLoading(true);
     try {
-      // Refresh user data from server
-      await refreshUser();
-      
       // Populate form with current user data
       if (authUser) {
-        setValue('name', authUser.firstName || authUser.firstName || '');
-        setValue('email', authUser.email || '');
-        setValue('phone', authUser.phone || authUser.phoneNumber || '');
-        setValue('bio', authUser.bio || '');
-        setValue('location', authUser.location || authUser.city || '');
+        setValue("firstName", authUser.firstName || authUser.userName || "");
+        setValue("email", authUser.email || "");
+        setValue("phone", authUser.phone || authUser.phoneNumber || "");
+        setValue("bio", authUser.bio || "");
+        setValue("location", authUser.location || authUser.city || "");
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error("Error loading user data:", error);
     } finally {
       setLoading(false);
     }
@@ -73,57 +72,70 @@ const Profile = () => {
 
   const loadProfileStats = async () => {
     try {
-      const userRole = authUser?.userType || authUser?.role || 'attendee';
-      
-      if (userRole === 'organizer') {
-        // Fetch organizer stats
-        const eventsResult = await apiCall(eventAPI.getMyEvents);
-        
+      const userRole = authUser?.role || authUser?.userType || "attendee";
+
+      if (userRole === "organizer") {
+        //  getOrganizerEvents instead of getMyEvents
+        const eventsResult = await apiCall(eventAPI.getOrganizerEvents);
+
         if (eventsResult.success) {
           const events = eventsResult.data?.events || [];
-          const totalAttendees = events.reduce((sum, event) => 
-            sum + (event.ticketsSold || event.attendees || 0), 0
-          );
-          const totalRevenue = events.reduce((sum, event) => 
-            sum + ((event.ticketsSold || 0) * (event.price || 0)), 0
-          );
-          const upcomingEvents = events.filter(e => 
-            new Date(e.date) >= new Date() && e.status !== 'cancelled'
+
+          // Handle attendees as array
+          const totalAttendees = events.reduce((sum, event) => {
+            const count =
+              event.totalAttendees ||
+              (Array.isArray(event.attendees) ? event.attendees.length : 0);
+            return sum + count;
+          }, 0);
+
+          const totalRevenue = events.reduce((sum, event) => {
+            const attendeeCount =
+              event.totalAttendees ||
+              (Array.isArray(event.attendees) ? event.attendees.length : 0);
+            return sum + attendeeCount * (event.price || 0);
+          }, 0);
+
+          const upcomingEvents = events.filter(
+            (e) => new Date(e.date) >= new Date() && e.status !== "cancelled"
           ).length;
-          
+
           setStats({
             eventsHosted: events.length,
             totalAttendees,
             averageRating: 4.8,
             revenue: totalRevenue,
             upcomingEvents,
-            ticketsSold: totalAttendees
+            ticketsSold: totalAttendees,
           });
         }
       } else {
         // Fetch attendee stats
         const bookingsResult = await apiCall(eventAPI.getMyBookings);
-        
+
         if (bookingsResult.success) {
           const bookings = bookingsResult.data?.bookings || [];
-          const totalTickets = bookings.reduce((sum, booking) => 
-            sum + (booking.tickets || booking.quantity || 1), 0
+          const totalTickets = bookings.reduce(
+            (sum, booking) => sum + (booking.tickets || booking.quantity || 1),
+            0
           );
-          const totalSpent = bookings.reduce((sum, booking) => 
-            sum + (booking.totalAmount || booking.amount || 0), 0
+          const totalSpent = bookings.reduce(
+            (sum, booking) =>
+              sum + (booking.totalAmount || booking.amount || 0),
+            0
           );
-          const upcomingEvents = bookings.filter(b => {
+          const upcomingEvents = bookings.filter((b) => {
             const eventDate = b.event?.date || b.eventDate;
             return eventDate && new Date(eventDate) >= new Date();
           }).length;
-          
+
           setStats({
             eventsAttended: bookings.length,
             ticketsPurchased: totalTickets,
-            favoriteCategories: ['Technology', 'Business', 'Music'],
+            favoriteCategories: ["Technology", "Business", "Music"],
             totalSpent,
             upcomingEvents,
-            reviewsWritten: 0
+            reviewsWritten: 0,
           });
         } else {
           // Set default stats if API fails
@@ -133,17 +145,17 @@ const Profile = () => {
             favoriteCategories: [],
             totalSpent: 0,
             upcomingEvents: 0,
-            reviewsWritten: 0
+            reviewsWritten: 0,
           });
         }
       }
     } catch (error) {
-      console.error('Error loading profile stats:', error);
+      console.error("Error loading profile stats:", error);
       // Set default stats on error
       setStats({
         eventsAttended: 0,
         ticketsPurchased: 0,
-        upcomingEvents: 0
+        upcomingEvents: 0,
       });
     }
   };
@@ -152,27 +164,27 @@ const Profile = () => {
     try {
       // Call update profile API
       const result = await apiCall(authAPI.updateProfile, {
-        name: data.firstName,
+        firstName: data.firstName,
         email: data.email,
         phone: data.phone,
         bio: data.bio,
         location: data.location,
       });
-      
+
       if (result.success) {
         // Update local user state
         updateUser(result.data.user || data);
         setUpdateSuccess(true);
         setIsEditing(false);
-        
+
         // Hide success message after 3 seconds
         setTimeout(() => setUpdateSuccess(false), 3000);
       } else {
-        alert(result.error || 'Failed to update profile');
+        alert(result.error || "Failed to update profile");
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile. Please try again.");
     }
   };
 
@@ -185,10 +197,8 @@ const Profile = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      // In a real app, you'd upload to your backend/Cloudinary
       const reader = new FileReader();
       reader.onload = (e) => {
-        // For now, just update locally
         updateUser({ avatar: e.target.result });
       };
       reader.readAsDataURL(file);
@@ -236,12 +246,12 @@ const Profile = () => {
     );
   }
 
-  const userRole = authUser?.userType || authUser?.role || 'attendee';
+  const userRole = authUser?.role || authUser?.userType || "attendee";
 
   return (
     <div className="min-h-screen Homeimg Blend-overlay">
       <Navbar />
-      
+
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Success Message */}
         {updateSuccess && (
@@ -257,10 +267,11 @@ const Profile = () => {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold text-white">Profile Settings</h1>
-            {userRole === 'organizer' && (
+            {userRole === "organizer" && (
               <div className="flex items-center gap-1 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                <Sparkles className="w-4 h-4 text-[#FF6B35]" />
-                <span className="text-sm font-medium text-white">Organizer</span>
+                <span className="text-sm font-medium text-white">
+                  Organizer
+                </span>
               </div>
             )}
           </div>
@@ -277,10 +288,16 @@ const Profile = () => {
                 <div className="relative inline-block mb-4">
                   <div className="w-24 h-24 bg-[#FF6B35] rounded-full flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
                     {authUser?.avatar ? (
-                      <img src={authUser.avatar} alt={authUser.name} className="w-24 h-24 rounded-full object-cover" />
+                      <img
+                        src={authUser.avatar}
+                        alt={authUser.firstName}
+                        className="w-24 h-24 rounded-full object-cover"
+                      />
                     ) : (
                       <span className="text-3xl">
-                        {(authUser?.firstName || authUser?.Name || 'U').charAt(0).toUpperCase()}
+                        {(authUser?.firstName || authUser?.userName || "U")
+                          .charAt(0)
+                          .toUpperCase()}
                       </span>
                     )}
                   </div>
@@ -296,25 +313,35 @@ const Profile = () => {
                     </label>
                   )}
                 </div>
-                <h2 className="text-xl font-bold text-white">{authUser?.firstName || authUser?.Name}</h2>
+                <h2 className="text-xl font-bold text-white">
+                  {authUser?.firstName || authUser?.userName}
+                </h2>
                 <p className="text-gray-300 capitalize">{userRole}</p>
               </div>
 
               {/* Navigation Tabs */}
               <nav className="space-y-2">
                 {[
-                  { id: 'profile', label: 'Profile Information', icon: User },
-                  { id: 'preferences', label: 'Preferences', icon: Bell },
-                  { id: 'security', label: 'Security', icon: Shield },
-                  ...(userRole === 'organizer' ? [{ id: 'organizer', label: 'Organizer Tools', icon: Award }] : [])
-                ].map(tab => (
+                  { id: "profile", label: "Profile Information", icon: User },
+                  { id: "preferences", label: "Preferences", icon: Bell },
+                  { id: "security", label: "Security", icon: Shield },
+                  ...(userRole === "organizer"
+                    ? [
+                        {
+                          id: "organizer",
+                          label: "Organizer Tools",
+                          icon: Award,
+                        },
+                      ]
+                    : []),
+                ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
                       activeTab === tab.id
-                        ? 'bg-[#FF6B35] text-white scale-105 shadow-lg'
-                        : 'text-gray-300 hover:bg-white/10 hover:scale-102'
+                        ? "bg-[#FF6B35] text-white scale-105 shadow-lg"
+                        : "text-gray-300 hover:bg-white/10 hover:scale-102"
                     }`}
                   >
                     <tab.icon className="w-4 h-4 mr-3" />
@@ -328,17 +355,41 @@ const Profile = () => {
             <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 mt-6 glass-morphism">
               <h3 className="font-semibold text-white mb-4">Quick Stats</h3>
               <div className="space-y-3">
-                {userRole === 'organizer' ? (
+                {userRole === "organizer" ? (
                   <>
-                    <StatItem icon={CalendarIcon} label="Events Hosted" value={stats.eventsHosted || 0} />
-                    <StatItem icon={User} label="Total Attendees" value={(stats.totalAttendees || 0).toLocaleString()} />
-                    <StatItem icon={Star} label="Average Rating" value={stats.averageRating || '0.0'} />
+                    <StatItem
+                      icon={CalendarIcon}
+                      label="Events Hosted"
+                      value={stats.eventsHosted || 0}
+                    />
+                    <StatItem
+                      icon={User}
+                      label="Total Attendees"
+                      value={(stats.totalAttendees || 0).toLocaleString()}
+                    />
+                    <StatItem
+                      icon={Star}
+                      label="Average Rating"
+                      value={stats.averageRating || "0.0"}
+                    />
                   </>
                 ) : (
                   <>
-                    <StatItem icon={Ticket} label="Events Attended" value={stats.eventsAttended || 0} />
-                    <StatItem icon={Star} label="Tickets Purchased" value={stats.ticketsPurchased || 0} />
-                    <StatItem icon={TrendingUp} label="Upcoming Events" value={stats.upcomingEvents || 0} />
+                    <StatItem
+                      icon={Ticket}
+                      label="Events Attended"
+                      value={stats.eventsAttended || 0}
+                    />
+                    <StatItem
+                      icon={Star}
+                      label="Tickets Purchased"
+                      value={stats.ticketsPurchased || 0}
+                    />
+                    <StatItem
+                      icon={TrendingUp}
+                      label="Upcoming Events"
+                      value={stats.upcomingEvents || 0}
+                    />
                   </>
                 )}
               </div>
@@ -348,10 +399,12 @@ const Profile = () => {
           {/* Main Content */}
           <div className="lg:col-span-3">
             {/* Profile Information Tab */}
-            {activeTab === 'profile' && (
+            {activeTab === "profile" && (
               <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-white">Profile Information</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    Profile Information
+                  </h3>
                   {!isEditing ? (
                     <button
                       onClick={() => setIsEditing(true)}
@@ -399,12 +452,16 @@ const Profile = () => {
                       </label>
                       <input
                         type="text"
-                        {...register('name', { required: 'Name is required' })}
+                        {...register("firstName", {
+                          required: "Name is required",
+                        })}
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
                       />
-                      {errors.name && (
-                        <p className="text-red-400 text-sm mt-1">{errors.name.message}</p>
+                      {errors.firstName && (
+                        <p className="text-red-400 text-sm mt-1">
+                          {errors.firstName.message}
+                        </p>
                       )}
                     </div>
 
@@ -415,18 +472,20 @@ const Profile = () => {
                       </label>
                       <input
                         type="email"
-                        {...register('email', { 
-                          required: 'Email is required',
+                        {...register("email", {
+                          required: "Email is required",
                           pattern: {
                             value: /^\S+@\S+$/i,
-                            message: 'Invalid email address'
-                          }
+                            message: "Invalid email address",
+                          },
                         })}
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
                       />
                       {errors.email && (
-                        <p className="text-red-400 text-sm mt-1">{errors.email.message}</p>
+                        <p className="text-red-400 text-sm mt-1">
+                          {errors.email.message}
+                        </p>
                       )}
                     </div>
 
@@ -437,7 +496,7 @@ const Profile = () => {
                       </label>
                       <input
                         type="tel"
-                        {...register('phone')}
+                        {...register("phone")}
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
                         placeholder="+234 XXX XXX XXXX"
@@ -449,7 +508,7 @@ const Profile = () => {
                         Bio
                       </label>
                       <textarea
-                        {...register('bio')}
+                        {...register("bio")}
                         disabled={!isEditing}
                         rows={3}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
@@ -464,7 +523,7 @@ const Profile = () => {
                       </label>
                       <input
                         type="text"
-                        {...register('location')}
+                        {...register("location")}
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-white/10 disabled:text-gray-400 text-white placeholder-gray-400 transition-all duration-200"
                         placeholder="Lagos, Nigeria"
@@ -474,28 +533,37 @@ const Profile = () => {
 
                   {/* Account Info */}
                   <div className="pt-6 border-t border-white/10">
-                    <h4 className="text-sm font-semibold text-white mb-3">Account Information</h4>
+                    <h4 className="text-sm font-semibold text-white mb-3">
+                      Account Information
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-400">User ID:</span>
-                        <span className="ml-2 text-white">{authUser?._id?.slice(-8) || 'N/A'}</span>
+                        <span className="ml-2 text-white">
+                          {authUser?._id?.slice(-8) || "N/A"}
+                        </span>
                       </div>
                       <div>
                         <span className="text-gray-400">Account Type:</span>
-                        <span className="ml-2 text-white capitalize">{userRole}</span>
+                        <span className="ml-2 text-white capitalize">
+                          {userRole}
+                        </span>
                       </div>
                       <div>
                         <span className="text-gray-400">Member Since:</span>
                         <span className="ml-2 text-white">
-                          {authUser?.createdAt 
-                            ? new Date(authUser.createdAt).toLocaleDateString('en-NG', { year: 'numeric', month: 'long' })
-                            : 'N/A'}
+                          {authUser?.createdAt
+                            ? new Date(authUser.createdAt).toLocaleDateString(
+                                "en-NG",
+                                { year: "numeric", month: "long" }
+                              )
+                            : "N/A"}
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-400">Email Verified:</span>
                         <span className="ml-2 text-white">
-                          {authUser?.isVerified ? '✓ Yes' : '✗ No'}
+                          {authUser?.isVerified ? "✓ Yes" : "✗ No"}
                         </span>
                       </div>
                     </div>
@@ -505,15 +573,19 @@ const Profile = () => {
             )}
 
             {/* Preferences Tab */}
-            {activeTab === 'preferences' && (
+            {activeTab === "preferences" && (
               <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-                <h3 className="text-lg font-semibold text-white mb-6">Notification Preferences</h3>
+                <h3 className="text-lg font-semibold text-white mb-6">
+                  Notification Preferences
+                </h3>
                 <div className="space-y-4">
                   <PreferenceToggle
                     icon={Bell}
                     label="Event Notifications"
                     description="Get notified about new events in your area"
-                    defaultChecked={authUser?.preferences?.notifications ?? true}
+                    defaultChecked={
+                      authUser?.preferences?.notifications ?? true
+                    }
                   />
                   <PreferenceToggle
                     icon={Mail}
@@ -532,9 +604,11 @@ const Profile = () => {
             )}
 
             {/* Security Tab */}
-            {activeTab === 'security' && (
+            {activeTab === "security" && (
               <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-                <h3 className="text-lg font-semibold text-white mb-6">Security Settings</h3>
+                <h3 className="text-lg font-semibold text-white mb-6">
+                  Security Settings
+                </h3>
                 <div className="space-y-4">
                   <SecurityOption
                     icon={Shield}
@@ -559,9 +633,11 @@ const Profile = () => {
             )}
 
             {/* Organizer Tools Tab */}
-            {activeTab === 'organizer' && userRole === 'organizer' && (
+            {activeTab === "organizer" && userRole === "organizer" && (
               <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 glass-morphism">
-                <h3 className="text-lg font-semibold text-white mb-6">Organizer Tools</h3>
+                <h3 className="text-lg font-semibold text-white mb-6">
+                  Organizer Tools
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <OrganizerTool
                     icon={TrendingUp}
@@ -573,7 +649,9 @@ const Profile = () => {
                     icon={User}
                     title="Attendee Management"
                     description="Manage attendee lists and check-ins"
-                    value={`${(stats.totalAttendees || 0).toLocaleString()} total`}
+                    value={`${(
+                      stats.totalAttendees || 0
+                    ).toLocaleString()} total`}
                   />
                   <OrganizerTool
                     icon={CreditCard}
@@ -585,7 +663,7 @@ const Profile = () => {
                     icon={Award}
                     title="Organizer Badge"
                     description="Get verified as a professional organizer"
-                    value={authUser?.isVerified ? 'Verified' : 'Pending'}
+                    value={authUser?.isVerified ? "Verified" : "Pending"}
                   />
                 </div>
               </div>
@@ -593,7 +671,7 @@ const Profile = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="bg-[#FF6B35]">
         <Footer />
       </div>
@@ -612,7 +690,12 @@ const StatItem = ({ icon: Icon, label, value }) => (
   </div>
 );
 
-const PreferenceToggle = ({ icon: Icon, label, description, defaultChecked }) => (
+const PreferenceToggle = ({
+  icon: Icon,
+  label,
+  description,
+  defaultChecked,
+}) => (
   <div className="flex items-center justify-between p-4 border border-white/20 rounded-lg hover:border-[#FF6B35] transition-all duration-200">
     <div className="flex items-center space-x-4">
       <Icon className="w-5 h-5 text-[#FF6B35]" />
@@ -622,7 +705,11 @@ const PreferenceToggle = ({ icon: Icon, label, description, defaultChecked }) =>
       </div>
     </div>
     <label className="relative inline-flex items-center cursor-pointer">
-      <input type="checkbox" defaultChecked={defaultChecked} className="sr-only peer" />
+      <input
+        type="checkbox"
+        defaultChecked={defaultChecked}
+        className="sr-only peer"
+      />
       <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B35] transition-all duration-200"></div>
     </label>
   </div>
@@ -648,9 +735,7 @@ const OrganizerTool = ({ icon: Icon, title, description, value }) => (
     <Icon className="w-8 h-8 text-[#FF6B35] mb-3 transition-all duration-200 hover:scale-110" />
     <h4 className="font-semibold text-white mb-2">{title}</h4>
     <p className="text-sm text-gray-300 mb-2">{description}</p>
-    {value && (
-      <p className="text-xs text-[#FF6B35] font-semibold">{value}</p>
-    )}
+    {value && <p className="text-xs text-[#FF6B35] font-semibold">{value}</p>}
   </div>
 );
 

@@ -8,10 +8,8 @@ import {
   Trash2,
   Eye,
   Plus,
-  Filter,
   Search,
   TrendingUp,
-  Clock,
   CheckCircle,
   XCircle,
   MoreVertical,
@@ -21,7 +19,7 @@ import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { eventAPI, apiCall } from "../../services/api";
 
-const  MyEvents = () => {
+const MyEvents = () => {
   const { user, isAuthenticated } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +59,8 @@ const  MyEvents = () => {
     try {
       const result = await apiCall(eventAPI.getOrganizerStatistics);
       if (result.success) {
-        setStats(result.data);
+        console.log(' Stats data:', result.data);
+        setStats(result.data.statistics || result.data);
       }
     } catch (err) {
       console.error("Error loading stats:", err);
@@ -73,9 +72,8 @@ const  MyEvents = () => {
       const result = await apiCall(eventAPI.deleteEvent, eventId);
       
       if (result.success) {
-        setEvents(events.filter(event => event.id !== eventId));
+        setEvents(events.filter(event => event._id !== eventId && event.id !== eventId));
         setDeleteConfirm(null);
-        // Reload stats to update counts
         loadOrganizerStats();
       } else {
         throw new Error(result.error || "Failed to delete event");
@@ -95,11 +93,9 @@ const  MyEvents = () => {
       const result = await apiCall(eventAPI.cancelEvent, eventId);
       
       if (result.success) {
-        // Update the event status in the local state
         setEvents(events.map(event => 
-          event.id === eventId ? { ...event, status: "cancelled" } : event
+          (event._id === eventId || event.id === eventId) ? { ...event, status: "cancelled" } : event
         ));
-        // Reload stats to update counts
         loadOrganizerStats();
       } else {
         throw new Error(result.error || "Failed to cancel event");
@@ -110,7 +106,6 @@ const  MyEvents = () => {
     }
   };
 
-  // Filter events based on search and status
   const filteredEvents = events.filter(event => {
     const matchesSearch = event.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          event.category?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -118,7 +113,6 @@ const  MyEvents = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Group events by status for quick filtering
   const eventsByStatus = {
     all: events.length,
     published: events.filter(e => e.status === "published").length,
@@ -154,41 +148,61 @@ const  MyEvents = () => {
     );
   }
 
-  // Subcomponents
-  const StatsCard = ({ title, value, icon, color = "blue" }) => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        </div>
-        <div className={`p-3 rounded-full bg-${color}-50`}>
-          {React.cloneElement(icon, { className: `h-6 w-6 text-${color}-600` })}
+  // Pass icon component, not JSX element
+  const StatsCard = ({ title, value, icon: Icon, color = "blue" }) => {
+    const colorClasses = {
+      blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
+      green: { bg: 'bg-green-50', text: 'text-green-600' },
+      purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
+      orange: { bg: 'bg-orange-50', text: 'text-orange-600' },
+    };
+
+    const colors = colorClasses[color] || colorClasses.blue;
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">
+              {typeof value === 'object' ? JSON.stringify(value) : value}
+            </p>
+          </div>
+          <div className={`p-3 rounded-full ${colors.bg}`}>
+            <Icon className={`h-6 w-6 ${colors.text}`} />
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const StatusBadge = ({ status }) => {
     const statusConfig = {
-      published: { color: "green", text: "Published" },
-      draft: { color: "yellow", text: "Draft" },
-      cancelled: { color: "red", text: "Cancelled" },
+      published: { bgColor: "bg-green-100", textColor: "text-green-800", text: "Published" },
+      draft: { bgColor: "bg-yellow-100", textColor: "text-yellow-800", text: "Draft" },
+      cancelled: { bgColor: "bg-red-100", textColor: "text-red-800", text: "Cancelled" },
     };
 
-    const config = statusConfig[status] || { color: "gray", text: status };
+    const config = statusConfig[status] || { bgColor: "bg-gray-100", textColor: "text-gray-800", text: status };
 
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${config.color}-100 text-${config.color}-800`}>
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bgColor} ${config.textColor}`}>
         {config.text}
       </span>
     );
   };
 
   const EventCard = ({ event }) => {
+    // Use _id as fallback for id
+    const eventId = event._id || event.id;
     const eventDate = new Date(event.date);
-    const isUpcoming = eventDate >= new Date();
-    const attendeesCount = event.attendees || event.ticketsSold || 0;
+    
+    //  attendees is an array, get its length or use totalAttendees
+    const attendeesCount = event.totalAttendees || 
+                          (Array.isArray(event.attendees) ? event.attendees.length : 0) || 
+                          event.ticketsSold || 
+                          0;
+    
     const capacity = event.capacity || 0;
     const fillPercentage = capacity > 0 ? (attendeesCount / capacity) * 100 : 0;
 
@@ -268,18 +282,18 @@ const  MyEvents = () => {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Link
-              to={`/event/${event.id}`}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+              to={`/event/${eventId}`}
+              className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
             >
               <Eye className="h-4 w-4" />
               View
             </Link>
             
             <Link
-              to={`/organizer/events/edit/${event.id}`}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF8535]"
+              to={`/organizer/events/edit/${eventId}`}
+              className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-2 px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-[#FF6B35] hover:bg-[#FF8535]"
             >
               <Edit className="h-4 w-4" />
               Edit
@@ -287,8 +301,8 @@ const  MyEvents = () => {
 
             {event.status !== "cancelled" && (
               <button
-                onClick={() => handleCancelEvent(event.id)}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+                onClick={() => handleCancelEvent(eventId)}
+                className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
               >
                 <XCircle className="h-4 w-4" />
                 Cancel
@@ -296,8 +310,8 @@ const  MyEvents = () => {
             )}
 
             <button
-              onClick={() => setDeleteConfirm(event.id)}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 border border-red-300 text-sm font-medium rounded-lg text-red-700 bg-white hover:bg-red-50"
+              onClick={() => setDeleteConfirm(eventId)}
+              className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-2 px-3 py-2 border border-red-300 text-sm font-medium rounded-lg text-red-700 bg-white hover:bg-red-50"
             >
               <Trash2 className="h-4 w-4" />
               Delete
@@ -323,7 +337,7 @@ const  MyEvents = () => {
               </p>
             </div>
             <Link
-              to="/organizer/events/create"
+              to="/create-event"
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white font-semibold rounded-lg hover:bg-[#FF8535] transition-colors"
             >
               <Plus className="h-5 w-5" />
@@ -331,31 +345,31 @@ const  MyEvents = () => {
             </Link>
           </div>
 
-          {/* Stats Grid */}
+          {/* Stats Grid, Pass component, not JSX */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatsCard
                 title="Total Events"
                 value={stats.totalEvents || 0}
-                icon={<TrendingUp />}
+                icon={TrendingUp}
                 color="blue"
               />
               <StatsCard
                 title="Published"
                 value={stats.publishedEvents || 0}
-                icon={<CheckCircle />}
+                icon={CheckCircle}
                 color="green"
               />
               <StatsCard
                 title="Total Revenue"
                 value={`₦${(stats.totalRevenue || 0).toLocaleString()}`}
-                icon={<Users />}
+                icon={Users}
                 color="purple"
               />
               <StatsCard
                 title="Total Attendees"
                 value={stats.totalAttendees || 0}
-                icon={<Users />}
+                icon={Users}
                 color="orange"
               />
             </div>
@@ -365,7 +379,6 @@ const  MyEvents = () => {
         {/* Filters and Search */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -379,8 +392,7 @@ const  MyEvents = () => {
               </div>
             </div>
 
-            {/* Status Filter */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {[
                 { key: "all", label: "All", count: eventsByStatus.all },
                 { key: "published", label: "Published", count: eventsByStatus.published },
@@ -438,7 +450,7 @@ const  MyEvents = () => {
                 : "No events match your current filters."}
             </p>
             <Link
-              to="/organizer/events/create"
+              to="/create-event"
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white font-semibold rounded-lg hover:bg-[#FF8535]"
             >
               <Plus className="h-5 w-5" />
@@ -448,7 +460,7 @@ const  MyEvents = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event._id || event.id} event={event} />
             ))}
           </div>
         )}
@@ -485,6 +497,6 @@ const  MyEvents = () => {
       <Footer />
     </div>
   );
-}
+};
 
-export default MyEvents
+export default MyEvents;
