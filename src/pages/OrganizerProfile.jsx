@@ -19,8 +19,6 @@ import {
   Share2,
   RefreshCw,
   FileText,
-  Zap,
-  Rocket,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
@@ -386,11 +384,6 @@ Generated: ${new Date().toLocaleString()}
           </div>
         </div>
 
-        {/* How It Works Section - Only show if no events */}
-        {stats.totalEvents === 0 && (
-          <HowItWorksSection />
-        )}
-
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
@@ -451,99 +444,6 @@ Generated: ${new Date().toLocaleString()}
     </div>
   );
 };
-
-// How It Works Section Component
-const HowItWorksSection = () => (
-  <div className="mb-8 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-2xl p-8 shadow-xl">
-    <div className="text-center mb-8">
-      <h2 className="text-3xl font-bold text-white mb-2">
-        🚀 Get Started in 3 Simple Steps
-      </h2>
-      <p className="text-white/90">
-        Create your first event and start selling tickets in minutes!
-      </p>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Step 1 */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 group">
-        <div className="flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
-            <FileText className="w-8 h-8 text-[#FF6B35]" />
-          </div>
-          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-3 -mt-2">
-            <span className="text-2xl font-bold text-white">1</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">
-            Open Create Event
-          </h3>
-          <p className="text-white/80 text-sm">
-            Click the "Create New Event" button to start your journey
-          </p>
-          <Link
-            to="/create-event"
-            className="mt-4 text-white font-semibold hover:underline flex items-center text-sm"
-          >
-            Start Here <ArrowRight className="w-4 h-4 ml-1" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Step 2 */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 group">
-        <div className="flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
-            <Zap className="w-8 h-8 text-[#FF6B35]" />
-          </div>
-          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-3 -mt-2">
-            <span className="text-2xl font-bold text-white">2</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">
-            Fill the Form
-          </h3>
-          <p className="text-white/80 text-sm">
-            Add event details, date, venue, ticket price, and images
-          </p>
-          <div className="mt-4 text-white/60 text-xs">
-            Takes less than 5 minutes ⚡
-          </div>
-        </div>
-      </div>
-
-      {/* Step 3 */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 group">
-        <div className="flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
-            <Rocket className="w-8 h-8 text-[#FF6B35]" />
-          </div>
-          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-3 -mt-2">
-            <span className="text-2xl font-bold text-white">3</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">
-            Publish & Go Live
-          </h3>
-          <p className="text-white/80 text-sm">
-            Review and publish your event to start selling tickets instantly
-          </p>
-          <div className="mt-4 flex items-center text-white/90 text-xs font-semibold">
-            <CheckCircle className="w-4 h-4 mr-1" />
-            You're Live! 🎉
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div className="mt-8 text-center">
-      <Link
-        to="/create-event"
-        className="inline-flex items-center bg-white text-[#FF6B35] px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-all duration-200 hover:scale-105 shadow-2xl"
-      >
-        <Plus className="w-6 h-6 mr-2" />
-        Create Your First Event Now
-      </Link>
-    </div>
-  </div>
-);
 
 const StatCard = ({ title, value, icon: Icon, change }) => (
   <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 hover:scale-105">
