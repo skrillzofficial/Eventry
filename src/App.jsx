@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { RingLoader } from "react-spinners";
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from "./context/AuthContext";
 import { EventProvider } from "./context/EventContext";
 import "./App.css";
@@ -31,6 +32,9 @@ import ResetPassword from "./Auths/ResetPassword";
 import EditEvent from "./pages/dashboard/EditEvent";
 import Contact from "./pages/Contact";
 
+// Google OAuth Client ID
+const GOOGLE_CLIENT_ID = "826217156762-hvf3gphuoiah9kkbbo59tlnr2m2517as.apps.googleusercontent.com";
+
 function App() {
   const [loading, setLoading] = useState(true);
 
@@ -52,56 +56,58 @@ function App() {
   }
 
   return (
-    <AuthProvider>
-      <EventProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Home */}
-            <Route path="/" element={<Home />} />
-            <Route path="/team" element={<Team />} />
-            <Route path="/contact" element={<Contact/>} />
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
+        <EventProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Home */}
+              <Route path="/" element={<Home />} />
+              <Route path="/team" element={<Team />} />
+              <Route path="/contact" element={<Contact/>} />
 
-            {/* Dashboard Routes */}
-            <Route path="/dashboard" element={<UserProfile />} />
-            <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
-            <Route path="/dashboard/profile" element={<Profile />} />
-            <Route path="/dashboard/settings" element={<Settings />} />
-            <Route path="/dashboard/wallet" element={<WalletComponent />} />
-            
-            {/* Checkout route with eventId parameter */}
-            <Route path="/checkout/:eventId" element={<CheckoutFlow />} />
+              {/* Dashboard Routes */}
+              <Route path="/dashboard" element={<UserProfile />} />
+              <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
+              <Route path="/dashboard/profile" element={<Profile />} />
+              <Route path="/dashboard/settings" element={<Settings />} />
+              <Route path="/dashboard/wallet" element={<WalletComponent />} />
+              
+              {/* Checkout route with eventId parameter */}
+              <Route path="/checkout/:eventId" element={<CheckoutFlow />} />
 
-              {/*  Payment Verification */}
-            <Route path="/payment/verify" element={<PaymentVerification />} />
-            
-            <Route path="/my-tickets" element={<MyTickets />} />
+                {/*  Payment Verification */}
+              <Route path="/payment/verify" element={<PaymentVerification />} />
+              
+              <Route path="/my-tickets" element={<MyTickets />} />
 
-            {/* Auth Routes */}
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Auth Routes */}
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
-            {/* Email Verification Routes */}
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/resend-verification" element={<ResendVerification />} />
+              {/* Email Verification Routes */}
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/resend-verification" element={<ResendVerification />} />
 
-            {/* Event Routes */}
-            <Route path="/create-event" element={<CreateEvent />} />
-            <Route path="/discover" element={<DiscoverEvents />} />
-            <Route path="/event/:id" element={<EventPage />} />
-            
-            {/* Organizer Event Routes */}
-            <Route path="/dashboard/organizer/events" element={<MyEvents />} />
-            <Route path="/dashboard/events" element={<MyEvents />} />
-            <Route path="/organizer/events/create" element={<CreateEvent />} />
-            
-            {/* EditEvent route with ID parameter */}
-            <Route path="/organizer/events/edit/:id" element={<EditEvent />} />
-          </Routes>
-        </BrowserRouter>
-      </EventProvider>
-    </AuthProvider>
+              {/* Event Routes */}
+              <Route path="/create-event" element={<CreateEvent />} />
+              <Route path="/discover" element={<DiscoverEvents />} />
+              <Route path="/event/:id" element={<EventPage />} />
+              
+              {/* Organizer Event Routes */}
+              <Route path="/dashboard/organizer/events" element={<MyEvents />} />
+              <Route path="/dashboard/events" element={<MyEvents />} />
+              <Route path="/organizer/events/create" element={<CreateEvent />} />
+              
+              {/* EditEvent route with ID parameter */}
+              <Route path="/organizer/events/edit/:id" element={<EditEvent />} />
+            </Routes>
+          </BrowserRouter>
+        </EventProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 

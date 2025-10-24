@@ -3,12 +3,15 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
+import axios from "axios";
 import { Eye, EyeOff, Check, X, ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import google from "../assets/google.png";
 import Brandlogo from "../assets/eventry white logo.PNG";
 import { AuthContext } from "../context/AuthContext";
 
 const PASSWORD_MIN_LENGTH = 6;
+const BACKEND_URL = "https://ecommerce-backend-tb8u.onrender.com/api/v1";
 
 const schema = yup
   .object({
@@ -69,13 +72,13 @@ export default function SignUp() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Creating your account...");
   const navigate = useNavigate();
-  const { register: registerUser } = useContext(AuthContext);
+  const { register: registerUser, setAuthState } = useContext(AuthContext);
 
   const [passwordValue, emailValue, userNameValue, userTypeValue] = watch([
     "password",
@@ -116,7 +119,6 @@ export default function SignUp() {
 
       console.log("Registering user with data:", userData);
 
-      // Use the register function from AuthContext
       const result = await registerUser(userData);
 
       console.log("Registration result:", result);
@@ -127,7 +129,6 @@ export default function SignUp() {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         
         if (result.requiresVerification) {
-          // Email verification required
           navigate("/login", { 
             state: { 
               message: result.message || "Registration successful! Please check your email to verify your account.",
@@ -136,7 +137,6 @@ export default function SignUp() {
             } 
           });
         } else {
-          // Auto-logged in, redirect to dashboard
           const user = result.data?.user;
           const redirectPath = user?.role === "organizer" ? "/dashboard/organizer" : "/dashboard";
           navigate(redirectPath, { replace: true });
@@ -158,22 +158,96 @@ export default function SignUp() {
     }
   };
 
-  const handleGoogleSignUp = async () => {
+  const handleGoogleSignUp = async (credentialResponse) => {
     try {
-      setIsLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      setError("root.serverError", {
-        message: "Google OAuth integration required",
-      });
-      
+      setIsGoogleLoading(true);
+
+      if (!userTypeValue) {
+        setError("root.serverError", {
+          message: "Please select your account type first",
+        });
+        return;
+      }
+
+      console.log("Google credential received for signup, sending to backend...");
+
+      const response = await axios.post(
+        `${BACKEND_URL}/auth/google`,
+        {
+          token: credentialResponse.credential,
+          userType: userTypeValue,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+
+      console.log("Google signup response:", response.data);
+
+      if (response.data.success) {
+        const { token, user } = response.data;
+
+        await setAuthState(user, token);
+        localStorage.setItem("authMethod", "google");
+
+        setShowSuccessAnimation(true);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        const redirectPath =
+          user.role === "organizer" ? "/dashboard/organizer" : "/dashboard";
+
+        navigate(redirectPath, { replace: true });
+      } else {
+        throw new Error(
+          response.data.message || "Google sign-up failed"
+        );
+      }
     } catch (error) {
+      console.error("Google signup error:", error);
+
+      let errorMessage = "Google sign-up failed. Please try again.";
+
+      if (error.response) {
+        const { status, data } = error.response;
+
+        switch (status) {
+          case 400:
+            errorMessage = data.message || "Invalid Google token";
+            break;
+          case 409:
+            errorMessage =
+              data.message ||
+              "An account with this email already exists. Please sign in instead.";
+            break;
+          case 422:
+            errorMessage = data.message || "Validation failed";
+            break;
+          default:
+            errorMessage = data.message || "Google sign-up failed";
+        }
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
       setError("root.serverError", {
-        message: "Google sign-up failed. Please try again.",
+        type: "server",
+        message: errorMessage,
       });
     } finally {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
+      setShowSuccessAnimation(false);
     }
+  };
+
+  const handleGoogleError = () => {
+    console.error("Google Sign-Up failed");
+    setError("root.serverError", {
+      type: "server",
+      message: "Google Sign-Up was cancelled or failed. Please try again.",
+    });
   };
 
   const nextStep = () => {
@@ -343,7 +417,7 @@ export default function SignUp() {
                       <p className="text-gray-600 mt-2">How will you use Eventry?</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                       {[
                         {
                           value: "attendee",
@@ -389,6 +463,49 @@ export default function SignUp() {
                         {errors.userType.message}
                       </p>
                     )}
+
+                    {/* Google OAuth Button for Step 2 */}
+                    <div className="mt-6">
+                      <div className="flex items-center my-4">
+                        <div className="flex-1 border-t border-gray-300"></div>
+                        <span className="px-3 text-sm text-gray-500">Or sign up with</span>
+                        <div className="flex-1 border-t border-gray-300"></div>
+                      </div>
+
+                      <div className="flex justify-center">
+                        {!userTypeValue ? (
+                          <div className="w-full max-w-xs flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg text-gray-400 font-medium text-center bg-gray-50 cursor-not-allowed">
+                            Select account type to continue with Google
+                          </div>
+                        ) : isGoogleLoading ? (
+                          <div className="w-full max-w-xs flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg bg-gray-50">
+                            <Loader2 className="animate-spin w-5 h-5 text-[#FF6B35] mr-2" />
+                            <span className="text-gray-700">
+                              Creating account with Google...
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-center w-full">
+                            <GoogleLogin
+                              onSuccess={handleGoogleSignUp}
+                              onError={handleGoogleError}
+                              useOneTap={false}
+                              theme="outline"
+                              size="large"
+                              text="signup_with"
+                              locale="en"
+                              width="380"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center my-4">
+                        <div className="flex-1 border-t border-gray-300"></div>
+                        <span className="px-3 text-sm text-gray-500">Or continue with email</span>
+                        <div className="flex-1 border-t border-gray-300"></div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -542,7 +659,7 @@ export default function SignUp() {
                       }
                       className="flex-1 py-3 px-4 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105 flex items-center justify-center"
                     >
-                      Continue
+                      Continue with Email
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </button>
                   ) : (
@@ -562,26 +679,6 @@ export default function SignUp() {
                     </button>
                   )}
                 </div>
-
-                {currentStep === 1 && (
-                  <>
-                    <div className="flex items-center my-6">
-                      <div className="flex-1 border-t border-gray-300"></div>
-                      <span className="px-3 text-sm text-gray-500">Or sign up instantly</span>
-                      <div className="flex-1 border-t border-gray-300"></div>
-                    </div>
-
-                    <button
-                      onClick={handleGoogleSignUp}
-                      disabled={isLoading}
-                      type="button"
-                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors transform hover:scale-105"
-                    >
-                      <img src={google} alt="Google" className="w-5 h-5 mr-3" />
-                      {isLoading ? "Signing up..." : "Sign up with Google"}
-                    </button>
-                  </>
-                )}
               </form>
 
               <div className="text-center mt-8 pt-6 border-t border-gray-200">

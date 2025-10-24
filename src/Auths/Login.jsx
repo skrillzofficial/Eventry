@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import axios from "axios";
+import { GoogleLogin } from "@react-oauth/google";
 import {
   Eye,
   EyeOff,
@@ -19,7 +20,6 @@ import {
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import Brandlogo from "../assets/eventry white logo.PNG";
-import google from "../assets/google.png";
 
 const loginSchema = yup.object().shape({
   email: yup
@@ -41,11 +41,12 @@ const BACKEND_URL = "https://ecommerce-backend-tb8u.onrender.com/api/v1";
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
-  
+
   const navigate = useNavigate();
   const location = useLocation();
   const { setAuthState } = useContext(AuthContext);
@@ -108,7 +109,7 @@ const Login = () => {
 
         const redirectPath =
           user.role === "organizer" ? "/dashboard/organizer" : "/dashboard";
-        
+
         console.log("Navigating to:", redirectPath);
         navigate(redirectPath, { replace: true });
       } else {
@@ -122,13 +123,12 @@ const Login = () => {
 
       if (error.response) {
         const { status, data } = error.response;
-        
+
         switch (status) {
           case 400:
             errorMessage = data.message || "Invalid request data";
             break;
           case 401:
-            // Check if it's an unverified email error
             if (data.message && data.message.includes("verify your email")) {
               isUnverifiedError = true;
               setUnverifiedEmail(emailValue);
@@ -154,7 +154,7 @@ const Login = () => {
         }
       } else if (error.request) {
         errorMessage = "Network error. Please check your connection.";
-      } else if (error.code === 'ECONNABORTED') {
+      } else if (error.code === "ECONNABORTED") {
         errorMessage = "Request timeout. Please try again.";
       }
 
@@ -169,9 +169,9 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      setIsLoading(true);
+      setIsGoogleLoading(true);
       setUnverifiedEmail(null);
 
       if (!userType) {
@@ -181,35 +181,85 @@ const Login = () => {
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      console.log("Google credential received, sending to backend...");
 
-      const demoUser = {
-        _id: "google-demo-id",
-        email: `google-${userType}@eventra.com`,
-        firstName: "Google",
-        lastName: userType === "organizer" ? "Organizer" : "Attendee",
-        userName: `google_${userType}`,
-        role: userType,
-      };
+      const response = await axios.post(
+        `${BACKEND_URL}/auth/google`,
+        {
+          token: credentialResponse.credential,
+          userType: userType,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
 
-      await setAuthState(demoUser, "google-demo-token");
-      localStorage.setItem("authMethod", "google");
+      console.log("Google auth response:", response.data);
 
-      setShowSuccess(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (response.data.success) {
+        const { token, user } = response.data;
 
-      const redirectPath =
-        userType === "organizer" ? "/dashboard/organizer" : "/dashboard";
-      navigate(redirectPath, { replace: true });
+        await setAuthState(user, token);
+        localStorage.setItem("authMethod", "google");
+
+        setShowSuccess(true);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        const redirectPath =
+          user.role === "organizer" ? "/dashboard/organizer" : "/dashboard";
+
+        navigate(redirectPath, { replace: true });
+      } else {
+        throw new Error(
+          response.data.message || "Google authentication failed"
+        );
+      }
     } catch (error) {
+      console.error("Google auth error:", error);
+
+      let errorMessage = "Google sign-in failed. Please try again.";
+
+      if (error.response) {
+        const { status, data } = error.response;
+
+        switch (status) {
+          case 400:
+            errorMessage = data.message || "Invalid Google token";
+            break;
+          case 401:
+            errorMessage = data.message || "Google authentication failed";
+            break;
+          case 409:
+            errorMessage =
+              data.message ||
+              "Account already exists with different login method";
+            break;
+          default:
+            errorMessage = data.message || "Google sign-in failed";
+        }
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
       setError("root.serverError", {
         type: "server",
-        message: "Google sign-in failed. Please try again.",
+        message: errorMessage,
       });
     } finally {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
       setShowSuccess(false);
     }
+  };
+
+  const handleGoogleError = () => {
+    console.error("Google Sign-In failed");
+    setError("root.serverError", {
+      type: "server",
+      message: "Google Sign-In was cancelled or failed. Please try again.",
+    });
   };
 
   const nextStep = () => {
@@ -401,25 +451,34 @@ const Login = () => {
                       )}
                     </div>
 
-                    <button
-                      onClick={handleGoogleLogin}
-                      disabled={!userType || isLoading}
-                      type="button"
-                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mb-4 transform hover:scale-105"
-                    >
-                      <img src={google} alt="Google" className="w-5 h-5 mr-3" />
-                      {isLoading ? (
-                        <Loader2 className="animate-spin w-5 h-5" />
+                    {/* Google OAuth Button */}
+                    <div className="mb-4 flex justify-center">
+                      {!userType ? (
+                        <div className="w-full max-w-xs flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg text-gray-400 font-medium text-center bg-gray-50 cursor-not-allowed">
+                          Select account type to continue with Google
+                        </div>
+                      ) : isGoogleLoading ? (
+                        <div className="w-full max-w-xs flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg bg-gray-50">
+                          <Loader2 className="animate-spin w-5 h-5 text-[#FF6B35] mr-2" />
+                          <span className="text-gray-700">
+                            Authenticating with Google...
+                          </span>
+                        </div>
                       ) : (
-                        `Continue with Google as ${
-                          userType
-                            ? userType === "organizer"
-                              ? "Organizer"
-                              : "Attendee"
-                            : "..."
-                        }`
+                        <div className="flex justify-center w-full">
+                          <GoogleLogin
+                            onSuccess={handleGoogleSuccess}
+                            onError={handleGoogleError}
+                            useOneTap={false}
+                            theme="outline"
+                            size="large"
+                            text="continue_with"
+                            locale="en"
+                            width="380" 
+                          />
+                        </div>
                       )}
-                    </button>
+                    </div>
 
                     <div className="flex items-center my-6">
                       <div className="flex-1 border-t border-gray-300"></div>
@@ -444,20 +503,24 @@ const Login = () => {
                     </div>
 
                     {errors.root?.serverError && (
-                      <div className={`mb-6 p-4 rounded-lg border ${
-                        errors.root.serverError.isUnverified
-                          ? "bg-orange-50 border-orange-200"
-                          : "bg-red-50 border-red-200"
-                      }`}>
-                        <p className={`text-sm font-medium flex items-start gap-2 ${
+                      <div
+                        className={`mb-6 p-4 rounded-lg border ${
                           errors.root.serverError.isUnverified
-                            ? "text-orange-700"
-                            : "text-red-600"
-                        }`}>
+                            ? "bg-orange-50 border-orange-200"
+                            : "bg-red-50 border-red-200"
+                        }`}
+                      >
+                        <p
+                          className={`text-sm font-medium flex items-start gap-2 ${
+                            errors.root.serverError.isUnverified
+                              ? "text-orange-700"
+                              : "text-red-600"
+                          }`}
+                        >
                           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                           <span>{errors.root.serverError.message}</span>
                         </p>
-                        
+
                         {errors.root.serverError.isUnverified && (
                           <div className="mt-3 pt-3 border-t border-orange-200">
                             <p className="text-xs text-orange-600 mb-2">

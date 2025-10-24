@@ -75,6 +75,7 @@ export const eventAPI = {
   getFeaturedEvents: () => apiClient.get("/events/featured"),
   getUpcomingEvents: () => apiClient.get("/events/upcoming"),
   getAllEvents: (params = {}) => apiClient.get("/events", { params }),
+  getPastEvents: (params = {}) => apiClient.get("/events/past", { params }),
   getEventById: (id) => apiClient.get(`/events/${id}`),
 
   // Protected routes (require authentication)
