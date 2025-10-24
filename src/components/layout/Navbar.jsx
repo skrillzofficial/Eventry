@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Menu,
@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import Brandlogo from "../../assets/eventy orange logo.PNG";
+import VoiceSearch from '../../pages/dashboard/VoiceSearch'; 
 import { useAuth } from "../../context/AuthContext";
 
 // Add styles for animations
@@ -64,6 +65,7 @@ const Navbar = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const searchInputRef = useRef(null); 
 
   const { isAuthenticated, user, logout, loading } = useAuth();
   const isDiscoverPage = location.pathname === "/discover";
@@ -74,7 +76,6 @@ const Navbar = () => {
       const position = window.scrollY;
       setScrollPosition(position);
 
-      // Get the element behind the navbar
       const navbarHeight = 64; 
       const elementBehind = document.elementFromPoint(
         window.innerWidth / 2,
@@ -85,7 +86,6 @@ const Navbar = () => {
         const bgColor = window.getComputedStyle(elementBehind).backgroundColor;
         const computedStyle = window.getComputedStyle(elementBehind);
         
-        // Check if element has a dark background
         const isDark = checkIfDark(bgColor, computedStyle);
         
         if (position > 50) {
@@ -97,31 +97,26 @@ const Navbar = () => {
     };
 
     window.addEventListener("scroll", handleScroll);
-    handleScroll(); // Initial check
+    handleScroll();
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [location]);
 
   const checkIfDark = (bgColor, computedStyle) => {
-    // Check for background image or gradient
     const bgImage = computedStyle.backgroundImage;
     if (bgImage && bgImage !== "none") {
-      // For organizer dashboard with images, assume dark
       if (location.pathname.includes("organizer")) return false; 
     }
 
-    // Parse RGB values
     const rgb = bgColor.match(/\d+/g);
-    if (!rgb) return false; // Default to light
+    if (!rgb) return false;
 
     const [r, g, b] = rgb.map(Number);
-    // Calculate luminance
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     
     return luminance < 0.5;
   };
 
-  // Get navbar classes based on background
   const getNavbarClasses = () => {
     const baseClasses = "top-0 left-0 fixed right-0 z-30 border-b transition-all duration-300";
     
@@ -163,7 +158,6 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isUserMenuOpen]);
 
-  // Handle ESC key and body scroll for logout modal
   useEffect(() => {
     const handleEscape = (event) => {
       if (event.key === 'Escape' && showLogoutModal) {
@@ -224,6 +218,21 @@ const Navbar = () => {
     navigate(`${searchRoute}?search=${encodeURIComponent(searchQuery)}`);
     setSearchQuery("");
     setIsMenuOpen(false);
+  };
+
+  // NEW: Voice search handler
+  const handleVoiceResult = (transcript) => {
+    console.log('Voice search result:', transcript);
+    
+    setSearchQuery(transcript);
+    
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+    
+    setTimeout(() => {
+      handleSearch({ preventDefault: () => {} });
+    }, 500);
   };
 
   const userMenuItems =
@@ -306,18 +315,27 @@ const Navbar = () => {
               </span>
             </NavLink>
 
-            {/* Search Bar - Desktop */}
+            {/* Search Bar - Desktop with Voice Search */}
             {!isDiscoverPage && (
               <div className="hidden lg:flex flex-1 max-w-md mx-8">
                 <form onSubmit={handleSearch} className="relative w-full">
                   <input
+                    ref={searchInputRef}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search events, organizers..."
-                    className={`w-full px-4 py-2 pl-10 pr-4 rounded-full ${inputBgClass} ${inputTextClass} border ${inputBorderClass} focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm transition-all`}
+                    className={`w-full px-4 py-2 pl-10 pr-16 rounded-full ${inputBgClass} ${inputTextClass} border ${inputBorderClass} focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm transition-all`}
                   />
                   <Search className={`absolute left-3 top-2.5 h-4 w-4 ${iconColor}`} />
+                  
+                  {/* Voice Search Button */}
+                  <div className="absolute right-2 top-1.5">
+                    <VoiceSearch 
+                      onVoiceResult={handleVoiceResult}
+                      navbarBg={navbarBg}
+                    />
+                  </div>
                 </form>
               </div>
             )}
@@ -436,6 +454,7 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className={`lg:hidden border-t ${navbarBg === "light" ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"} backdrop-blur-lg`}>
             <div className="w-11/12 mx-auto px-4 pt-2 pb-4 space-y-2">
+              {/* Mobile Search with Voice Search */}
               {!isDiscoverPage && (
                 <form onSubmit={handleSearch} className="relative mb-4">
                   <input
@@ -443,9 +462,17 @@ const Navbar = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search events, organizers..."
-                    className={`w-full px-4 py-2 pl-10 pr-4 rounded-full ${inputBgClass} ${inputTextClass} border ${inputBorderClass} focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm`}
+                    className={`w-full px-4 py-2 pl-10 pr-16 rounded-full ${inputBgClass} ${inputTextClass} border ${inputBorderClass} focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm`}
                   />
                   <Search className={`absolute left-3 top-2.5 h-4 w-4 ${iconColor}`} />
+                  
+                  {/* Voice Search Button */}
+                  <div className="absolute right-2 top-1.5">
+                    <VoiceSearch 
+                      onVoiceResult={handleVoiceResult}
+                      navbarBg={navbarBg}
+                    />
+                  </div>
                 </form>
               )}
 
@@ -466,7 +493,7 @@ const Navbar = () => {
               ))}
 
               {isAuthenticated ? (
-                <>
+                <React.Fragment>
                   {userMenuItems.map((item) => (
                     <NavLink
                       key={item.label}
@@ -508,7 +535,7 @@ const Navbar = () => {
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign out
                   </button>
-                </>
+                </React.Fragment>
               ) : (
                 <div className="space-y-2 pt-2 border-t border-white/10">
                   <NavLink
@@ -537,22 +564,18 @@ const Navbar = () => {
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
-          {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm"
             onClick={cancelLogout}
           ></div>
           
-          {/* Modal */}
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all animate-scaleIn">
-            {/* Icon */}
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
                 <LogOut className="w-8 h-8 text-red-600" />
               </div>
             </div>
 
-            {/* Content */}
             <div className="text-center mb-6">
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
                 Sign Out?
@@ -562,7 +585,6 @@ const Navbar = () => {
               </p>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3">
               <button
                 onClick={cancelLogout}
@@ -577,20 +599,19 @@ const Navbar = () => {
                 className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoggingOut ? (
-                  <>
+                  <React.Fragment>
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
                     Signing Out...
-                  </>
+                  </React.Fragment>
                 ) : (
-                  <>
+                  <React.Fragment>
                     <LogOut className="w-5 h-5 mr-2" />
                     Sign Out
-                  </>
+                  </React.Fragment>
                 )}
               </button>
             </div>
 
-            {/* Optional: User Info */}
             <div className="mt-4 pt-4 border-t border-gray-200">
               <p className="text-sm text-gray-500 text-center">
                 Signed in as <span className="font-semibold text-gray-700">{user?.userName || user?.email || "User"}</span>
