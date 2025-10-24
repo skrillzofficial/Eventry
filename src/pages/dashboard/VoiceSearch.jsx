@@ -1,12 +1,22 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff } from "lucide-react";
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { Mic, MicOff, Loader2 } from "lucide-react";
+import { voiceSearchAPI } from "../../services/api";
 
-const VoiceSearch = ({ onVoiceResult, navbarBg = "light" }) => {
+const VoiceSearch = forwardRef(({ onVoiceResult, navbarBg = "light" }, ref) => {
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const recognitionRef = useRef(null);
+  const modalRef = useRef(null);
+
+  // Expose stopListening function to parent
+  useImperativeHandle(ref, () => ({
+    stopListening: () => {
+      stopListening();
+    },
+    isListening: isListening
+  }));
 
   useEffect(() => {
     // Check if browser supports speech recognition
@@ -19,7 +29,7 @@ const VoiceSearch = ({ onVoiceResult, navbarBg = "light" }) => {
 
       // Configuration
       recognition.continuous = false;
-      recognition.interimResults = true;
+      recognition.interimResults = false;
       recognition.lang = "en-US";
       recognition.maxAlternatives = 1;
 
@@ -29,40 +39,18 @@ const VoiceSearch = ({ onVoiceResult, navbarBg = "light" }) => {
         setShowFeedback(true);
       };
 
-      recognition.onresult = (event) => {
+      recognition.onresult = async (event) => {
         const current = event.resultIndex;
         const transcriptText = event.results[current][0].transcript;
 
-        setTranscript(transcriptText);
-
-        // If it's a final result
-        if (event.results[current].isFinal) {
-          onVoiceResult(transcriptText);
-          setIsListening(false);
-
-          setTimeout(() => {
-            setShowFeedback(false);
-            setTranscript("");
-          }, 1000);
-        }
+        // Process immediately without showing transcript
+        await processVoiceQuery(transcriptText);
+        setIsListening(false);
       };
 
       recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
-        setIsListening(false);
-        setShowFeedback(false);
-
-        const errorMessages = {
-          "no-speech": "No speech detected. Please try again.",
-          "audio-capture": "Microphone not found. Please check your device.",
-          "not-allowed":
-            "Microphone permission denied. Please enable it in your browser settings.",
-          network: "Network error. Please check your connection.",
-        };
-
-        const message =
-          errorMessages[event.error] || "An error occurred. Please try again.";
-        alert(message);
+        stopListening();
       };
 
       recognition.onend = () => {
@@ -78,6 +66,73 @@ const VoiceSearch = ({ onVoiceResult, navbarBg = "light" }) => {
       }
     };
   }, [onVoiceResult]);
+
+  // Add click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showFeedback && modalRef.current && !modalRef.current.contains(event.target)) {
+        stopListening();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showFeedback]);
+
+  // Process voice query with backend parsing
+  const processVoiceQuery = async (voiceQuery) => {
+    if (!voiceQuery.trim()) return;
+
+    setIsProcessing(true);
+
+    try {
+      // Send voice query to backend for parsing
+      const response = await voiceSearchAPI.parseVoiceQuery(voiceQuery);
+      
+      if (response.data.success) {
+        const { parsedQuery, searchParams, confidence, suggestions } = response.data;
+
+        // Pass both original and parsed data to parent component
+        if (onVoiceResult) {
+          onVoiceResult({
+            originalQuery: voiceQuery,
+            parsedQuery: parsedQuery,
+            searchParams: searchParams,
+            confidence: confidence,
+            suggestions: suggestions
+          });
+        }
+
+        // Close feedback modal quickly
+        setTimeout(() => {
+          setShowFeedback(false);
+        }, 500);
+
+      } else {
+        throw new Error(response.data.message || "Failed to process voice query");
+      }
+    } catch (error) {
+      console.error("Voice search processing error:", error);
+      
+      // Fallback: use original query if backend processing fails
+      if (onVoiceResult) {
+        onVoiceResult({
+          originalQuery: voiceQuery,
+          parsedQuery: voiceQuery,
+          searchParams: { query: voiceQuery },
+          confidence: 0.5,
+          isFallback: true
+        });
+      }
+
+      // Close modal quickly even on error
+      setTimeout(() => {
+        setShowFeedback(false);
+      }, 500);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const startListening = () => {
     if (!isSupported) {
@@ -99,10 +154,10 @@ const VoiceSearch = ({ onVoiceResult, navbarBg = "light" }) => {
   const stopListening = () => {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
-      setIsListening(false);
-      setShowFeedback(false);
-      setTranscript("");
     }
+    setIsListening(false);
+    setShowFeedback(false);
+    setIsProcessing(false);
   };
 
   if (!isSupported) {
@@ -125,8 +180,9 @@ const VoiceSearch = ({ onVoiceResult, navbarBg = "light" }) => {
         }`}
         title={isListening ? "Stop listening" : "Voice search"}
         type="button"
+        disabled={isProcessing}
       >
-        {isListening ? (
+        {isListening || isProcessing ? (
           <div className="relative">
             <MicOff className="h-5 w-5 text-red-500" />
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -139,61 +195,37 @@ const VoiceSearch = ({ onVoiceResult, navbarBg = "light" }) => {
         )}
       </button>
 
-      {/* Voice Feedback Overlay */}
+      {/* Minimal Voice Feedback Overlay */}
       {showFeedback && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform animate-scaleIn">
-            {/* Animated Microphone */}
-            <div className="flex justify-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm animate-fadeIn">
+          <div 
+            ref={modalRef}
+            className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-6 max-w-xs w-full mx-4 transform animate-scaleIn"
+          >
+            {/* Simple Animated Microphone */}
+            <div className="flex justify-center mb-4">
               <div className="relative">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-full flex items-center justify-center animate-pulse">
-                  <Mic className="w-10 h-10 text-white" />
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-full flex items-center justify-center">
+                  {isProcessing ? (
+                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  ) : (
+                    <Mic className="w-8 h-8 text-white" />
+                  )}
                 </div>
-                <div className="absolute inset-0 rounded-full border-4 border-[#FF6B35] animate-ping opacity-75"></div>
-                <div className="absolute inset-0 rounded-full border-4 border-[#FF6B35] animate-pulse"></div>
               </div>
             </div>
 
-            <div className="text-center mb-4">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                Listening...
-              </h3>
-              <p className="text-gray-600 text-sm">
-                Speak now to search for events
+            <div className="text-center">
+              <p className="text-sm text-gray-600 font-medium">
+                {isProcessing ? "Searching..." : "Listening..."}
               </p>
             </div>
-
-            {transcript && (
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <p className="text-gray-800 text-center font-medium">
-                  "{transcript}"
-                </p>
-              </div>
-            )}
-
-            <div className="bg-blue-50 rounded-lg p-3 mb-4">
-              <p className="text-xs text-blue-800 font-medium mb-2">
-                Try saying:
-              </p>
-              <ul className="text-xs text-blue-700 space-y-1">
-                <li>• "Tech events in Lagos"</li>
-                <li>• "Music concerts this weekend"</li>
-                <li>• "Business conferences"</li>
-              </ul>
-            </div>
-
-            <button
-              onClick={stopListening}
-              className="w-full px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-            >
-              Cancel
-            </button>
           </div>
         </div>
       )}
     </>
   );
-};
+});
 
+VoiceSearch.displayName = "VoiceSearch";
 export default VoiceSearch;
-

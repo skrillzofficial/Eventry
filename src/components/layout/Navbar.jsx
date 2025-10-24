@@ -14,7 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import Brandlogo from "../../assets/eventy orange logo.PNG";
-import VoiceSearch from '../../pages/dashboard/VoiceSearch'; 
+import VoiceSearch from "../../pages/dashboard/VoiceSearch";
 import { useAuth } from "../../context/AuthContext";
 
 // Add styles for animations
@@ -49,7 +49,7 @@ const modalStyles = `
 `;
 
 // Inject styles
-if (typeof document !== 'undefined') {
+if (typeof document !== "undefined") {
   const styleSheet = document.createElement("style");
   styleSheet.textContent = modalStyles;
   document.head.appendChild(styleSheet);
@@ -65,7 +65,8 @@ const Navbar = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const searchInputRef = useRef(null); 
+  const searchInputRef = useRef(null);
+  const voiceSearchRef = useRef(null);
 
   const { isAuthenticated, user, logout, loading } = useAuth();
   const isDiscoverPage = location.pathname === "/discover";
@@ -76,7 +77,7 @@ const Navbar = () => {
       const position = window.scrollY;
       setScrollPosition(position);
 
-      const navbarHeight = 64; 
+      const navbarHeight = 64;
       const elementBehind = document.elementFromPoint(
         window.innerWidth / 2,
         navbarHeight + 10
@@ -85,9 +86,9 @@ const Navbar = () => {
       if (elementBehind) {
         const bgColor = window.getComputedStyle(elementBehind).backgroundColor;
         const computedStyle = window.getComputedStyle(elementBehind);
-        
+
         const isDark = checkIfDark(bgColor, computedStyle);
-        
+
         if (position > 50) {
           setNavbarBg(isDark ? "dark" : "light");
         } else {
@@ -102,10 +103,52 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [location]);
 
+  // Handle click outside for voice search
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // If voice search is active and user clicks outside, stop it
+      if (voiceSearchRef.current?.isListening) {
+        // Check if click is outside any voice search related elements
+        const isVoiceSearchButton = event.target.closest('[data-voice-search]');
+        const isSearchInput = event.target.closest('input[type="text"]');
+        
+        if (!isVoiceSearchButton && !isSearchInput) {
+          voiceSearchRef.current.stopListening();
+        }
+      }
+
+      // Handle user menu click outside
+      if (isUserMenuOpen && !event.target.closest(".user-menu-container")) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isUserMenuOpen]);
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape" && showLogoutModal) {
+        cancelLogout();
+      }
+    };
+
+    if (showLogoutModal) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
+    };
+  }, [showLogoutModal]);
+
   const checkIfDark = (bgColor, computedStyle) => {
     const bgImage = computedStyle.backgroundImage;
     if (bgImage && bgImage !== "none") {
-      if (location.pathname.includes("organizer")) return false; 
+      if (location.pathname.includes("organizer")) return false;
     }
 
     const rgb = bgColor.match(/\d+/g);
@@ -113,13 +156,14 @@ const Navbar = () => {
 
     const [r, g, b] = rgb.map(Number);
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    
+
     return luminance < 0.5;
   };
 
   const getNavbarClasses = () => {
-    const baseClasses = "top-0 left-0 fixed right-0 z-30 border-b transition-all duration-300";
-    
+    const baseClasses =
+      "top-0 left-0 fixed right-0 z-30 border-b transition-all duration-300";
+
     switch (navbarBg) {
       case "light":
         return `${baseClasses} bg-white/95 backdrop-blur-md border-gray-200 shadow-sm`;
@@ -146,35 +190,6 @@ const Navbar = () => {
       loading,
     });
   }, [isAuthenticated, user, loading]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isUserMenuOpen && !event.target.closest(".user-menu-container")) {
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isUserMenuOpen]);
-
-  useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === 'Escape' && showLogoutModal) {
-        cancelLogout();
-      }
-    };
-
-    if (showLogoutModal) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [showLogoutModal]);
 
   const navLinkClasses = `px-3 py-2 text-sm font-medium ${getTextColor()} ${getHoverColor()} relative after:content-[''] after:block after:h-0.5 after:w-0 after:bg-[#FF6B35] after:transition-all hover:after:w-full`;
 
@@ -220,18 +235,51 @@ const Navbar = () => {
     setIsMenuOpen(false);
   };
 
-  // NEW: Voice search handler
-  const handleVoiceResult = (transcript) => {
-    console.log('Voice search result:', transcript);
-    
-    setSearchQuery(transcript);
-    
+  const handleVoiceResult = (voiceData) => {
+    console.log("Voice search result:", voiceData);
+
+    // Use the parsed query from backend, or fallback to original
+    const searchQuery = voiceData.parsedQuery || voiceData.originalQuery;
+
+    setSearchQuery(searchQuery);
+
     if (searchInputRef.current) {
       searchInputRef.current.focus();
     }
-    
+
+    // Navigate with enhanced search parameters
     setTimeout(() => {
-      handleSearch({ preventDefault: () => {} });
+      let searchRoute = "/discover";
+
+      if (isAuthenticated) {
+        if (user?.role === "organizer") {
+          searchRoute = "/dashboard/organizer";
+        } else {
+          searchRoute = "/dashboard";
+        }
+      }
+
+      // Create search URL with all parameters from voice processing
+      const searchParams = new URLSearchParams({
+        search: encodeURIComponent(searchQuery),
+        isVoiceSearch: "true",
+        originalQuery: encodeURIComponent(voiceData.originalQuery),
+        confidence: voiceData.confidence || "0.5",
+      });
+
+      // Add any additional search parameters from backend parsing
+      if (voiceData.searchParams) {
+        Object.entries(voiceData.searchParams).forEach(([key, value]) => {
+          if (value) {
+            searchParams.append(key, value);
+          }
+        });
+      }
+
+      navigate(`${searchRoute}?${searchParams.toString()}`);
+
+      setSearchQuery("");
+      setIsMenuOpen(false);
     }, 500);
   };
 
@@ -254,16 +302,20 @@ const Navbar = () => {
 
   const authenticatedLinks = [
     { path: "/discover", label: "Discover Events", icon: Ticket },
-    ...(user?.role === "organizer" 
+    ...(user?.role === "organizer"
       ? [
-          { path: "/dashboard/organizer/events", label: "My Events", icon: Calendar },
+          {
+            path: "/dashboard/organizer/events",
+            label: "My Events",
+            icon: Calendar,
+          },
           ...(!location.pathname.includes("/create-event")
             ? [{ path: "/create-event", label: "Create Event" }]
-            : [])
+            : []),
         ]
       : [
           { path: "/my-tickets", label: "My Tickets", icon: Ticket },
-          { path: "/dashboard/events", label: "My Events", icon: Calendar }
+          { path: "/dashboard/events", label: "My Events", icon: Calendar },
         ]),
   ];
 
@@ -289,8 +341,12 @@ const Navbar = () => {
 
   const navLinks = isAuthenticated ? authenticatedLinks : unauthenticatedLinks;
   const inputBgClass = navbarBg === "light" ? "bg-gray-100" : "bg-white/10";
-  const inputTextClass = navbarBg === "light" ? "text-gray-900 placeholder-gray-500" : "text-white placeholder-white/70";
-  const inputBorderClass = navbarBg === "light" ? "border-gray-300" : "border-white/20";
+  const inputTextClass =
+    navbarBg === "light"
+      ? "text-gray-900 placeholder-gray-500"
+      : "text-white placeholder-white/70";
+  const inputBorderClass =
+    navbarBg === "light" ? "border-gray-300" : "border-white/20";
   const iconColor = navbarBg === "light" ? "text-gray-500" : "text-white/70";
 
   return (
@@ -327,11 +383,14 @@ const Navbar = () => {
                     placeholder="Search events, organizers..."
                     className={`w-full px-4 py-2 pl-10 pr-16 rounded-full ${inputBgClass} ${inputTextClass} border ${inputBorderClass} focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm transition-all`}
                   />
-                  <Search className={`absolute left-3 top-2.5 h-4 w-4 ${iconColor}`} />
-                  
+                  <Search
+                    className={`absolute left-3 top-2.5 h-4 w-4 ${iconColor}`}
+                  />
+
                   {/* Voice Search Button */}
                   <div className="absolute right-2 top-1.5">
-                    <VoiceSearch 
+                    <VoiceSearch
+                      ref={voiceSearchRef}
                       onVoiceResult={handleVoiceResult}
                       navbarBg={navbarBg}
                     />
@@ -341,7 +400,11 @@ const Navbar = () => {
             )}
 
             {/* Desktop Navigation */}
-            <div className={`hidden lg:flex items-center space-x-6 ${isDiscoverPage ? 'flex-1 justify-end' : ''}`}>
+            <div
+              className={`hidden lg:flex items-center space-x-6 ${
+                isDiscoverPage ? "flex-1 justify-end" : ""
+              }`}
+            >
               {navLinks.map((link) => (
                 <NavLink
                   key={link.path}
@@ -354,7 +417,9 @@ const Navbar = () => {
 
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4 ml-4">
-                  <button className={`relative p-2 ${getTextColor()} ${getHoverColor()} transition-colors group`}>
+                  <button
+                    className={`relative p-2 ${getTextColor()} ${getHoverColor()} transition-colors group`}
+                  >
                     <Bell className="h-5 w-5 group-hover:scale-110 transition-transform" />
                     <span className="absolute top-1 right-1 block h-2 w-2 bg-[#FF6B35] rounded-full"></span>
                   </button>
@@ -372,7 +437,11 @@ const Navbar = () => {
                   <div className="relative user-menu-container">
                     <button
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                      className={`flex items-center space-x-2 p-2 rounded-lg ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} transition-colors group`}
+                      className={`flex items-center space-x-2 p-2 rounded-lg ${
+                        navbarBg === "light"
+                          ? "hover:bg-gray-100"
+                          : "hover:bg-white/10"
+                      } transition-colors group`}
                     >
                       <div className="w-8 h-8 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                         <User className="h-4 w-4 text-white" />
@@ -439,7 +508,9 @@ const Navbar = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`lg:hidden inline-flex items-center justify-center p-2 rounded-md ${getTextColor()} ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} transition-colors`}
+              className={`lg:hidden inline-flex items-center justify-center p-2 rounded-md ${getTextColor()} ${
+                navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"
+              } transition-colors`}
             >
               {isMenuOpen ? (
                 <X className="h-6 w-6" />
@@ -452,7 +523,13 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className={`lg:hidden border-t ${navbarBg === "light" ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"} backdrop-blur-lg`}>
+          <div
+            className={`lg:hidden border-t ${
+              navbarBg === "light"
+                ? "border-gray-200 bg-white"
+                : "border-white/10 bg-black/20"
+            } backdrop-blur-lg`}
+          >
             <div className="w-11/12 mx-auto px-4 pt-2 pb-4 space-y-2">
               {/* Mobile Search with Voice Search */}
               {!isDiscoverPage && (
@@ -464,11 +541,13 @@ const Navbar = () => {
                     placeholder="Search events, organizers..."
                     className={`w-full px-4 py-2 pl-10 pr-16 rounded-full ${inputBgClass} ${inputTextClass} border ${inputBorderClass} focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent backdrop-blur-sm`}
                   />
-                  <Search className={`absolute left-3 top-2.5 h-4 w-4 ${iconColor}`} />
-                  
+                  <Search
+                    className={`absolute left-3 top-2.5 h-4 w-4 ${iconColor}`}
+                  />
+
                   {/* Voice Search Button */}
                   <div className="absolute right-2 top-1.5">
-                    <VoiceSearch 
+                    <VoiceSearch
                       onVoiceResult={handleVoiceResult}
                       navbarBg={navbarBg}
                     />
@@ -480,7 +559,11 @@ const Navbar = () => {
                 <NavLink
                   key={link.path}
                   to={link.path}
-                  className={`flex items-center px-3 py-2 ${getTextColor()} ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} rounded-md transition-colors group`}
+                  className={`flex items-center px-3 py-2 ${getTextColor()} ${
+                    navbarBg === "light"
+                      ? "hover:bg-gray-100"
+                      : "hover:bg-white/10"
+                  } rounded-md transition-colors group`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {link.icon && (
@@ -498,7 +581,11 @@ const Navbar = () => {
                     <NavLink
                       key={item.label}
                       to={item.path}
-                      className={`flex items-center px-3 py-2 ${getTextColor()} ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} rounded-md transition-colors group`}
+                      className={`flex items-center px-3 py-2 ${getTextColor()} ${
+                        navbarBg === "light"
+                          ? "hover:bg-gray-100"
+                          : "hover:bg-white/10"
+                      } rounded-md transition-colors group`}
                       onClick={() => setIsMenuOpen(false)}
                     >
                       <item.icon className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
@@ -508,7 +595,13 @@ const Navbar = () => {
                     </NavLink>
                   ))}
 
-                  <button className={`flex items-center w-full px-3 py-2 ${getTextColor()} ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} rounded-md transition-colors group`}>
+                  <button
+                    className={`flex items-center w-full px-3 py-2 ${getTextColor()} ${
+                      navbarBg === "light"
+                        ? "hover:bg-gray-100"
+                        : "hover:bg-white/10"
+                    } rounded-md transition-colors group`}
+                  >
                     <Bell className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
                     <span className="group-hover:text-[#FF6B35] transition-colors">
                       Notifications
@@ -518,7 +611,11 @@ const Navbar = () => {
                   {user?.role === "organizer" && (
                     <NavLink
                       to="/dashboard/wallet"
-                      className={`flex items-center px-3 py-2 ${getTextColor()} ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} rounded-md transition-colors group`}
+                      className={`flex items-center px-3 py-2 ${getTextColor()} ${
+                        navbarBg === "light"
+                          ? "hover:bg-gray-100"
+                          : "hover:bg-white/10"
+                      } rounded-md transition-colors group`}
                       onClick={() => setIsMenuOpen(false)}
                     >
                       <Wallet className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
@@ -540,7 +637,11 @@ const Navbar = () => {
                 <div className="space-y-2 pt-2 border-t border-white/10">
                   <NavLink
                     to="/login"
-                    className={`flex items-center justify-center px-3 py-2 ${getTextColor()} ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} rounded-md transition-colors`}
+                    className={`flex items-center justify-center px-3 py-2 ${getTextColor()} ${
+                      navbarBg === "light"
+                        ? "hover:bg-gray-100"
+                        : "hover:bg-white/10"
+                    } rounded-md transition-colors`}
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Sign In
@@ -564,11 +665,11 @@ const Navbar = () => {
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div 
+          <div
             className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm"
             onClick={cancelLogout}
           ></div>
-          
+
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all animate-scaleIn">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
@@ -581,7 +682,8 @@ const Navbar = () => {
                 Sign Out?
               </h3>
               <p className="text-gray-600">
-                Are you sure you want to sign out of your account? You'll need to sign in again to access your dashboard.
+                Are you sure you want to sign out of your account? You'll need
+                to sign in again to access your dashboard.
               </p>
             </div>
 
@@ -614,7 +716,10 @@ const Navbar = () => {
 
             <div className="mt-4 pt-4 border-t border-gray-200">
               <p className="text-sm text-gray-500 text-center">
-                Signed in as <span className="font-semibold text-gray-700">{user?.userName || user?.email || "User"}</span>
+                Signed in as{" "}
+                <span className="font-semibold text-gray-700">
+                  {user?.userName || user?.email || "User"}
+                </span>
               </p>
             </div>
           </div>

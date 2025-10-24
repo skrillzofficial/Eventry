@@ -328,6 +328,23 @@ export const superadminAPI = {
     apiClient.get("/admin/analytics", { params }),
 };
 
+// Voice Search API calls
+export const voiceSearchAPI = {
+  // Parse voice search query
+  parseVoiceQuery: (voiceQuery) =>
+    apiClient.post("/voice-search", { query: voiceQuery }),
+
+  // Get search suggestions based on voice query
+  getVoiceSuggestions: (voiceQuery) =>
+    apiClient.get(`/voice-search/suggestions?query=${encodeURIComponent(voiceQuery)}`),
+
+  // Get voice search history (optional)
+  getVoiceSearchHistory: () => apiClient.get("/voice-search/history"),
+
+  // Clear voice search history (optional)
+  clearVoiceSearchHistory: () => apiClient.delete("/voice-search/history"),
+};
+
 // Utility function for API calls with error handling
 export const apiCall = async (apiFunction, ...args) => {
   try {
