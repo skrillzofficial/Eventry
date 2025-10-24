@@ -10,60 +10,51 @@ const EventSlider = () => {
   const [isAnimating, setIsAnimating] = useState(false);
 
   // Fetch past events from backend
-  useEffect(() => {
-    const fetchPastEvents = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchPastEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Fetch past events
-        const response = await eventAPI.getPastEvents({ limit: 10 });
+      // Fetch past events
+      const response = await eventAPI.getPastEvents({ limit: 10 });
 
-        console.log("Full API Response:", response);
-        console.log("Response structure:", {
-          hasData: !!response.data,
-          dataKeys: response.data ? Object.keys(response.data) : [],
-          dataType: typeof response.data,
-        });
+      console.log("Full API Response:", response);
+      console.log("Response structure:", {
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        dataType: typeof response.data,
+      });
 
-        // Try different possible response structures
-        let allEvents = [];
-        if (response.data?.data) {
-          allEvents = response.data.data;
-        } else if (response.data?.events) {
-          allEvents = response.data.events;
-        } else if (Array.isArray(response.data)) {
-          allEvents = response.data;
-        }
-
-        console.log("Past events extracted:", allEvents);
-        console.log("Events count:", allEvents.length);
-
-        if (Array.isArray(allEvents) && allEvents.length > 0) {
-          setEvents(allEvents);
-        }
-      } catch (err) {
-        console.error("Error fetching past events:", err);
-        console.error("Error details:", err.response || err.message);
-        setError("Failed to load past events. Please try again later.");
-      } finally {
-        setLoading(false);
+      // Try different possible response structures
+      let allEvents = [];
+      if (response.data?.data) {
+        allEvents = response.data.data;
+      } else if (response.data?.events) {
+        allEvents = response.data.events;
+      } else if (Array.isArray(response.data)) {
+        allEvents = response.data;
       }
-    };
 
-    fetchPastEvents();
+      console.log("Past events extracted:", allEvents);
+      console.log("Events count:", allEvents.length);
+
+      if (Array.isArray(allEvents) && allEvents.length > 0) {
+        setEvents(allEvents);
+      } else {
+        setEvents([]);
+      }
+    } catch (err) {
+      console.error("Error fetching past events:", err);
+      console.error("Error details:", err.response || err.message);
+      setError("Failed to load past events. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Auto-rotate slides
   useEffect(() => {
-    if (events.length <= 1) return;
-
-    const interval = setInterval(() => {
-      nextSlide();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [events.length, currentIndex]);
+    fetchPastEvents();
+  }, [fetchPastEvents]);
 
   const nextSlide = useCallback(() => {
     if (isAnimating || events.length <= 1) return;
@@ -86,6 +77,17 @@ const EventSlider = () => {
 
     setTimeout(() => setIsAnimating(false), 500);
   }, [events.length, isAnimating]);
+
+  // Auto-rotate slides - UPDATED to 2 seconds
+  useEffect(() => {
+    if (events.length <= 1) return;
+
+    const interval = setInterval(() => {
+      nextSlide();
+    }, 2000); // Changed from 5000ms to 2000ms
+
+    return () => clearInterval(interval);
+  }, [events.length, currentIndex, nextSlide]);
 
   const goToSlide = (index) => {
     if (isAnimating || index === currentIndex) return;
@@ -117,7 +119,7 @@ const EventSlider = () => {
           <div className="text-center">
             <p className="text-red-600 text-lg mb-4">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={fetchPastEvents}
               className="bg-[#FF6B35] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
             >
               Retry
@@ -136,6 +138,12 @@ const EventSlider = () => {
           <div className="text-center">
             <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 text-lg">No past events to display</p>
+            <button
+              onClick={fetchPastEvents}
+              className="mt-4 bg-[#FF6B35] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
+            >
+              Refresh
+            </button>
           </div>
         </div>
       </div>

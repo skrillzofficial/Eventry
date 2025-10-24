@@ -29,6 +29,64 @@ const MyEvents = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  // Helper function to get price display from ticket types
+  const getPriceDisplay = (event) => {
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      const prices = event.ticketTypes.map(t => t.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      
+      if (minPrice === 0 && maxPrice === 0) {
+        return { text: "Free", min: 0, max: 0, range: false };
+      }
+      
+      if (minPrice === maxPrice) {
+        return { 
+          text: minPrice === 0 ? "Free" : `₦${minPrice.toLocaleString()}`,
+          min: minPrice,
+          max: maxPrice,
+          range: false
+        };
+      }
+      
+      return { 
+        text: `₦${minPrice.toLocaleString()} - ₦${maxPrice.toLocaleString()}`,
+        min: minPrice,
+        max: maxPrice,
+        range: true
+      };
+    }
+    
+    // Legacy single price
+    const price = event.price || 0;
+    return { 
+      text: price === 0 ? "Free" : `₦${price.toLocaleString()}`,
+      min: price,
+      max: price,
+      range: false
+    };
+  };
+
+  // Helper to calculate actual revenue from ticket types
+  const calculateRevenue = (event) => {
+    // If event has ticketTypes with sold information
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      return event.ticketTypes.reduce((total, ticket) => {
+        const sold = ticket.sold || 0;
+        const price = ticket.price || 0;
+        return total + (sold * price);
+      }, 0);
+    }
+    
+    // Fallback to legacy calculation
+    const attendees = event.totalAttendees || 
+                     (Array.isArray(event.attendees) ? event.attendees.length : 0) || 
+                     event.ticketsSold || 
+                     0;
+    const price = event.price || 0;
+    return attendees * price;
+  };
+
   useEffect(() => {
     if (isAuthenticated && user?.role === "organizer") {
       loadMyEvents();
@@ -43,7 +101,8 @@ const MyEvents = () => {
       const result = await apiCall(eventAPI.getOrganizerEvents);
       
       if (result.success) {
-        setEvents(result.data.events || result.data || []);
+        const eventsData = result.data.events || result.data || [];
+        setEvents(eventsData);
       } else {
         throw new Error(result.error || "Failed to load your events");
       }
@@ -59,7 +118,6 @@ const MyEvents = () => {
     try {
       const result = await apiCall(eventAPI.getOrganizerStatistics);
       if (result.success) {
-        console.log(' Stats data:', result.data);
         setStats(result.data.statistics || result.data);
       }
     } catch (err) {
@@ -148,7 +206,6 @@ const MyEvents = () => {
     );
   }
 
-  // Pass icon component, not JSX element
   const StatsCard = ({ title, value, icon: Icon, color = "blue" }) => {
     const colorClasses = {
       blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
@@ -193,11 +250,16 @@ const MyEvents = () => {
   };
 
   const EventCard = ({ event }) => {
-    // Use _id as fallback for id
     const eventId = event._id || event.id;
     const eventDate = new Date(event.date);
     
-    //  attendees is an array, get its length or use totalAttendees
+    // Get price info using helper function
+    const priceInfo = getPriceDisplay(event);
+    
+    // Calculate actual revenue
+    const revenue = calculateRevenue(event);
+    
+    // Attendees calculation
     const attendeesCount = event.totalAttendees || 
                           (Array.isArray(event.attendees) ? event.attendees.length : 0) || 
                           event.ticketsSold || 
@@ -216,6 +278,11 @@ const MyEvents = () => {
                 {event.featured && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                     Featured
+                  </span>
+                )}
+                {priceInfo.range && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {event.ticketTypes?.length} Ticket Types
                   </span>
                 )}
               </div>
@@ -247,7 +314,7 @@ const MyEvents = () => {
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-[#FF6B35]" />
-              <span>{event.venue}, {event.city}</span>
+              <span className="truncate">{event.venue}, {event.city}</span>
             </div>
           </div>
 
@@ -265,21 +332,45 @@ const MyEvents = () => {
             </div>
           </div>
 
-          {/* Revenue */}
+          {/* Revenue and Price */}
           <div className="flex justify-between items-center mb-4">
             <div>
               <p className="text-sm text-gray-600">Revenue</p>
               <p className="text-lg font-semibold text-gray-900">
-                ₦{((event.price || 0) * attendeesCount).toLocaleString()}
+                ₦{Math.abs(revenue).toLocaleString()}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Price</p>
+              <p className="text-sm text-gray-600">
+                {priceInfo.range ? "Price Range" : "Price"}
+              </p>
               <p className="text-lg font-semibold text-gray-900">
-                {event.price === 0 ? "Free" : `₦${event.price?.toLocaleString()}`}
+                {priceInfo.text}
               </p>
             </div>
           </div>
+
+          {/* Ticket Types Breakdown (if multiple) */}
+          {event.ticketTypes && event.ticketTypes.length > 1 && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-xs font-medium text-gray-700 mb-2">Ticket Types:</p>
+              <div className="space-y-1">
+                {event.ticketTypes.map((ticket, idx) => (
+                  <div key={idx} className="flex justify-between text-xs text-gray-600">
+                    <span>{ticket.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500">
+                        {ticket.sold || 0} sold
+                      </span>
+                      <span className="font-medium">
+                        {ticket.price === 0 ? "Free" : `₦${ticket.price.toLocaleString()}`}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2 flex-wrap">
@@ -345,7 +436,7 @@ const MyEvents = () => {
             </Link>
           </div>
 
-          {/* Stats Grid, Pass component, not JSX */}
+          {/* Stats Grid */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatsCard

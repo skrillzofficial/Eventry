@@ -16,6 +16,7 @@ import {
 import Brandlogo from "../../assets/eventy orange logo.PNG";
 import VoiceSearch from "../../pages/dashboard/VoiceSearch";
 import { useAuth } from "../../context/AuthContext";
+import NotificationBell from "../../pages/notification/NotificationBell"; // NEW: Import NotificationBell
 
 // Add styles for animations
 const modalStyles = `
@@ -293,11 +294,13 @@ const Navbar = () => {
           },
           { icon: User, label: "Profile", path: "/dashboard/profile" },
           { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+          { icon: Bell, label: "Notifications", path: "/notifications" }, // NEW
         ]
       : [
           { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
           { icon: User, label: "Profile", path: "/dashboard/profile" },
           { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+          { icon: Bell, label: "Notifications", path: "/notifications" }, // NEW
         ];
 
   const authenticatedLinks = [
@@ -417,12 +420,8 @@ const Navbar = () => {
 
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4 ml-4">
-                  <button
-                    className={`relative p-2 ${getTextColor()} ${getHoverColor()} transition-colors group`}
-                  >
-                    <Bell className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                    <span className="absolute top-1 right-1 block h-2 w-2 bg-[#FF6B35] rounded-full"></span>
-                  </button>
+                  {/* NEW: Replace Bell button with NotificationBell */}
+                  <NotificationBell />
 
                   {user?.role === "organizer" && (
                     <NavLink
@@ -595,18 +594,21 @@ const Navbar = () => {
                     </NavLink>
                   ))}
 
-                  <button
-                    className={`flex items-center w-full px-3 py-2 ${getTextColor()} ${
+                  {/* NEW: Mobile Notification Link */}
+                  <NavLink
+                    to="/notifications"
+                    className={`flex items-center px-3 py-2 ${getTextColor()} ${
                       navbarBg === "light"
                         ? "hover:bg-gray-100"
                         : "hover:bg-white/10"
                     } rounded-md transition-colors group`}
+                    onClick={() => setIsMenuOpen(false)}
                   >
                     <Bell className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
                     <span className="group-hover:text-[#FF6B35] transition-colors">
                       Notifications
                     </span>
-                  </button>
+                  </NavLink>
 
                   {user?.role === "organizer" && (
                     <NavLink

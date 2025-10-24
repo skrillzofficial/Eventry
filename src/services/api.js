@@ -344,6 +344,33 @@ export const voiceSearchAPI = {
   // Clear voice search history (optional)
   clearVoiceSearchHistory: () => apiClient.delete("/voice-search/history"),
 };
+// Notification API calls
+export const notificationAPI = {
+  // Get user notifications with pagination and filtering
+  getNotifications: (params = {}) => 
+    apiClient.get('/notifications', { params }),
+
+  // Get unread notifications count
+  getUnreadCount: () => 
+    apiClient.get('/notifications/unread-count'),
+
+  // Mark notification as read
+  markAsRead: (notificationId) => 
+    apiClient.patch(`/notifications/${notificationId}/read`),
+
+  // Mark all notifications as read
+  markAllAsRead: () => 
+    apiClient.patch('/notifications/read-all'),
+
+  // Delete notification
+  deleteNotification: (notificationId) => 
+    apiClient.delete(`/notifications/${notificationId}`),
+
+  // Get notification statistics
+  getStats: () => 
+    apiClient.get('/notifications/stats'),
+};
+
 
 // Utility function for API calls with error handling
 export const apiCall = async (apiFunction, ...args) => {
