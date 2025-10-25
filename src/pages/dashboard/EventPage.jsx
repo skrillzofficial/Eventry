@@ -89,7 +89,7 @@ export default function EventPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiCall(eventAPI.getEventById, id);
+      const result = await apiCall(() => eventAPI.getEventById(id));
 
       if (result.success) {
         const eventData = result.data.event || result.data;

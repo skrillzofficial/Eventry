@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Wallet, 
   TrendingUp, 
@@ -6,12 +7,15 @@ import {
   CreditCard, 
   History,
   Shield,
+  QrCode,
   Plus,
   Minus,
   ArrowUpRight,
   ArrowDownLeft,
   Eye,
   EyeOff,
+  Copy,
+  CheckCircle,
   AlertCircle,
   RefreshCw,
   X,
@@ -25,6 +29,7 @@ const WalletComponent = () => {
   const [walletData, setWalletData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showBalance, setShowBalance] = useState(true);
+  const [copiedAddress, setCopiedAddress] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -55,6 +60,7 @@ const WalletComponent = () => {
         available: balanceResult.data.available || 0,
         pending: balanceResult.data.pending || 0,
         currency: balanceResult.data.currency || 'NGN',
+        walletAddress: balanceResult.data.walletAddress || 'N/A',
         transactions: transactionsResult.data.transactions || [],
         withdrawalMethods: withdrawalMethodsResult.data.methods || [],
         stats: {
@@ -74,6 +80,7 @@ const WalletComponent = () => {
         available: 115200.75,
         pending: 10399.75,
         currency: 'NGN',
+        walletAddress: '0x742d35Cc6634C0532925a3b8D',
         transactions: [
           {
             id: 1,
@@ -153,6 +160,12 @@ const WalletComponent = () => {
     } catch (err) {
       alert('Withdrawal failed: ' + err.message);
     }
+  };
+
+  const copyWalletAddress = () => {
+    navigator.clipboard.writeText(walletData.walletAddress);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2000);
   };
 
   const formatCurrency = (amount) => {
@@ -282,6 +295,36 @@ const WalletComponent = () => {
                   Withdraw
                 </button>
               </div>
+            </div>
+
+            {/* Wallet Address */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Wallet Address</h3>
+                <Shield className="h-5 w-5 text-[#FF6B35]" />
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="flex-1 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <code className="text-gray-700 font-mono text-sm break-all">
+                    {walletData.walletAddress}
+                  </code>
+                </div>
+                <button
+                  onClick={copyWalletAddress}
+                  className="p-3 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-all duration-200 hover:scale-105"
+                >
+                  {copiedAddress ? <CheckCircle className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                </button>
+                <button className="p-3 bg-gray-100 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:scale-105">
+                  <QrCode className="h-5 w-5" />
+                </button>
+              </div>
+              {copiedAddress && (
+                <div className="mt-2 text-green-600 text-sm flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Address copied to clipboard!
+                </div>
+              )}
             </div>
 
             {/* Navigation Tabs */}
@@ -466,7 +509,7 @@ const WalletComponent = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Use strong, unique passwords for your account</p>
+                  <p className="text-gray-600">Never share your wallet private keys</p>
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
@@ -474,7 +517,7 @@ const WalletComponent = () => {
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Verify payment details before sending</p>
+                  <p className="text-gray-600">Verify payment addresses before sending</p>
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
@@ -489,9 +532,12 @@ const WalletComponent = () => {
               <p className="text-white/80 text-sm mb-4">
                 Our support team is here to help with any wallet issues.
               </p>
-              <button className="w-full bg-white/20 text-white py-2 rounded-lg hover:bg-white/30 transition-all duration-200 hover:scale-105">
+              <Link 
+                to="/contact"
+                className="block w-full bg-white/20 text-white py-2 rounded-lg hover:bg-white/30 transition-all duration-200 hover:scale-105 text-center"
+              >
                 Contact Support
-              </button>
+              </Link>
             </div>
           </div>
         </div>

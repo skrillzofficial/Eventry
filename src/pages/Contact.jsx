@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Mail, Phone, MapPin, Send } from "lucide-react";
+import { Mail, Phone, MapPin, Send, Loader } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 
@@ -11,6 +11,16 @@ const Contact = () => {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+
+  // Simulate page loading
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setPageLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleChange = (e) => {
     setFormData({
@@ -19,11 +29,17 @@ const Contact = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     // Here you would typically send the form data to your backend
     console.log("Form submitted:", formData);
     setSubmitted(true);
+    setLoading(false);
     
     // Reset form after 3 seconds
     setTimeout(() => {
@@ -36,6 +52,24 @@ const Contact = () => {
       setSubmitted(false);
     }, 3000);
   };
+
+  // Page loading state
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35] mx-auto mb-4"></div>
+            <p className="text-gray-600 text-lg">Loading contact page...</p>
+          </div>
+        </div>
+        <div className="bg-black">
+          <Footer />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -143,7 +177,8 @@ const Contact = () => {
                         value={formData.name}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all"
+                        disabled={loading}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="Enter your full name"
                       />
                     </div>
@@ -162,7 +197,8 @@ const Contact = () => {
                         value={formData.email}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all"
+                        disabled={loading}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="Enter your email"
                       />
                     </div>
@@ -181,7 +217,8 @@ const Contact = () => {
                         value={formData.subject}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all"
+                        disabled={loading}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="What is this about?"
                       />
                     </div>
@@ -199,18 +236,29 @@ const Contact = () => {
                         value={formData.message}
                         onChange={handleChange}
                         required
+                        disabled={loading}
                         rows="6"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all resize-none"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="Tell us how we can help..."
                       />
                     </div>
 
                     <button
                       type="submit"
-                      className="w-full bg-[#FF6B35] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#FF8535] transition-colors flex items-center justify-center group"
+                      disabled={loading}
+                      className="w-full bg-[#FF6B35] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#FF8535] transition-colors flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#FF6B35]"
                     >
-                      <Send className="h-5 w-5 mr-2 group-hover:translate-x-1 transition-transform" />
-                      Send Message
+                      {loading ? (
+                        <>
+                          <Loader className="h-5 w-5 mr-2 animate-spin" />
+                          Sending Message...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-5 w-5 mr-2 group-hover:translate-x-1 transition-transform" />
+                          Send Message
+                        </>
+                      )}
                     </button>
                   </form>
                 )}

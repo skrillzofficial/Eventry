@@ -26,6 +26,7 @@ import {
   Clock,
   Image,
   Save,
+  Loader,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -63,6 +64,8 @@ const CreateEvent = () => {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [imageFiles, setImageFiles] = useState([]);
   const [savingAs, setSavingAs] = useState(null);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Ticket type management
   const [ticketTypes, setTicketTypes] = useState([
@@ -90,6 +93,14 @@ const CreateEvent = () => {
     resolver: yupResolver(eventSchema),
     mode: "onChange",
   });
+
+  // Simulate initial page load
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setPageLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Updated Categories (added Lifestyle)
   const CATEGORIES = [
@@ -231,7 +242,7 @@ const CreateEvent = () => {
     setRequirements(requirements.filter((_, i) => i !== index));
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
 
     if (files.length + uploadedImages.length > 3) {
@@ -239,31 +250,42 @@ const CreateEvent = () => {
       return;
     }
 
-    const newImageFiles = [...imageFiles];
-    const newUploadedImages = [...uploadedImages];
+    setImageUploading(true);
 
-    files.forEach((file) => {
-      if (!file.type.startsWith("image/")) {
-        setError("images", { message: "Only image files are allowed" });
-        return;
+    try {
+      const newImageFiles = [...imageFiles];
+      const newUploadedImages = [...uploadedImages];
+
+      // Simulate image processing delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) {
+          setError("images", { message: "Only image files are allowed" });
+          continue;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          setError("images", { message: "Image size must be less than 5MB" });
+          continue;
+        }
+
+        newImageFiles.push(file);
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newUploadedImages.push(e.target.result);
+          setUploadedImages([...newUploadedImages]);
+        };
+        reader.readAsDataURL(file);
       }
 
-      if (file.size > 5 * 1024 * 1024) {
-        setError("images", { message: "Image size must be less than 5MB" });
-        return;
-      }
-
-      newImageFiles.push(file);
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        newUploadedImages.push(e.target.result);
-        setUploadedImages([...newUploadedImages]);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    setImageFiles(newImageFiles);
+      setImageFiles(newImageFiles);
+    } catch (error) {
+      setError("images", { message: "Failed to upload images" });
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   const removeImage = (indexToRemove) => {
@@ -426,6 +448,29 @@ const CreateEvent = () => {
     }
   };
 
+  // Page loading state
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="w-11/12 mx-auto container py-8">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35] mx-auto mb-4"></div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Loading Event Creator
+              </h3>
+              <p className="text-gray-600">Preparing your event creation workspace...</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-black">
+          <Footer />
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -558,7 +603,8 @@ const CreateEvent = () => {
                 <input
                   type="text"
                   {...register("title")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Enter event title"
                 />
                 {errors.title && (
@@ -577,7 +623,8 @@ const CreateEvent = () => {
                 </label>
                 <select
                   {...register("category")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Select category</option>
                   {CATEGORIES.map((category) => (
@@ -603,7 +650,8 @@ const CreateEvent = () => {
                 <textarea
                   {...register("description")}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Brief description of your event (50-2000 characters)"
                 />
                 {errors.description && (
@@ -620,7 +668,8 @@ const CreateEvent = () => {
                 <textarea
                   {...register("longDescription")}
                   rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Provide a more detailed description of your event, including agenda, speakers, activities, etc."
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -654,7 +703,8 @@ const CreateEvent = () => {
                   type="date"
                   {...register("date")}
                   min={new Date().toISOString().split("T")[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 {errors.date && (
                   <p className="text-red-600 text-sm mt-1">
@@ -671,7 +721,8 @@ const CreateEvent = () => {
                   <input
                     type="time"
                     {...register("time")}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    disabled={savingAs}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {errors.time && (
                     <p className="text-red-600 text-sm mt-1">
@@ -687,7 +738,8 @@ const CreateEvent = () => {
                   <input
                     type="time"
                     {...register("endTime")}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    disabled={savingAs}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {errors.endTime && (
                     <p className="text-red-600 text-sm mt-1">
@@ -717,7 +769,8 @@ const CreateEvent = () => {
                 <input
                   type="text"
                   {...register("venue")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="e.g., International Conference Center"
                 />
                 {errors.venue && (
@@ -734,7 +787,8 @@ const CreateEvent = () => {
                 <input
                   type="text"
                   {...register("address")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Street address, area, landmark"
                 />
                 {errors.address && (
@@ -750,7 +804,8 @@ const CreateEvent = () => {
                 </label>
                 <select
                   {...register("city")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                  disabled={savingAs}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Select your state</option>
                   {CITIES.map((city) => (
@@ -785,7 +840,8 @@ const CreateEvent = () => {
               <button
                 type="button"
                 onClick={() => setUseLegacyPricing(!useLegacyPricing)}
-                className="text-sm text-[#FF6B35] hover:underline"
+                disabled={savingAs}
+                className="text-sm text-[#FF6B35] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {useLegacyPricing
                   ? "Use Multiple Ticket Types"
@@ -806,7 +862,8 @@ const CreateEvent = () => {
                         onChange={(e) =>
                           updateTicketType(index, "name", e.target.value)
                         }
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-semibold"
+                        disabled={savingAs}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {TICKET_TYPES.map((type) => (
                           <option
@@ -824,7 +881,8 @@ const CreateEvent = () => {
                         <button
                           type="button"
                           onClick={() => removeTicketType(index)}
-                          className="text-red-500 hover:text-red-700"
+                          disabled={savingAs}
+                          className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -842,7 +900,8 @@ const CreateEvent = () => {
                           onChange={(e) =>
                             updateTicketType(index, "price", e.target.value)
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                          disabled={savingAs}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                           placeholder="0"
                           min="0"
                           step="0.01"
@@ -859,7 +918,8 @@ const CreateEvent = () => {
                           onChange={(e) =>
                             updateTicketType(index, "capacity", e.target.value)
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                          disabled={savingAs}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                           placeholder="Number of tickets"
                           min="1"
                         />
@@ -876,7 +936,8 @@ const CreateEvent = () => {
                         onChange={(e) =>
                           updateTicketType(index, "description", e.target.value)
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                        disabled={savingAs}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="e.g., Includes front row seating"
                       />
                     </div>
@@ -889,7 +950,8 @@ const CreateEvent = () => {
                         <input
                           type="text"
                           id={`benefit-input-${index}`}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                          disabled={savingAs}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                           placeholder="e.g., VIP lounge access"
                           onKeyPress={(e) => {
                             if (e.key === "Enter") {
@@ -909,7 +971,8 @@ const CreateEvent = () => {
                             addTicketBenefit(index, input.value);
                             input.value = "";
                           }}
-                          className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors"
+                          disabled={savingAs}
+                          className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -930,7 +993,8 @@ const CreateEvent = () => {
                                 onClick={() =>
                                   removeTicketBenefit(index, benefitIndex)
                                 }
-                                className="text-red-500 hover:text-red-700"
+                                disabled={savingAs}
+                                className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -946,7 +1010,8 @@ const CreateEvent = () => {
                   <button
                     type="button"
                     onClick={addTicketType}
-                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-[#FF6B35] hover:text-[#FF6B35] transition-colors flex items-center justify-center gap-2"
+                    disabled={savingAs}
+                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-[#FF6B35] hover:text-[#FF6B35] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="h-4 w-4" />
                     Add Another Ticket Type
@@ -962,7 +1027,8 @@ const CreateEvent = () => {
                   <input
                     type="number"
                     {...register("price")}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    disabled={savingAs}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="0"
                     min="0"
                     step="0.01"
@@ -981,7 +1047,8 @@ const CreateEvent = () => {
                   <input
                     type="number"
                     {...register("capacity")}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    disabled={savingAs}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Maximum attendees"
                     min="1"
                   />
@@ -1015,13 +1082,15 @@ const CreateEvent = () => {
                 onKeyPress={(e) =>
                   e.key === "Enter" && (e.preventDefault(), addRequirement())
                 }
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                disabled={savingAs}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="e.g., Valid government-issued ID"
               />
               <button
                 type="button"
                 onClick={addRequirement}
-                className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors flex items-center gap-2"
+                disabled={savingAs}
+                className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4" />
                 Add
@@ -1039,7 +1108,8 @@ const CreateEvent = () => {
                     <button
                       type="button"
                       onClick={() => removeRequirement(index)}
-                      className="text-red-500 hover:text-red-700"
+                      disabled={savingAs}
+                      className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1069,13 +1139,14 @@ const CreateEvent = () => {
                 onKeyPress={(e) =>
                   e.key === "Enter" && (e.preventDefault(), addTag())
                 }
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                disabled={savingAs}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="e.g., startup, innovation, AI"
               />
               <button
                 type="button"
                 onClick={addTag}
-                disabled={tags.length >= 10}
+                disabled={tags.length >= 10 || savingAs}
                 className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
@@ -1094,7 +1165,8 @@ const CreateEvent = () => {
                     <button
                       type="button"
                       onClick={() => removeTag(tag)}
-                      className="hover:bg-white/20 rounded-full p-0.5"
+                      disabled={savingAs}
+                      className="hover:bg-white/20 rounded-full p-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1122,7 +1194,8 @@ const CreateEvent = () => {
                   accept="image/*"
                   multiple
                   onChange={handleImageUpload}
-                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6B35] file:text-white hover:file:bg-[#FF8535]"
+                  disabled={imageUploading || savingAs}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6B35] file:text-white hover:file:bg-[#FF8535] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB per
@@ -1132,6 +1205,12 @@ const CreateEvent = () => {
                   <p className="text-red-600 text-sm mt-1">
                     {errors.images.message}
                   </p>
+                )}
+                {imageUploading && (
+                  <div className="flex items-center gap-2 text-blue-600 text-sm mt-2">
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Uploading images...
+                  </div>
                 )}
               </div>
               {uploadedImages.length > 0 && (
@@ -1146,7 +1225,8 @@ const CreateEvent = () => {
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        disabled={savingAs}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -1173,7 +1253,7 @@ const CreateEvent = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Link
                   to="/dashboard/organizer"
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-center"
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </Link>
