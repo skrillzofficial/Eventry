@@ -24,7 +24,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { authAPI, eventAPI, apiCall } from "../services/api";
+import { userAPI, eventAPI, apiCall } from "../services/api";
 
 const Profile = () => {
   const {
@@ -48,7 +48,11 @@ const Profile = () => {
     formState: { errors, isSubmitting },
     setValue,
     reset,
+    watch,
   } = useForm();
+
+  // Watch form values for real-time updates
+  const formValues = watch();
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
@@ -61,11 +65,13 @@ const Profile = () => {
     try {
       if (authUser) {
         setValue("firstName", authUser.firstName || authUser.userName || "");
+        setValue("lastName", authUser.lastName || "");
+        setValue("userName", authUser.userName || "");
         setValue("email", authUser.email || "");
         setValue("phone", authUser.phone || authUser.phoneNumber || "");
         setValue("bio", authUser.bio || "");
         setValue("location", authUser.location || authUser.city || "");
-        setImagePreview(authUser.avatar || null);
+        setImagePreview(authUser.profilePicture || authUser.avatar || null);
       }
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -79,7 +85,7 @@ const Profile = () => {
       const userRole = authUser?.role || authUser?.userType || "attendee";
 
       if (userRole === "organizer") {
-        const eventsResult = await apiCall(eventAPI.getOrganizerEvents);
+        const eventsResult = await apiCall(() => eventAPI.getOrganizerEvents());
 
         if (eventsResult.success) {
           const events = eventsResult.data?.events || [];
@@ -112,7 +118,7 @@ const Profile = () => {
           });
         }
       } else {
-        const bookingsResult = await apiCall(eventAPI.getMyBookings);
+        const bookingsResult = await apiCall(() => eventAPI.getMyBookings());
 
         if (bookingsResult.success) {
           const bookings = bookingsResult.data?.bookings || [];
@@ -159,7 +165,7 @@ const Profile = () => {
     }
   };
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -182,50 +188,44 @@ const Profile = () => {
     }
   };
 
-  const uploadImage = async () => {
-    if (!imageFile) return null;
-
-    try {
-      setUploadingImage(true);
-      const formData = new FormData();
-      formData.append('avatar', imageFile);
-
-      const result = await apiCall(authAPI.uploadAvatar, formData);
-      
-      if (result.success) {
-        return result.data.avatarUrl;
-      }
-      return null;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      return null;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
   const onSubmit = async (data) => {
     try {
-      let avatarUrl = imagePreview;
+      setUploadingImage(true);
+      
+      let result;
 
+      // If there's an image file
       if (imageFile) {
-        const uploadedUrl = await uploadImage();
-        if (uploadedUrl) {
-          avatarUrl = uploadedUrl;
-        }
+        const formData = new FormData();
+        
+        // Append all text fields
+        if (data.firstName) formData.append('firstName', data.firstName);
+        if (data.lastName) formData.append('lastName', data.lastName);
+        if (data.userName) formData.append('userName', data.userName);
+        if (data.email) formData.append('email', data.email);
+        if (data.phone) formData.append('phone', data.phone);
+        if (data.bio) formData.append('bio', data.bio);
+        if (data.location) formData.append('location', data.location);
+        
+        // Append the image file
+        formData.append('profilePicture', imageFile);
+
+        result = await apiCall(() => userAPI.updateUser(formData));
+      } else {
+        // No file, just send JSON data
+        result = await apiCall(() => userAPI.updateUser(data));
       }
 
-      const result = await apiCall(authAPI.updateProfile, {
-        firstName: data.firstName,
-        email: data.email,
-        phone: data.phone,
-        bio: data.bio,
-        location: data.location,
-        avatar: avatarUrl,
-      });
-
       if (result.success) {
-        updateUser(result.data.user || { ...data, avatar: avatarUrl });
+        // Update local user data
+        if (updateUser) {
+          updateUser(result.data.user || { 
+            ...authUser, 
+            ...data,
+            profilePicture: imagePreview || authUser?.profilePicture 
+          });
+        }
+        
         setUpdateSuccess(true);
         setIsEditing(false);
         setImageFile(null);
@@ -237,6 +237,8 @@ const Profile = () => {
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Failed to update profile. Please try again.");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -245,7 +247,7 @@ const Profile = () => {
     loadUserData();
     setIsEditing(false);
     setImageFile(null);
-    setImagePreview(authUser?.avatar || null);
+    setImagePreview(authUser?.profilePicture || authUser?.avatar || null);
   };
 
   if (!isAuthenticated) {
@@ -327,9 +329,9 @@ const Profile = () => {
               <div className="text-center mb-6">
                 <div className="relative inline-block mb-4">
                   <div className="w-24 h-24 bg-[#FF6B35] rounded-full flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
-                    {imagePreview || authUser?.avatar ? (
+                    {imagePreview || authUser?.profilePicture || authUser?.avatar ? (
                       <img
-                        src={imagePreview || authUser.avatar}
+                        src={imagePreview || authUser.profilePicture || authUser.avatar}
                         alt={authUser.firstName}
                         className="w-24 h-24 rounded-full object-cover"
                       />
@@ -362,6 +364,11 @@ const Profile = () => {
                   {authUser?.firstName || authUser?.userName}
                 </h2>
                 <p className="text-gray-600 capitalize">{userRole}</p>
+                {isEditing && imageFile && (
+                  <p className="text-xs text-green-600 mt-1">
+                    New image selected
+                  </p>
+                )}
               </div>
 
               <nav className="space-y-2">
@@ -465,6 +472,39 @@ const Profile = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <User className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        {...register("lastName")}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <User className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        {...register("userName", {
+                          required: "Username is required",
+                        })}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
+                      />
+                      {errors.userName && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.userName.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         <Mail className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
                         Email Address
                       </label>
@@ -501,20 +541,7 @@ const Profile = () => {
                       />
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Bio
-                      </label>
-                      <textarea
-                        {...register("bio")}
-                        disabled={!isEditing}
-                        rows={3}
-                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
-                        placeholder="Tell us about yourself..."
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         <MapPin className="w-4 h-4 inline mr-2 text-[#FF6B35]" />
                         Location
@@ -525,6 +552,19 @@ const Profile = () => {
                         disabled={!isEditing}
                         className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
                         placeholder="Lagos, Nigeria"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bio
+                      </label>
+                      <textarea
+                        {...register("bio")}
+                        disabled={!isEditing}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 placeholder-gray-400 transition-all duration-200"
+                        placeholder="Tell us about yourself..."
                       />
                     </div>
                   </div>

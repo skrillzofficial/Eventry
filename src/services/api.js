@@ -59,14 +59,25 @@ export const authAPI = {
 
   getCurrentUser: () => apiClient.get("/me"),
   logout: () => apiClient.post("/logout"),
-  updateProfile: (userData) => apiClient.patch("/profile", userData),
 };
 
-// User API calls
+// User API calls - SIMPLIFIED
 export const userAPI = {
-  getUserProfile: (userId) => apiClient.get(`/users/${userId}`),
-  updateUser: (userId, userData) =>
-    apiClient.patch(`/users/${userId}`, userData),
+  // Single update function for all user profile data including image and phone
+  updateUser: (userData) => {
+    // If userData is FormData (contains file), use multipart form-data
+    if (userData instanceof FormData) {
+      return apiClient.patch("/profile", userData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    }
+    // Otherwise use regular JSON
+    return apiClient.patch("/profile", userData);
+  },
+
+  getUserProfile: () => apiClient.get("/users/profile"),
 };
 
 // Event API calls
@@ -87,7 +98,7 @@ export const eventAPI = {
     apiClient.delete(`/events/${eventId}/cancel-booking`),
   toggleLikeEvent: (eventId) => apiClient.post(`/events/${eventId}/like`),
 
-  // Organizer-only routes - UPDATED WITH PROPER ENDPOINTS
+  // Organizer-only routes
   getOrganizerEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
 
@@ -120,16 +131,14 @@ export const eventAPI = {
 
   deleteEvent: (eventId) => apiClient.delete(`/events/${eventId}`),
 
-  // Additional organizer endpoints
   getEventAnalytics: (eventId) => apiClient.get(`/events/${eventId}/analytics`),
 
   updateEventStatus: (eventId, status) =>
     apiClient.patch(`/events/${eventId}/status`, { status }),
 };
 
-// Organizer-specific API calls - NEW DEDICATED SECTION
+// Organizer-specific API calls
 export const organizerAPI = {
-  // Event Management
   getMyEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
 
@@ -142,10 +151,8 @@ export const organizerAPI = {
   getAttendanceAnalytics: (params = {}) =>
     apiClient.get("/events/organizer/analytics/attendance", { params }),
 
-  // Dashboard Statistics
   getDashboardStats: () => apiClient.get("/events/organizer/dashboard/stats"),
 
-  // Event operations with organizer context
   publishEvent: (eventId) =>
     apiClient.patch(`/events/organizer/events/${eventId}/publish`),
 
@@ -155,7 +162,6 @@ export const organizerAPI = {
   duplicateEvent: (eventId) =>
     apiClient.post(`/events/organizer/events/${eventId}/duplicate`),
 
-  // Attendee management
   getEventAttendees: (eventId, params = {}) =>
     apiClient.get(`/events/organizer/events/${eventId}/attendees`, { params }),
 
@@ -170,11 +176,9 @@ export const organizerAPI = {
 
 // Transaction API calls
 export const transactionAPI = {
-  // Public route - no auth required
   verifyPayment: (reference) =>
     apiClient.get(`/transactions/verify/${reference}`),
 
-  // Protected routes - require authentication
   initializePayment: (paymentData) =>
     apiClient.post("/transactions/initialize", paymentData),
 
@@ -184,7 +188,6 @@ export const transactionAPI = {
   getTransaction: (transactionId) =>
     apiClient.get(`/transactions/${transactionId}`),
 
-  // Organizer routes
   getEventTransactions: (eventId, params = {}) =>
     apiClient.get(`/transactions/event/${eventId}`, { params }),
 
@@ -197,185 +200,101 @@ export const transactionAPI = {
   getRevenueStats: (params = {}) =>
     apiClient.get("/transactions/stats/revenue", { params }),
 };
-//  Wallet API calls
+
+// Wallet API calls
 export const walletAPI = {
-  // Get wallet balance and overview
-  getWalletBalance: () => apiClient.get('/wallet/balance'),
-
-  // Get wallet statistics
-  getWalletStats: (params = {}) => 
-    apiClient.get('/wallet/stats', { params }),
-
-  // Get transaction history
-  getTransactions: (params = {}) => 
-    apiClient.get('/wallet/transactions', { params }),
-
-  // Get specific transaction details
-  getTransactionById: (transactionId) => 
+  getWalletBalance: () => apiClient.get("/wallet/balance"),
+  getWalletStats: (params = {}) => apiClient.get("/wallet/stats", { params }),
+  getTransactions: (params = {}) =>
+    apiClient.get("/wallet/transactions", { params }),
+  getTransactionById: (transactionId) =>
     apiClient.get(`/wallet/transactions/${transactionId}`),
-
-  // Initiate withdrawal request
-  requestWithdrawal: (withdrawalData) => 
-    apiClient.post('/wallet/withdraw', withdrawalData),
-
-  // Get withdrawal history
-  getWithdrawals: (params = {}) => 
-    apiClient.get('/wallet/withdrawals', { params }),
-
-  // Get payment methods
-  getPaymentMethods: () => 
-    apiClient.get('/wallet/payment-methods'),
-
-  // Add payment method
-  addPaymentMethod: (paymentData) => 
-    apiClient.post('/wallet/payment-methods', paymentData),
-
-  // Update payment method
-  updatePaymentMethod: (methodId, paymentData) => 
+  requestWithdrawal: (withdrawalData) =>
+    apiClient.post("/wallet/withdraw", withdrawalData),
+  getWithdrawals: (params = {}) =>
+    apiClient.get("/wallet/withdrawals", { params }),
+  getPaymentMethods: () => apiClient.get("/wallet/payment-methods"),
+  addPaymentMethod: (paymentData) =>
+    apiClient.post("/wallet/payment-methods", paymentData),
+  updatePaymentMethod: (methodId, paymentData) =>
     apiClient.patch(`/wallet/payment-methods/${methodId}`, paymentData),
-
-  // Delete payment method
-  deletePaymentMethod: (methodId) => 
+  deletePaymentMethod: (methodId) =>
     apiClient.delete(`/wallet/payment-methods/${methodId}`),
-
-  // Set primary payment method
-  setPrimaryPaymentMethod: (methodId) => 
+  setPrimaryPaymentMethod: (methodId) =>
     apiClient.patch(`/wallet/payment-methods/${methodId}/set-primary`),
-
-  // Get wallet address
-  getWalletAddress: () => 
-    apiClient.get('/wallet/address'),
-
-  // Generate new wallet address
-  generateWalletAddress: () => 
-    apiClient.post('/wallet/address/generate'),
-
-  // Get earnings by event
-  getEventEarnings: (eventId, params = {}) => 
+  getEventEarnings: (eventId, params = {}) =>
     apiClient.get(`/wallet/earnings/event/${eventId}`, { params }),
-
-  // Get monthly earnings summary
-  getMonthlyEarnings: (params = {}) => 
-    apiClient.get('/wallet/earnings/monthly', { params }),
-
-  // Get pending payouts
-  getPendingPayouts: () => 
-    apiClient.get('/wallet/payouts/pending'),
-
-  // Request payout for specific event
-  requestEventPayout: (eventId, payoutData) => 
+  getMonthlyEarnings: (params = {}) =>
+    apiClient.get("/wallet/earnings/monthly", { params }),
+  getPendingPayouts: () => apiClient.get("/wallet/payouts/pending"),
+  requestEventPayout: (eventId, payoutData) =>
     apiClient.post(`/wallet/payouts/event/${eventId}`, payoutData),
-
-  // Get wallet analytics
-  getWalletAnalytics: (params = {}) => 
-    apiClient.get('/wallet/analytics', { params }),
-
-  // Export transactions (CSV/PDF)
-  exportTransactions: (format = 'csv', params = {}) => 
+  getWalletAnalytics: (params = {}) =>
+    apiClient.get("/wallet/analytics", { params }),
+  exportTransactions: (format = "csv", params = {}) =>
     apiClient.get(`/wallet/transactions/export/${format}`, {
       params,
-      responseType: 'blob'
+      responseType: "blob",
     }),
-
-  // Get fee structure
-  getFeeStructure: () => 
-    apiClient.get('/wallet/fees'),
-
-  // Verify bank account
-  verifyBankAccount: (bankData) => 
-    apiClient.post('/wallet/verify-bank-account', bankData),
-
-  // Get bank list (for adding bank accounts)
-  getBankList: () => 
-    apiClient.get('/wallet/banks'),
-
-  // Resolve account number (verify account name)
-  resolveAccountNumber: (bankCode, accountNumber) => 
-    apiClient.post('/wallet/resolve-account', { bankCode, accountNumber })
+  getFeeStructure: () => apiClient.get("/wallet/fees"),
+  verifyBankAccount: (bankData) =>
+    apiClient.post("/wallet/verify-bank-account", bankData),
+  getBankList: () => apiClient.get("/wallet/banks"),
+  resolveAccountNumber: (bankCode, accountNumber) =>
+    apiClient.post("/wallet/resolve-account", { bankCode, accountNumber }),
 };
+
 // Superadmin API calls
 export const superadminAPI = {
-  // User Management
   createSuperadmin: (userData) =>
     apiClient.post("/admin/users/register", userData),
-
   getAllUsers: (params = {}) => apiClient.get("/admin/users", { params }),
-
   updateUserRole: (userId, roleData) =>
     apiClient.patch(`/admin/users/${userId}/role`, roleData),
-
   updateUserStatus: (userId, statusData) =>
     apiClient.patch(`/admin/users/${userId}/status`, statusData),
-
   suspendUser: (userId, suspendData) =>
     apiClient.patch(`/admin/users/${userId}/suspend`, suspendData),
-
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}/delete`),
-
-  // Event Management
   getAllEventsAdmin: (params = {}) =>
     apiClient.get("/admin/events", { params }),
-
   updateEventAdmin: (eventId, eventData) =>
     apiClient.patch(`/admin/events/${eventId}`, eventData),
-
   deleteEventAdmin: (eventId) => apiClient.delete(`/admin/events/${eventId}`),
-
-  // Platform Statistics
   getPlatformStats: () => apiClient.get("/admin/stats"),
-
   getPlatformAnalytics: (params = {}) =>
     apiClient.get("/admin/analytics", { params }),
 };
 
 // Voice Search API calls
 export const voiceSearchAPI = {
-  // Parse voice search query
   parseVoiceQuery: (voiceQuery) =>
     apiClient.post("/voice-search", { query: voiceQuery }),
-
-  // Get search suggestions based on voice query
   getVoiceSuggestions: (voiceQuery) =>
-    apiClient.get(`/voice-search/suggestions?query=${encodeURIComponent(voiceQuery)}`),
-
-  // Get voice search history (optional)
+    apiClient.get(
+      `/voice-search/suggestions?query=${encodeURIComponent(voiceQuery)}`
+    ),
   getVoiceSearchHistory: () => apiClient.get("/voice-search/history"),
-
-  // Clear voice search history (optional)
   clearVoiceSearchHistory: () => apiClient.delete("/voice-search/history"),
 };
+
 // Notification API calls
 export const notificationAPI = {
-  // Get user notifications with pagination and filtering
-  getNotifications: (params = {}) => 
-    apiClient.get('/notifications', { params }),
-
-  // Get unread notifications count
-  getUnreadCount: () => 
-    apiClient.get('/notifications/unread-count'),
-
-  // Mark notification as read
-  markAsRead: (notificationId) => 
+  getNotifications: (params = {}) =>
+    apiClient.get("/notifications", { params }),
+  getUnreadCount: () => apiClient.get("/notifications/unread-count"),
+  markAsRead: (notificationId) =>
     apiClient.patch(`/notifications/${notificationId}/read`),
-
-  // Mark all notifications as read
-  markAllAsRead: () => 
-    apiClient.patch('/notifications/read-all'),
-
-  // Delete notification
-  deleteNotification: (notificationId) => 
+  markAllAsRead: () => apiClient.patch("/notifications/read-all"),
+  deleteNotification: (notificationId) =>
     apiClient.delete(`/notifications/${notificationId}`),
-
-  // Get notification statistics
-  getStats: () => 
-    apiClient.get('/notifications/stats'),
+  getStats: () => apiClient.get("/notifications/stats"),
 };
 
-
-// Utility function for API calls with error handling
-export const apiCall = async (apiFunction, ...args) => {
+// SIMPLIFIED API CALL FUNCTION
+export const apiCall = async (apiFunction) => {
   try {
-    const response = await apiFunction(...args);
+    const response = await apiFunction();
     return {
       success: true,
       data: response.data,
@@ -386,89 +305,36 @@ export const apiCall = async (apiFunction, ...args) => {
 
     let errorMessage = "An unexpected error occurred";
     let errorCode = error.response?.status;
-    let errorDetails = null;
 
-    if (error.code === "ECONNABORTED" && error.message.includes("timeout")) {
-      errorMessage =
-        "Request took too long. Please check your connection and try again.";
+    if (error.code === "ECONNABORTED") {
+      errorMessage = "Request timeout. Please check your connection.";
       errorCode = 408;
     } else if (error.response?.data) {
-      // Handle different error response formats
-      const errorData = error.response.data;
-
-      if (typeof errorData === "string") {
-        errorMessage = errorData;
-      } else if (errorData.message) {
-        errorMessage = errorData.message;
-        errorDetails = errorData.details || errorData.errors;
-      } else if (errorData.error) {
-        errorMessage = errorData.error;
-      }
+      errorMessage =
+        error.response.data.message ||
+        error.response.data.error ||
+        errorMessage;
     } else if (error.message) {
       errorMessage = error.message;
     }
 
-    // Specific handling for common error cases
-    if (errorCode === 401) {
+    // Common error codes
+    if (errorCode === 401)
       errorMessage = "Please log in to access this feature";
-    } else if (errorCode === 403) {
+    else if (errorCode === 403)
       errorMessage = "You don't have permission to perform this action";
-    } else if (errorCode === 404) {
+    else if (errorCode === 404)
       errorMessage = "The requested resource was not found";
-    } else if (errorCode === 409) {
+    else if (errorCode === 409)
       errorMessage = "A conflict occurred while processing your request";
-    } else if (errorCode >= 500) {
+    else if (errorCode >= 500)
       errorMessage = "Server error. Please try again later";
-    }
 
     return {
       success: false,
       error: errorMessage,
       status: errorCode,
-      details: errorDetails,
     };
-  }
-};
-
-// Specialized API call for file uploads
-export const apiCallWithProgress = (apiFunction, onProgress, ...args) => {
-  return new Promise((resolve, reject) => {
-    apiFunction(...args, {
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          onProgress(percentCompleted);
-        }
-      },
-    })
-      .then((response) => resolve({ success: true, data: response.data }))
-      .catch((error) => {
-        const errorMessage = error.response?.data?.message || error.message;
-        reject({ success: false, error: errorMessage });
-      });
-  });
-};
-
-// Helper function to handle API responses consistently
-export const handleApiResponse = (result, options = {}) => {
-  const { onSuccess, onError, showToast } = options;
-
-  if (result.success) {
-    if (onSuccess) onSuccess(result.data);
-    if (showToast && options.successMessage) {
-      // You can integrate with your toast notification system here
-      console.log("Success:", options.successMessage);
-    }
-    return result.data;
-  } else {
-    if (onError) onError(result.error);
-    if (showToast !== false) {
-      // Show error toast
-      console.error("Error:", result.error);
-    }
-    throw new Error(result.error);
   }
 };
 

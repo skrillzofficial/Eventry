@@ -72,7 +72,7 @@ const Navbar = () => {
   const { isAuthenticated, user, logout, loading } = useAuth();
   const isDiscoverPage = location.pathname === "/discover";
 
-  // Check if current page is auth page (login, signup, register)
+  // Check if current page is auth page (login, signup, forgot-password)
   const isAuthPage = ["/login", "/signup", "/forgot-password"].includes(location.pathname);
 
   // Track scroll position and detect background color
@@ -188,6 +188,7 @@ const Navbar = () => {
       user,
       userRole: user?.role,
       loading,
+      profilePicture: user?.profilePicture,
     });
   }, [isAuthenticated, user, loading]);
 
@@ -315,6 +316,51 @@ const Navbar = () => {
       : []),
   ];
 
+  // Function to get user's initials for fallback avatar
+  const getUserInitials = () => {
+    if (!user) return "U";
+    
+    if (user.firstName && user.lastName) {
+      return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+    }
+    
+    if (user.userName) {
+      return user.userName.charAt(0).toUpperCase();
+    }
+    
+    if (user.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    
+    return "U";
+  };
+
+  // Function to render user avatar
+  const renderUserAvatar = (size = "w-8 h-8", showBorder = true) => {
+    const borderClass = showBorder ? "border-2 border-white shadow-lg" : "";
+    
+    if (user?.profilePicture) {
+      return (
+        <img
+          src={user.profilePicture}
+          alt={`${user.userName || user.firstName}'s profile`}
+          className={`${size} rounded-full object-cover ${borderClass} group-hover:scale-110 transition-transform`}
+          onError={(e) => {
+            // Fallback to initials if image fails to load
+            e.target.style.display = 'none';
+            e.target.nextSibling.style.display = 'flex';
+          }}
+        />
+      );
+    }
+
+    return (
+      <div className={`${size} bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-full flex items-center justify-center text-white font-semibold ${borderClass} group-hover:scale-110 transition-transform`}>
+        {getUserInitials()}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="relative">
@@ -394,9 +440,7 @@ const Navbar = () => {
 
                   <div className="relative user-menu-container">
                     <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className={`flex items-center space-x-2 p-2 rounded-lg ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} transition-colors group`}>
-                      <div className="w-8 h-8 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                        <User className="h-4 w-4 text-white" />
-                      </div>
+                      {renderUserAvatar()}
                       <span className={`text-sm font-medium ${getTextColor()}`}>
                         {user?.userName || user?.firstName || "User"}
                       </span>
@@ -405,10 +449,15 @@ const Navbar = () => {
                     {isUserMenuOpen && (
                       <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
                         <div className="px-4 py-2 border-b border-gray-100">
-                          <p className="text-sm font-medium text-gray-900">
-                            {user?.userName || `${user?.firstName} ${user?.lastName}` || "User"}
-                          </p>
-                          <p className="text-xs text-gray-500 capitalize">{user?.role || "attendee"}</p>
+                          <div className="flex items-center space-x-3 mb-2">
+                            {renderUserAvatar("w-10 h-10", false)}
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {user?.userName || `${user?.firstName} ${user?.lastName}` || "User"}
+                              </p>
+                              <p className="text-xs text-gray-500 capitalize">{user?.role || "attendee"}</p>
+                            </div>
+                          </div>
                         </div>
 
                         {userMenuItems.map((item) => (
@@ -468,6 +517,19 @@ const Navbar = () => {
 
               {isAuthenticated ? (
                 <React.Fragment>
+                  {/* User info in mobile menu */}
+                  <div className="flex items-center space-x-3 px-3 py-2 border-b border-white/10 mb-2">
+                    {renderUserAvatar("w-10 h-10", false)}
+                    <div>
+                      <p className={`text-sm font-medium ${getTextColor()}`}>
+                        {user?.userName || `${user?.firstName} ${user?.lastName}` || "User"}
+                      </p>
+                      <p className={`text-xs ${navbarBg === "light" ? "text-gray-500" : "text-white/70"} capitalize`}>
+                        {user?.role || "attendee"}
+                      </p>
+                    </div>
+                  </div>
+
                   {userMenuItems.map((item) => (
                     <NavLink key={item.label} to={item.path} className={`flex items-center px-3 py-2 ${getTextColor()} ${navbarBg === "light" ? "hover:bg-gray-100" : "hover:bg-white/10"} rounded-md transition-colors group`} onClick={() => setIsMenuOpen(false)}>
                       <item.icon className="h-4 w-4 mr-2 group-hover:text-[#FF6B35] transition-colors" />
