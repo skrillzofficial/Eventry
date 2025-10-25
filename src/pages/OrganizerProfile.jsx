@@ -30,7 +30,6 @@ const OrganizerDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({});
   const [recentEvents, setRecentEvents] = useState([]);
-  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [allEvents, setAllEvents] = useState([]);
   const [revenueData, setRevenueData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -118,14 +117,7 @@ const OrganizerDashboard = () => {
     console.log(" Processed events:", processedEvents);
 
     setAllEvents(processedEvents);
-
-    const today = new Date();
-    const activeEvents = processedEvents.filter(
-      (event) => new Date(event.date) >= today && event.status === "published"
-    );
-
     setRecentEvents(processedEvents.slice(0, 5));
-    setUpcomingEvents(activeEvents.slice(0, 3));
 
     const monthlyRevenue = generateMonthlyRevenue(processedEvents);
     setRevenueData(monthlyRevenue);
@@ -416,10 +408,6 @@ Generated: ${new Date().toLocaleString()}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <QuickActionsSection />
-            <RevenueSection
-              revenueData={revenueData}
-              totalRevenue={stats.totalRevenue}
-            />
             <EventsManagementSection
               events={recentEvents}
               onShareEvent={shareEvent}
@@ -428,12 +416,14 @@ Generated: ${new Date().toLocaleString()}
           </div>
 
           <div className="space-y-6">
-            <UpcomingEventsSection events={upcomingEvents} />
             <BlockchainWalletSection
               balance={stats.walletBalance}
               totalEarned={stats.totalRevenue}
             />
-            <PerformanceMetricsSection stats={stats} />
+            <RevenueSection
+              revenueData={revenueData}
+              totalRevenue={stats.totalRevenue}
+            />
           </div>
         </div>
       </div>
@@ -497,72 +487,123 @@ const QuickActionsSection = () => (
         <span className="text-sm font-medium text-gray-900">Browse Events</span>
       </Link>
       <Link
-        to="/profile"
+        to="/dashboard/wallet"
         className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
       >
         <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
-          <BarChart3 className="h-6 w-6 text-[#FF6B35]" />
+          <Wallet className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-gray-900">Profile</span>
+        <span className="text-sm font-medium text-gray-900">Wallet</span>
       </Link>
     </div>
   </div>
 );
 
-const RevenueSection = ({ revenueData, totalRevenue }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Analytics</h3>
-    {revenueData.values &&
-    revenueData.values.length > 0 &&
-    revenueData.values.some((v) => v > 0) ? (
-      <>
-        <div className="h-48 flex items-end space-x-2">
-          {revenueData.values.map((value, index) => {
-            const maxValue = Math.max(...revenueData.values, 1);
-            const height = (value / maxValue) * 100;
-            return (
-              <div
-                key={index}
-                className="flex-1 flex flex-col items-center group"
-              >
-                <div
-                  className="w-full bg-[#FF6B35] rounded-t transition-all duration-300 hover:bg-[#FF8535] group-hover:scale-105 relative"
-                  style={{
-                    height: `${height}%`,
-                    minHeight: value > 0 ? "10%" : "0",
-                  }}
-                  title={`₦${value.toLocaleString()}`}
-                />
-                <span className="text-xs text-gray-600 mt-2 group-hover:text-gray-900 transition-colors">
-                  {revenueData.labels[index]}
-                </span>
+const RevenueSection = ({ revenueData, totalRevenue }) => {
+  const colors = ['#FF6B35', '#FF8535', '#FFA059', '#FFBA7D', '#FFD5A1', '#FFE8C8'];
+  
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Analytics</h3>
+      {revenueData.values &&
+      revenueData.values.length > 0 &&
+      revenueData.values.some((v) => v > 0) ? (
+        <>
+          <div className="flex items-center justify-center mb-4">
+            <div className="relative w-48 h-48">
+              <svg viewBox="0 0 200 200" className="transform -rotate-90">
+                {(() => {
+                  const total = revenueData.values.reduce((sum, val) => sum + val, 0);
+                  let currentAngle = 0;
+                  
+                  return revenueData.values.map((value, index) => {
+                    if (value === 0) return null;
+                    
+                    const percentage = (value / total) * 100;
+                    const angle = (percentage / 100) * 360;
+                    const radius = 80;
+                    const centerX = 100;
+                    const centerY = 100;
+                    
+                    const startAngle = currentAngle;
+                    const endAngle = currentAngle + angle;
+                    
+                    const x1 = centerX + radius * Math.cos((Math.PI * startAngle) / 180);
+                    const y1 = centerY + radius * Math.sin((Math.PI * startAngle) / 180);
+                    const x2 = centerX + radius * Math.cos((Math.PI * endAngle) / 180);
+                    const y2 = centerY + radius * Math.sin((Math.PI * endAngle) / 180);
+                    
+                    const largeArcFlag = angle > 180 ? 1 : 0;
+                    
+                    const pathData = [
+                      `M ${centerX} ${centerY}`,
+                      `L ${x1} ${y1}`,
+                      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                      'Z'
+                    ].join(' ');
+                    
+                    currentAngle += angle;
+                    
+                    return (
+                      <path
+                        key={index}
+                        d={pathData}
+                        fill={colors[index % colors.length]}
+                        className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                        title={`${revenueData.labels[index]}: ₦${value.toLocaleString()}`}
+                      />
+                    );
+                  });
+                })()}
+                <circle cx="100" cy="100" r="50" fill="white" />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-xs text-gray-500">Total</p>
+                  <p className="text-lg font-bold text-gray-900">₦{(totalRevenue || 0).toLocaleString()}</p>
+                </div>
               </div>
-            );
-          })}
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            {revenueData.labels.map((label, index) => {
+              if (revenueData.values[index] === 0) return null;
+              const percentage = ((revenueData.values[index] / revenueData.values.reduce((sum, val) => sum + val, 0)) * 100).toFixed(1);
+              
+              return (
+                <div key={index} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center">
+                    <div 
+                      className="w-3 h-3 rounded-full mr-2" 
+                      style={{ backgroundColor: colors[index % colors.length] }}
+                    />
+                    <span className="text-gray-600">{label}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-900">₦{revenueData.values[index].toLocaleString()}</span>
+                    <span className="text-gray-500 ml-2">({percentage}%)</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div className="h-64 flex flex-col items-center justify-center text-gray-400">
+          <BarChart3 className="h-12 w-12 mb-4 opacity-50" />
+          <p>No revenue data available yet</p>
+          <Link
+            to="/create-event"
+            className="text-[#FF6B35] text-sm mt-2 hover:underline"
+          >
+            Create your first event
+          </Link>
         </div>
-        <div className="flex justify-between items-center mt-4">
-          <span className="text-sm text-gray-600">
-            Monthly revenue distribution
-          </span>
-          <span className="text-sm font-semibold text-[#FF6B35]">
-            Total: ₦{(totalRevenue || 0).toLocaleString()}
-          </span>
-        </div>
-      </>
-    ) : (
-      <div className="h-48 flex flex-col items-center justify-center text-gray-400">
-        <BarChart3 className="h-12 w-12 mb-4 opacity-50" />
-        <p>No revenue data available yet</p>
-        <Link
-          to="/create-event"
-          className="text-[#FF6B35] text-sm mt-2 hover:underline"
-        >
-          Create your first event
-        </Link>
-      </div>
-    )}
-  </div>
-);
+      )}
+    </div>
+  );
+};
 
 const EventsManagementSection = ({
   events,
@@ -704,48 +745,6 @@ const EventCard = ({ event, onShare, onDownload }) => {
   );
 };
 
-const UpcomingEventsSection = ({ events }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900">Upcoming Events</h3>
-      <Link
-        to="/my-events"
-        className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center transition-all duration-200 hover:scale-105"
-      >
-        View all <ArrowRight className="h-4 w-4 ml-1" />
-      </Link>
-    </div>
-    <div className="space-y-3">
-      {events.map((event) => (
-        <Link key={event.id} to={`/event/${event.id}`}>
-          <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
-            <div className="flex-1">
-              <p className="font-medium text-gray-900 text-sm">{event.title}</p>
-              <p className="text-xs text-gray-600">
-                {new Date(event.date).toLocaleDateString()} • {event.city}
-              </p>
-            </div>
-            <span className="text-xs bg-[#FF6B35]/10 text-[#FF6B35] px-2 py-1 rounded-full font-medium">
-              {event.ticketsSold} sold
-            </span>
-          </div>
-        </Link>
-      ))}
-      {events.length === 0 && (
-        <div className="text-center py-4 text-gray-400">
-          <p className="text-sm">No upcoming events</p>
-          <Link
-            to="/create-event"
-            className="text-[#FF6B35] text-xs mt-1 inline-block hover:underline"
-          >
-            Create one now
-          </Link>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
 const BlockchainWalletSection = ({ balance, totalEarned }) => (
   <div className="bg-gradient-to-br from-[#FF6B35] to-[#E55A2B] rounded-xl shadow-lg p-6 text-white">
     <div className="flex items-center justify-between mb-3">
@@ -766,60 +765,6 @@ const BlockchainWalletSection = ({ balance, totalEarned }) => (
       <Download className="h-4 w-4 mr-2" />
       Withdraw Funds
     </button>
-  </div>
-);
-
-const PerformanceMetricsSection = ({ stats }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-      Performance Metrics
-    </h3>
-    <div className="space-y-4">
-      <MetricItem
-        label="Conversion Rate"
-        value={`${stats.conversionRate || 0}%`}
-        trend={stats.conversionRate > 50 ? "up" : "stable"}
-      />
-      <MetricItem
-        label="Avg Ticket Price"
-        value={`₦${(stats.averageTicketPrice || 0).toLocaleString()}`}
-        trend="stable"
-      />
-      <MetricItem
-        label="Capacity Usage"
-        value={`${stats.capacityUsage || 0}%`}
-        trend={stats.capacityUsage > 70 ? "up" : "stable"}
-      />
-      <MetricItem
-        label="Total Events"
-        value={stats.totalEvents || 0}
-        trend={stats.activeEvents > 0 ? "up" : "stable"}
-      />
-    </div>
-  </div>
-);
-
-const MetricItem = ({ label, value, trend }) => (
-  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-all duration-200">
-    <span className="text-sm text-gray-600">{label}</span>
-    <div className="flex items-center space-x-2">
-      <span className="font-semibold text-gray-900">{value}</span>
-      <div
-        className={`p-1 rounded ${
-          trend === "up"
-            ? "bg-green-100 text-green-600"
-            : trend === "down"
-            ? "bg-red-100 text-red-600"
-            : "bg-gray-100 text-gray-600"
-        }`}
-      >
-        <TrendingUp
-          className={`h-3 w-3 ${trend === "down" ? "rotate-180" : ""} ${
-            trend === "stable" ? "rotate-90" : ""
-          }`}
-        />
-      </div>
-    </div>
   </div>
 );
 

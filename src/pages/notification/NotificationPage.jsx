@@ -103,6 +103,15 @@ const NotificationsPage = () => {
       console.error("Failed to bulk delete:", error);
     }
   };
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead();
+      // Optionally clear selected notifications if you want
+      setSelectedNotifications(new Set());
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+    }
+  };
 
   const getNotificationIcon = (type) => {
     switch (type) {

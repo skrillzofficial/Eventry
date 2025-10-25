@@ -4,14 +4,10 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
   Calendar,
-  MapPin,
-  DollarSign,
   Users,
-  Clock,
-  Image,
-  Upload,
-  X,
-  Save,
+  TrendingUp,
+  Ticket,
+  Wallet,
   ArrowLeft,
   CheckCircle,
   Plus,
@@ -20,10 +16,16 @@ import {
   FileText,
   Shield,
   Gift,
-  Ticket,
   Eye,
   EyeOff,
   AlertCircle,
+  X,
+  Upload,
+  MapPin,
+  DollarSign,
+  Clock,
+  Image,
+  Save,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -31,7 +33,7 @@ import { eventAPI, apiCall } from "../../services/api";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 
-// Enhanced validation schema
+// Enhanced validation schema - only title is required
 const eventSchema = yup.object().shape({
   title: yup
     .string()
@@ -89,7 +91,7 @@ const CreateEvent = () => {
     mode: "onChange",
   });
 
-  // Available options
+  // Updated Categories (added Lifestyle)
   const CATEGORIES = [
     "Technology",
     "Business",
@@ -102,22 +104,49 @@ const CreateEvent = () => {
     "Sports",
     "Entertainment",
     "Networking",
+    "Lifestyle",
     "Other",
   ];
+
+  // Updated Nigerian States (all 36 states + FCT)
   const CITIES = [
-    "Lagos",
-    "Abuja",
-    "Ibadan",
-    "Port Harcourt",
-    "Kano",
-    "Benin",
+    "Abia",
+    "Adamawa",
+    "Akwa Ibom",
+    "Anambra",
+    "Bauchi",
+    "Bayelsa",
+    "Benue",
+    "Borno",
+    "Cross River",
+    "Delta",
+    "Ebonyi",
+    "Edo",
+    "Ekiti",
     "Enugu",
+    "FCT (Abuja)",
+    "Gombe",
+    "Imo",
+    "Jigawa",
     "Kaduna",
-    "Owerri",
-    "Jos",
-    "Calabar",
-    "Abeokuta",
-    "Other",
+    "Kano",
+    "Katsina",
+    "Kebbi",
+    "Kogi",
+    "Kwara",
+    "Lagos",
+    "Nasarawa",
+    "Niger",
+    "Ogun",
+    "Ondo",
+    "Osun",
+    "Oyo",
+    "Plateau",
+    "Rivers",
+    "Sokoto",
+    "Taraba",
+    "Yobe",
+    "Zamfara",
   ];
 
   const TICKET_TYPES = ["Regular", "VIP", "VVIP"];
@@ -254,7 +283,7 @@ const CreateEvent = () => {
       endTime: "End time is required to publish",
       venue: "Venue is required to publish",
       address: "Address is required to publish",
-      city: "City is required to publish",
+      city: "City/State is required to publish",
     };
 
     const errors = [];
@@ -372,7 +401,7 @@ const CreateEvent = () => {
         console.log(`Event ${status} successfully:`, result.data);
         setSuccessMessage(
           status === "draft"
-            ? "Event saved as draft! You can publish it later."
+            ? "Event saved as draft! You can edit and publish it later from your dashboard."
             : "Event published successfully! It's now live on the platform."
         );
         setShowSuccess(true);
@@ -508,7 +537,10 @@ const CreateEvent = () => {
         {/* Server Error */}
         {errors.root?.serverError && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700">{errors.root.serverError.message}</p>
+            <p className="text-red-700 flex items-center">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              {errors.root.serverError.message}
+            </p>
           </div>
         )}
 
@@ -714,13 +746,13 @@ const CreateEvent = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  City
+                  State
                 </label>
                 <select
                   {...register("city")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 >
-                  <option value="">Select your city</option>
+                  <option value="">Select your state</option>
                   {CITIES.map((city) => (
                     <option key={city} value={city}>
                       {city}
@@ -1159,7 +1191,7 @@ const CreateEvent = () => {
                     </>
                   ) : (
                     <>
-                      <EyeOff className="h-4 w-4 mr-2" />
+                      <FileText className="h-4 w-4 mr-2" />
                       Save as Draft
                     </>
                   )}
@@ -1187,15 +1219,15 @@ const CreateEvent = () => {
 
               {/* Helper text */}
               <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
-                <p className="font-semibold mb-2"> Quick Tip:</p>
+                <p className="font-semibold mb-2">📝 Quick Tip:</p>
                 <ul className="space-y-1 list-disc list-inside">
                   <li>
                     <strong>Draft:</strong> Save incomplete events and finish
-                    them later
+                    them later. Drafts are only visible to you.
                   </li>
                   <li>
                     <strong>Publish:</strong> All required fields must be filled
-                    to publish
+                    to publish. Published events are visible to everyone.
                   </li>
                   <li>
                     You can edit or unpublish events anytime from your dashboard

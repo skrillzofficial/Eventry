@@ -502,7 +502,7 @@ const Navbar = () => {
         )}
       </nav>
 
-      <div className="h-16"></div>
+      <div className="h-5"></div>
 
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
