@@ -7,7 +7,6 @@ import {
   CreditCard, 
   History,
   Shield,
-  QrCode,
   Plus,
   Minus,
   ArrowUpRight,
@@ -19,7 +18,9 @@ import {
   AlertCircle,
   RefreshCw,
   X,
-  Loader
+  Loader,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
@@ -29,14 +30,24 @@ const WalletComponent = () => {
   const [walletData, setWalletData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showBalance, setShowBalance] = useState(true);
-  const [copiedAddress, setCopiedAddress] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showAddMethodModal, setShowAddMethodModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [selectedWithdrawalMethod, setSelectedWithdrawalMethod] = useState('');
+  
+  // New method form state
+  const [newMethodType, setNewMethodType] = useState('bank');
+  const [newMethodData, setNewMethodData] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountName: '',
+    walletAddress: '',
+    walletType: 'ethereum'
+  });
 
   useEffect(() => {
     loadWalletData();
@@ -60,7 +71,6 @@ const WalletComponent = () => {
         available: balanceResult.data.available || 0,
         pending: balanceResult.data.pending || 0,
         currency: balanceResult.data.currency || 'NGN',
-        walletAddress: balanceResult.data.walletAddress || 'N/A',
         transactions: transactionsResult.data.transactions || [],
         withdrawalMethods: withdrawalMethodsResult.data.methods || [],
         stats: {
@@ -80,7 +90,6 @@ const WalletComponent = () => {
         available: 115200.75,
         pending: 10399.75,
         currency: 'NGN',
-        walletAddress: '0x742d35Cc6634C0532925a3b8D',
         transactions: [
           {
             id: 1,
@@ -106,8 +115,17 @@ const WalletComponent = () => {
             id: 1,
             type: 'bank',
             name: 'Guaranty Trust Bank',
-            last4: '1234',
+            accountNumber: '****1234',
+            accountName: 'John Doe',
             primary: true
+          },
+          {
+            id: 2,
+            type: 'crypto',
+            name: 'Ethereum Wallet',
+            walletAddress: '0x742d...8D',
+            walletType: 'ethereum',
+            primary: false
           }
         ],
         stats: {
@@ -138,9 +156,72 @@ const WalletComponent = () => {
     setTabLoading(false);
   };
 
+  const handleAddMethod = async () => {
+    try {
+      const methodData = newMethodType === 'bank' 
+        ? {
+            type: 'bank',
+            bankName: newMethodData.bankName,
+            accountNumber: newMethodData.accountNumber,
+            accountName: newMethodData.accountName
+          }
+        : {
+            type: 'crypto',
+            walletAddress: newMethodData.walletAddress,
+            walletType: newMethodData.walletType
+          };
+
+      const result = await apiCall(walletAPI.addPaymentMethod, methodData);
+
+      if (result.success) {
+        alert('Withdrawal method added successfully!');
+        setShowAddMethodModal(false);
+        resetMethodForm();
+        loadWalletData();
+      }
+    } catch (err) {
+      alert('Failed to add withdrawal method: ' + err.message);
+    }
+  };
+
+  const handleDeleteMethod = async (methodId) => {
+    if (!confirm('Are you sure you want to delete this withdrawal method?')) {
+      return;
+    }
+
+    try {
+      const result = await apiCall(walletAPI.deletePaymentMethod, methodId);
+      
+      if (result.success) {
+        alert('Withdrawal method deleted successfully!');
+        loadWalletData();
+      }
+    } catch (err) {
+      alert('Failed to delete withdrawal method: ' + err.message);
+    }
+  };
+
+  const handleSetPrimary = async (methodId) => {
+    try {
+      const result = await apiCall(walletAPI.setPrimaryPaymentMethod, methodId);
+      
+      if (result.success) {
+        alert('Primary withdrawal method updated!');
+        loadWalletData();
+      }
+    } catch (err) {
+      alert('Failed to update primary method: ' + err.message);
+    }
+  };
+
   const handleWithdrawal = async () => {
     if (!withdrawAmount || !selectedWithdrawalMethod) {
       alert('Please enter amount and select withdrawal method');
+      return;
+    }
+
+    if (parseFloat(withdrawAmount) > walletData.available) {
+      alert('Insufficient available balance');
       return;
     }
 
@@ -162,10 +243,15 @@ const WalletComponent = () => {
     }
   };
 
-  const copyWalletAddress = () => {
-    navigator.clipboard.writeText(walletData.walletAddress);
-    setCopiedAddress(true);
-    setTimeout(() => setCopiedAddress(false), 2000);
+  const resetMethodForm = () => {
+    setNewMethodType('bank');
+    setNewMethodData({
+      bankName: '',
+      accountNumber: '',
+      accountName: '',
+      walletAddress: '',
+      walletType: 'ethereum'
+    });
   };
 
   const formatCurrency = (amount) => {
@@ -183,6 +269,12 @@ const WalletComponent = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const maskWalletAddress = (address) => {
+    if (!address) return '';
+    if (address.length <= 10) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   if (loading) {
@@ -211,11 +303,12 @@ const WalletComponent = () => {
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-3xl font-bold text-gray-900">Wallet</h1>
                 <div className="flex items-center gap-1 px-3 py-1 bg-green-50 rounded-full border border-green-200">
+                  <Shield className="w-4 h-4 text-green-600" />
                   <span className="text-sm font-medium text-green-700">Secure</span>
                 </div>
               </div>
               <p className="text-gray-600">
-                Manage your earnings, withdrawals, and withdrawal methods
+                Manage your earnings, withdrawals, and payment methods
               </p>
             </div>
             <button
@@ -292,39 +385,9 @@ const WalletComponent = () => {
                   className="flex-1 bg-white text-[#FF6B35] py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-200 hover:scale-105 flex items-center justify-center"
                 >
                   <Download className="h-5 w-5 mr-2" />
-                  Withdraw
+                  Withdraw Funds
                 </button>
               </div>
-            </div>
-
-            {/* Wallet Address */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Wallet Address</h3>
-                <Shield className="h-5 w-5 text-[#FF6B35]" />
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="flex-1 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <code className="text-gray-700 font-mono text-sm break-all">
-                    {walletData.walletAddress}
-                  </code>
-                </div>
-                <button
-                  onClick={copyWalletAddress}
-                  className="p-3 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-all duration-200 hover:scale-105"
-                >
-                  {copiedAddress ? <CheckCircle className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-                </button>
-                <button className="p-3 bg-gray-100 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:scale-105">
-                  <QrCode className="h-5 w-5" />
-                </button>
-              </div>
-              {copiedAddress && (
-                <div className="mt-2 text-green-600 text-sm flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Address copied to clipboard!
-                </div>
-              )}
             </div>
 
             {/* Navigation Tabs */}
@@ -432,36 +495,51 @@ const WalletComponent = () => {
                       <div>
                         <div className="flex justify-between items-center mb-6">
                           <h3 className="text-xl font-semibold text-gray-900">Withdrawal Methods</h3>
-                          <button className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 flex items-center">
+                          <button 
+                            onClick={() => setShowAddMethodModal(true)}
+                            className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 flex items-center"
+                          >
                             <Plus className="h-4 w-4 mr-2" />
-                            Add New
+                            Add New Method
                           </button>
                         </div>
 
                         <div className="space-y-4">
                           {walletData.withdrawalMethods && walletData.withdrawalMethods.length > 0 ? (
                             walletData.withdrawalMethods.map(method => (
-                              <WithdrawalMethodCard key={method.id} method={method} />
+                              <WithdrawalMethodCard 
+                                key={method.id} 
+                                method={method}
+                                maskWalletAddress={maskWalletAddress}
+                                onDelete={handleDeleteMethod}
+                                onSetPrimary={handleSetPrimary}
+                              />
                             ))
                           ) : (
                             <div className="text-center py-12 text-gray-500">
                               <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                               <p className="mb-4">No withdrawal methods added yet</p>
-                              <button className="bg-[#FF6B35] text-white px-6 py-2 rounded-lg hover:bg-[#FF8535] transition-colors">
+                              <button 
+                                onClick={() => setShowAddMethodModal(true)}
+                                className="bg-[#FF6B35] text-white px-6 py-2 rounded-lg hover:bg-[#FF8535] transition-colors"
+                              >
                                 Add Withdrawal Method
                               </button>
                             </div>
                           )}
                         </div>
 
-                        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                           <div className="flex items-start space-x-3">
-                            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                            <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
                             <div>
-                              <h4 className="font-semibold text-yellow-800 mb-1">Security Notice</h4>
-                              <p className="text-yellow-700 text-sm">
-                                Your withdrawal methods are securely encrypted. We never store your full bank details on our servers.
-                              </p>
+                              <h4 className="font-semibold text-blue-800 mb-1">Security & Privacy</h4>
+                              <ul className="text-blue-700 text-sm space-y-1">
+                                <li>• Your withdrawal methods are encrypted end-to-end</li>
+                                <li>• Bank details are never fully displayed for security</li>
+                                <li>• Crypto wallet addresses are stored securely</li>
+                                <li>• All withdrawals require verification</li>
+                              </ul>
                             </div>
                           </div>
                         </div>
@@ -509,7 +587,7 @@ const WalletComponent = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Never share your wallet private keys</p>
+                  <p className="text-gray-600">Never share your withdrawal method details</p>
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
@@ -517,7 +595,7 @@ const WalletComponent = () => {
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Verify payment addresses before sending</p>
+                  <p className="text-gray-600">Verify payment addresses before confirming</p>
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
@@ -542,6 +620,188 @@ const WalletComponent = () => {
           </div>
         </div>
       </div>
+
+      {/* Add Withdrawal Method Modal */}
+      {showAddMethodModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Add Withdrawal Method</h3>
+              <button
+                onClick={() => {
+                  setShowAddMethodModal(false);
+                  resetMethodForm();
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Method Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Withdrawal Method Type
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setNewMethodType('bank')}
+                    className={`p-4 border-2 rounded-lg flex flex-col items-center transition-all ${
+                      newMethodType === 'bank'
+                        ? 'border-[#FF6B35] bg-orange-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <CreditCard className="h-6 w-6 mb-2 text-[#FF6B35]" />
+                    <span className="font-medium text-sm">Bank Account</span>
+                  </button>
+                  <button
+                    onClick={() => setNewMethodType('crypto')}
+                    className={`p-4 border-2 rounded-lg flex flex-col items-center transition-all ${
+                      newMethodType === 'crypto'
+                        ? 'border-[#FF6B35] bg-orange-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <Wallet className="h-6 w-6 mb-2 text-[#FF6B35]" />
+                    <span className="font-medium text-sm">Crypto Wallet</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Bank Account Form */}
+              {newMethodType === 'bank' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bank Name
+                    </label>
+                    <select
+                      value={newMethodData.bankName}
+                      onChange={(e) => setNewMethodData({...newMethodData, bankName: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    >
+                      <option value="">Select your bank</option>
+                      <option value="Access Bank">Access Bank</option>
+                      <option value="GTBank">Guaranty Trust Bank</option>
+                      <option value="First Bank">First Bank of Nigeria</option>
+                      <option value="UBA">United Bank for Africa</option>
+                      <option value="Zenith Bank">Zenith Bank</option>
+                      <option value="Ecobank">Ecobank Nigeria</option>
+                      <option value="Fidelity Bank">Fidelity Bank</option>
+                      <option value="FCMB">First City Monument Bank</option>
+                      <option value="Sterling Bank">Sterling Bank</option>
+                      <option value="Wema Bank">Wema Bank</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Account Number
+                    </label>
+                    <input
+                      type="text"
+                      value={newMethodData.accountNumber}
+                      onChange={(e) => setNewMethodData({...newMethodData, accountNumber: e.target.value})}
+                      placeholder="Enter 10-digit account number"
+                      maxLength="10"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Account Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newMethodData.accountName}
+                      onChange={(e) => setNewMethodData({...newMethodData, accountName: e.target.value})}
+                      placeholder="Account holder's name"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Crypto Wallet Form */}
+              {newMethodType === 'crypto' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Wallet Type
+                    </label>
+                    <select
+                      value={newMethodData.walletType}
+                      onChange={(e) => setNewMethodData({...newMethodData, walletType: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    >
+                      <option value="ethereum">Ethereum (ETH)</option>
+                      <option value="bitcoin">Bitcoin (BTC)</option>
+                      <option value="usdt">Tether (USDT)</option>
+                      <option value="usdc">USD Coin (USDC)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Wallet Address
+                    </label>
+                    <input
+                      type="text"
+                      value={newMethodData.walletAddress}
+                      onChange={(e) => setNewMethodData({...newMethodData, walletAddress: e.target.value})}
+                      placeholder="Enter your wallet address"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] font-mono text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Double-check your wallet address. Funds sent to wrong address cannot be recovered.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-amber-800 text-sm mb-1">Important Security Notice</h4>
+                    <p className="text-amber-700 text-sm">
+                      {newMethodType === 'bank' 
+                        ? 'Ensure your bank details are correct. Your account will be verified before first withdrawal.'
+                        : 'Crypto transactions are irreversible. Always verify your wallet address is correct.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowAddMethodModal(false);
+                    resetMethodForm();
+                  }}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddMethod}
+                  disabled={
+                    newMethodType === 'bank' 
+                      ? !newMethodData.bankName || !newMethodData.accountNumber || !newMethodData.accountName
+                      : !newMethodData.walletAddress
+                  }
+                  className="flex-1 px-4 py-3 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Method
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Withdrawal Modal */}
       {showWithdrawModal && (
@@ -586,10 +846,17 @@ const WalletComponent = () => {
                   <option value="">Select withdrawal method</option>
                   {walletData.withdrawalMethods.map(method => (
                     <option key={method.id} value={method.id}>
-                      {method.name} {method.type === 'bank' ? `(****${method.last4})` : ''}
+                      {method.type === 'bank' 
+                        ? `${method.name} (${method.accountNumber})`
+                        : `${method.name} (${maskWalletAddress(method.walletAddress)})`}
                     </option>
                   ))}
                 </select>
+                {walletData.withdrawalMethods.length === 0 && (
+                  <p className="text-sm text-amber-600 mt-2">
+                    Please add a withdrawal method first
+                  </p>
+                )}
               </div>
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -598,7 +865,8 @@ const WalletComponent = () => {
                   <div>
                     <h4 className="font-semibold text-blue-800 text-sm mb-1">Processing Time</h4>
                     <p className="text-blue-700 text-sm">
-                      Withdrawals are typically processed within 1-3 business days.
+                      Bank withdrawals: 1-3 business days<br/>
+                      Crypto withdrawals: 10-30 minutes
                     </p>
                   </div>
                 </div>
@@ -613,7 +881,8 @@ const WalletComponent = () => {
                 </button>
                 <button
                   onClick={handleWithdrawal}
-                  className="flex-1 px-4 py-3 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] transition-colors"
+                  disabled={walletData.withdrawalMethods.length === 0}
+                  className="flex-1 px-4 py-3 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Withdraw
                 </button>
@@ -683,7 +952,7 @@ const TransactionItem = ({ transaction, formatCurrency, formatDate }) => (
   </div>
 );
 
-const WithdrawalMethodCard = ({ method }) => (
+const WithdrawalMethodCard = ({ method, maskWalletAddress, onDelete, onSetPrimary }) => (
   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#FF6B35] transition-all duration-200">
     <div className="flex items-center space-x-4">
       <div className="p-3 bg-orange-100 rounded-lg">
@@ -694,20 +963,36 @@ const WithdrawalMethodCard = ({ method }) => (
         )}
       </div>
       <div>
-        <h4 className="font-semibold text-gray-900 text-sm">{method.name}</h4>
+        <h4 className="font-semibold text-gray-900 text-sm">
+          {method.type === 'bank' ? method.name : `${method.walletType?.toUpperCase() || 'Crypto'} Wallet`}
+        </h4>
         <p className="text-gray-500 text-xs mt-1">
-          {method.type === 'bank' ? `•••• ${method.last4}` : method.address?.slice(0, 16) + '...'}
+          {method.type === 'bank' 
+            ? `${method.accountNumber} • ${method.accountName}` 
+            : maskWalletAddress(method.walletAddress)}
         </p>
       </div>
     </div>
     <div className="flex items-center space-x-2">
-      {method.primary && (
-        <span className="bg-[#FF6B35] text-white px-2 py-1 rounded text-xs">
+      {method.primary ? (
+        <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-medium">
           Primary
         </span>
+      ) : (
+        <button 
+          onClick={() => onSetPrimary(method.id)}
+          className="text-xs text-gray-600 hover:text-[#FF6B35] px-3 py-1 border border-gray-300 rounded-full hover:border-[#FF6B35] transition-colors"
+        >
+          Set Primary
+        </button>
       )}
-      <button className="p-2 text-gray-500 hover:text-[#FF6B35] transition-colors">
-        <Minus className="h-4 w-4" />
+      <button 
+        onClick={() => onDelete(method.id)}
+        disabled={method.primary}
+        className="p-2 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title={method.primary ? "Cannot delete primary method" : "Delete method"}
+      >
+        <Trash2 className="h-4 w-4" />
       </button>
     </div>
   </div>
