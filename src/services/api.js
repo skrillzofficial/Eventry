@@ -4,13 +4,11 @@ export const BACKEND_URL =
   import.meta.env.VITE_API_URL ||
   "https://ecommerce-backend-tb8u.onrender.com/api/v1";
 
-// Create axios instance with base configuration
+// Create axios instance WITHOUT default Content-Type
 const apiClient = axios.create({
   baseURL: BACKEND_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
   timeout: 50000,
+  // Don't set default headers - let axios handle Content-Type per request
 });
 
 // Request interceptor to add auth token
@@ -18,8 +16,31 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // CRITICAL: Let browser set Content-Type for FormData with boundary
+    if (config.data instanceof FormData) {
+      // Delete any Content-Type header to let browser handle it
+      if (config.headers['Content-Type']) {
+        delete config.headers['Content-Type'];
+      }
+    } else if (!config.headers['Content-Type']) {
+      // Only set JSON Content-Type for non-FormData requests
+      config.headers['Content-Type'] = 'application/json';
+    }
+
+    // Debug logging (remove in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📤 API Request:', {
+        url: config.url,
+        method: config.method,
+        isFormData: config.data instanceof FormData,
+        contentType: config.headers['Content-Type'],
+      });
+    }
+
     return config;
   },
   (error) => {
@@ -29,7 +50,17 @@ apiClient.interceptors.request.use(
 
 // Response interceptor to handle common errors
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Debug logging (remove in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📥 API Response:', {
+        url: response.config.url,
+        status: response.status,
+        success: response.data?.success,
+      });
+    }
+    return response;
+  },
   (error) => {
     if (
       error.response?.status === 401 &&
@@ -43,7 +74,9 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Auth API calls
+// ============================================
+// AUTH API CALLS
+// ============================================
 export const authAPI = {
   login: (email, password, userType = "attendee") =>
     apiClient.post("/login", {
@@ -58,47 +91,48 @@ export const authAPI = {
     }),
 
   getCurrentUser: () => apiClient.get("/me"),
+  
   logout: () => apiClient.post("/logout"),
 };
 
-// User API calls - SIMPLIFIED
+// ============================================
+// USER API CALLS
+// ============================================
 export const userAPI = {
-  // Single update function for all user profile data including image and phone
-  updateUser: (userData) => {
-    // If userData is FormData (contains file), use multipart form-data
-    if (userData instanceof FormData) {
-      return apiClient.patch("/profile", userData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-    }
-    // Otherwise use regular JSON
-    return apiClient.patch("/profile", userData);
-  },
+  // Update user profile (handles both JSON and FormData)
+  updateUser: (userData) => apiClient.patch("/profile", userData),
 
   getUserProfile: () => apiClient.get("/users/profile"),
 };
 
-// Event API calls
+// ============================================
+// EVENT API CALLS
+// ============================================
 export const eventAPI = {
-  // Public routes
+  // ========== PUBLIC ROUTES ==========
   getFeaturedEvents: () => apiClient.get("/events/featured"),
+  
   getUpcomingEvents: () => apiClient.get("/events/upcoming"),
+  
   getAllEvents: (params = {}) => apiClient.get("/events", { params }),
+  
   getPastEvents: (params = {}) => apiClient.get("/events/past", { params }),
+  
   getEventById: (id) => apiClient.get(`/events/${id}`),
 
-  // Protected routes (require authentication)
+  // ========== PROTECTED ROUTES ==========
   getMyBookings: (params = {}) =>
     apiClient.get("/events/my-bookings", { params }),
+  
   bookEventTicket: (eventId, bookingData) =>
     apiClient.post(`/events/${eventId}/book`, bookingData),
+  
   cancelBooking: (eventId) =>
     apiClient.delete(`/events/${eventId}/cancel-booking`),
+  
   toggleLikeEvent: (eventId) => apiClient.post(`/events/${eventId}/like`),
 
-  // Organizer-only routes
+  // ========== ORGANIZER ROUTES ==========
   getOrganizerEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
 
@@ -107,21 +141,13 @@ export const eventAPI = {
   createEvent: (eventData) =>
     apiClient.post("/events/create", eventData, {
       timeout: 120000,
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+      // Headers will be set automatically by interceptor
     }),
 
   updateEvent: (eventId, eventData) =>
     apiClient.patch(`/events/${eventId}`, eventData, {
-      headers:
-        eventData instanceof FormData
-          ? {
-              "Content-Type": "multipart/form-data",
-            }
-          : {
-              "Content-Type": "application/json",
-            },
+      timeout: 120000,
+      // Headers will be set automatically by interceptor
     }),
 
   deleteEventImage: (eventId, imageIndex) =>
@@ -137,7 +163,9 @@ export const eventAPI = {
     apiClient.patch(`/events/${eventId}/status`, { status }),
 };
 
-// Organizer-specific API calls
+// ============================================
+// ORGANIZER-SPECIFIC API CALLS
+// ============================================
 export const organizerAPI = {
   getMyEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
@@ -174,7 +202,9 @@ export const organizerAPI = {
     apiClient.post(`/events/organizer/events/${eventId}/message`, messageData),
 };
 
-// Transaction API calls
+// ============================================
+// TRANSACTION API CALLS
+// ============================================
 export const transactionAPI = {
   verifyPayment: (reference) =>
     apiClient.get(`/transactions/verify/${reference}`),
@@ -201,139 +231,221 @@ export const transactionAPI = {
     apiClient.get("/transactions/stats/revenue", { params }),
 };
 
-// Wallet API calls
+// ============================================
+// WALLET API CALLS
+// ============================================
 export const walletAPI = {
   getWalletBalance: () => apiClient.get("/wallet/balance"),
+  
   getWalletStats: (params = {}) => apiClient.get("/wallet/stats", { params }),
+  
   getTransactions: (params = {}) =>
     apiClient.get("/wallet/transactions", { params }),
+  
   getTransactionById: (transactionId) =>
     apiClient.get(`/wallet/transactions/${transactionId}`),
+  
   requestWithdrawal: (withdrawalData) =>
     apiClient.post("/wallet/withdraw", withdrawalData),
+  
   getWithdrawals: (params = {}) =>
     apiClient.get("/wallet/withdrawals", { params }),
+  
   getPaymentMethods: () => apiClient.get("/wallet/payment-methods"),
+  
   addPaymentMethod: (paymentData) =>
     apiClient.post("/wallet/payment-methods", paymentData),
+  
   updatePaymentMethod: (methodId, paymentData) =>
     apiClient.patch(`/wallet/payment-methods/${methodId}`, paymentData),
+  
   deletePaymentMethod: (methodId) =>
     apiClient.delete(`/wallet/payment-methods/${methodId}`),
+  
   setPrimaryPaymentMethod: (methodId) =>
     apiClient.patch(`/wallet/payment-methods/${methodId}/set-primary`),
+  
   getEventEarnings: (eventId, params = {}) =>
     apiClient.get(`/wallet/earnings/event/${eventId}`, { params }),
+  
   getMonthlyEarnings: (params = {}) =>
     apiClient.get("/wallet/earnings/monthly", { params }),
+  
   getPendingPayouts: () => apiClient.get("/wallet/payouts/pending"),
+  
   requestEventPayout: (eventId, payoutData) =>
     apiClient.post(`/wallet/payouts/event/${eventId}`, payoutData),
+  
   getWalletAnalytics: (params = {}) =>
     apiClient.get("/wallet/analytics", { params }),
+  
   exportTransactions: (format = "csv", params = {}) =>
     apiClient.get(`/wallet/transactions/export/${format}`, {
       params,
       responseType: "blob",
     }),
+  
   getFeeStructure: () => apiClient.get("/wallet/fees"),
+  
   verifyBankAccount: (bankData) =>
     apiClient.post("/wallet/verify-bank-account", bankData),
+  
   getBankList: () => apiClient.get("/wallet/banks"),
+  
   resolveAccountNumber: (bankCode, accountNumber) =>
     apiClient.post("/wallet/resolve-account", { bankCode, accountNumber }),
 };
 
-// Superadmin API calls
+// ============================================
+// SUPERADMIN API CALLS
+// ============================================
 export const superadminAPI = {
   createSuperadmin: (userData) =>
     apiClient.post("/admin/users/register", userData),
+  
   getAllUsers: (params = {}) => apiClient.get("/admin/users", { params }),
+  
   updateUserRole: (userId, roleData) =>
     apiClient.patch(`/admin/users/${userId}/role`, roleData),
+  
   updateUserStatus: (userId, statusData) =>
     apiClient.patch(`/admin/users/${userId}/status`, statusData),
+  
   suspendUser: (userId, suspendData) =>
     apiClient.patch(`/admin/users/${userId}/suspend`, suspendData),
+  
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}/delete`),
+  
   getAllEventsAdmin: (params = {}) =>
     apiClient.get("/admin/events", { params }),
+  
   updateEventAdmin: (eventId, eventData) =>
     apiClient.patch(`/admin/events/${eventId}`, eventData),
+  
   deleteEventAdmin: (eventId) => apiClient.delete(`/admin/events/${eventId}`),
+  
   getPlatformStats: () => apiClient.get("/admin/stats"),
+  
   getPlatformAnalytics: (params = {}) =>
     apiClient.get("/admin/analytics", { params }),
 };
 
-// Voice Search API calls
+// ============================================
+// VOICE SEARCH API CALLS
+// ============================================
 export const voiceSearchAPI = {
   parseVoiceQuery: (voiceQuery) =>
     apiClient.post("/voice-search", { query: voiceQuery }),
+  
   getVoiceSuggestions: (voiceQuery) =>
     apiClient.get(
       `/voice-search/suggestions?query=${encodeURIComponent(voiceQuery)}`
     ),
+  
   getVoiceSearchHistory: () => apiClient.get("/voice-search/history"),
+  
   clearVoiceSearchHistory: () => apiClient.delete("/voice-search/history"),
 };
 
-// Notification API calls
+// ============================================
+// NOTIFICATION API CALLS
+// ============================================
 export const notificationAPI = {
   getNotifications: (params = {}) =>
     apiClient.get("/notifications", { params }),
+  
   getUnreadCount: () => apiClient.get("/notifications/unread-count"),
+  
   markAsRead: (notificationId) =>
     apiClient.patch(`/notifications/${notificationId}/read`),
+  
   markAllAsRead: () => apiClient.patch("/notifications/read-all"),
+  
   deleteNotification: (notificationId) =>
     apiClient.delete(`/notifications/${notificationId}`),
+  
   getStats: () => apiClient.get("/notifications/stats"),
 };
 
-// SIMPLIFIED API CALL FUNCTION
-export const apiCall = async (apiFunction) => {
+// ============================================
+// UNIFIED API CALL WRAPPER
+// ============================================
+export const apiCall = async (apiFunction, ...args) => {
   try {
-    const response = await apiFunction();
+    // Execute the API function with any arguments
+    const response = await (typeof apiFunction === 'function' 
+      ? apiFunction(...args) 
+      : apiFunction);
+    
     return {
       success: true,
       data: response.data,
       status: response.status,
     };
   } catch (error) {
-    console.error("API call failed:", error);
+    console.error(" API call failed:", error);
 
     let errorMessage = "An unexpected error occurred";
     let errorCode = error.response?.status;
 
+    // Handle timeout errors
     if (error.code === "ECONNABORTED") {
       errorMessage = "Request timeout. Please check your connection.";
       errorCode = 408;
-    } else if (error.response?.data) {
+    } 
+    // Handle network errors
+    else if (error.code === "ERR_NETWORK") {
+      errorMessage = "Network error. Please check your internet connection.";
+      errorCode = 0;
+    }
+    // Handle response errors
+    else if (error.response?.data) {
       errorMessage =
         error.response.data.message ||
         error.response.data.error ||
         errorMessage;
-    } else if (error.message) {
+    } 
+    // Handle request errors
+    else if (error.message) {
       errorMessage = error.message;
     }
 
-    // Common error codes
-    if (errorCode === 401)
-      errorMessage = "Please log in to access this feature";
-    else if (errorCode === 403)
-      errorMessage = "You don't have permission to perform this action";
-    else if (errorCode === 404)
-      errorMessage = "The requested resource was not found";
-    else if (errorCode === 409)
-      errorMessage = "A conflict occurred while processing your request";
-    else if (errorCode >= 500)
-      errorMessage = "Server error. Please try again later";
+    // Map common HTTP status codes to user-friendly messages
+    switch (errorCode) {
+      case 400:
+        // Keep the specific error message from server for validation errors
+        break;
+      case 401:
+        errorMessage = "Please log in to access this feature";
+        break;
+      case 403:
+        errorMessage = "You don't have permission to perform this action";
+        break;
+      case 404:
+        errorMessage = "The requested resource was not found";
+        break;
+      case 409:
+        errorMessage = "A conflict occurred while processing your request";
+        break;
+      case 413:
+        errorMessage = "File size too large. Please use smaller files";
+        break;
+      case 429:
+        errorMessage = "Too many requests. Please try again later";
+        break;
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        errorMessage = "Server error. Please try again later";
+        break;
+    }
 
     return {
       success: false,
       error: errorMessage,
       status: errorCode,
+      details: error.response?.data,
     };
   }
 };
