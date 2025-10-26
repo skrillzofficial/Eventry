@@ -2,19 +2,40 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Check, Trash2, Loader, AlertCircle } from 'lucide-react';
 import { useNotification } from '../../context/NotificationContext';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const navigate = useNavigate();
+  
+  // Safely use notification context with error handling
+  let notificationContext;
+  try {
+    notificationContext = useNotification();
+  } catch (error) {
+    console.warn('NotificationBell: NotificationProvider not found. Notifications will be disabled.');
+    // Return a fallback UI when provider is not available
+    return (
+      <button
+        className="relative p-2 text-gray-400 cursor-not-allowed"
+        title="Notifications unavailable"
+        disabled
+      >
+        <Bell className="h-6 w-6" />
+      </button>
+    );
+  }
+
   const { 
-    notifications, 
-    unreadCount, 
-    loading, 
+    notifications = [], 
+    unreadCount = 0, 
+    loading = false, 
     fetchNotifications, 
     markAsRead, 
     markAllAsRead, 
     deleteNotification 
-  } = useNotification();
+  } = notificationContext;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -30,7 +51,7 @@ const NotificationBell = () => {
 
   const handleBellClick = () => {
     setIsOpen(!isOpen);
-    if (!isOpen) {
+    if (!isOpen && fetchNotifications) {
       fetchNotifications({ limit: 10 });
     }
   };
@@ -160,7 +181,7 @@ const NotificationBell = () => {
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {notifications.map((notification) => (
+                {notifications.slice(0, 10).map((notification) => (
                   <div
                     key={notification._id}
                     className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
@@ -227,8 +248,7 @@ const NotificationBell = () => {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  // Navigate to full notifications page
-                  window.location.href = '/notifications';
+                  navigate('/notifications');
                 }}
                 className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium py-2 rounded-lg hover:bg-blue-50 transition-colors"
               >

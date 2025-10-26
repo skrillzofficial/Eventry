@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { authAPI, apiCall } from "../services/api";
 
-export const AuthContext = createContext();
+// Create context with undefined to ensure we can detect missing provider
+export const AuthContext = createContext(undefined);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -256,12 +257,24 @@ export const AuthProvider = ({ children }) => {
     setUser,
   };
 
+  // Don't render children until initial auth check is complete
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
+          <p className="text-gray-600 mt-4 font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;

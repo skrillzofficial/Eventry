@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { transactionAPI } from '../services/api';
+import apiClient from '../services/api';
 
 const PaymentVerification = () => {
   const [searchParams] = useSearchParams();
@@ -8,6 +9,7 @@ const PaymentVerification = () => {
   const [verificationStatus, setVerificationStatus] = useState('verifying');
   const [transaction, setTransaction] = useState(null);
   const [tickets, setTickets] = useState([]);
+  const [bookingType, setBookingType] = useState('paid'); // 'paid' or 'free'
 
   useEffect(() => {
     verifyPayment();
@@ -15,27 +17,69 @@ const PaymentVerification = () => {
 
   const verifyPayment = async () => {
     const reference = searchParams.get('reference');
+    const type = searchParams.get('type'); // 'free' or undefined (paid)
     
     if (!reference) {
       setVerificationStatus('error');
       return;
     }
 
+    setBookingType(type === 'free' ? 'free' : 'paid');
+
     try {
-      // Use transactionAPI.verifyPayment instead of apiClient directly
-      const response = await transactionAPI.verifyPayment(reference);
-      
-      if (response.data.success) {
-        setVerificationStatus('success');
-        setTransaction(response.data.data?.transaction || response.data.transaction);
-        setTickets(response.data.data?.tickets || response.data.tickets || []);
+      if (type === 'free') {
+        // ===== FREE EVENT VERIFICATION =====
+        // Fetch the booking details
+        const response = await apiClient.get(`/bookings/${reference}`);
         
-        // Redirect to my-tickets after 5 seconds
-        setTimeout(() => {
-          navigate('/my-tickets');
-        }, 5000);
+        if (response.data.success) {
+          const booking = response.data.booking || response.data.data;
+          
+          setVerificationStatus('success');
+          setTransaction({
+            reference: booking._id || reference,
+            totalAmount: 0,
+            eventTitle: booking.event?.title || booking.eventTitle || 'Free Event',
+            bookingDate: booking.createdAt || new Date().toISOString(),
+            attendeeName: booking.userInfo?.name || booking.userName,
+            attendeeEmail: booking.userInfo?.email || booking.userEmail,
+          });
+          
+          // Set tickets info
+          const ticketArray = [];
+          for (let i = 0; i < (booking.quantity || 1); i++) {
+            ticketArray.push({
+              _id: `${booking._id}-${i + 1}`,
+              ticketType: booking.ticketType || 'Free Entry',
+              ticketNumber: booking.ticketNumber || `${booking._id}-${i + 1}`,
+              qrCode: booking.qrCode || null,
+            });
+          }
+          setTickets(ticketArray);
+          
+          // Redirect to my-bookings after 5 seconds
+          setTimeout(() => {
+            navigate('/my-bookings');
+          }, 5000);
+        } else {
+          setVerificationStatus('failed');
+        }
       } else {
-        setVerificationStatus('failed');
+        // ===== PAID EVENT VERIFICATION =====
+        const response = await transactionAPI.verifyPayment(reference);
+        
+        if (response.data.success) {
+          setVerificationStatus('success');
+          setTransaction(response.data.data?.transaction || response.data.transaction);
+          setTickets(response.data.data?.tickets || response.data.tickets || []);
+          
+          // Redirect to my-tickets after 5 seconds
+          setTimeout(() => {
+            navigate('/my-tickets');
+          }, 5000);
+        } else {
+          setVerificationStatus('failed');
+        }
       }
     } catch (error) {
       console.error('Verification error:', error);
@@ -44,15 +88,22 @@ const PaymentVerification = () => {
     }
   };
 
-
   const renderContent = () => {
+    const isFreeBooking = bookingType === 'free';
+    
     switch (verificationStatus) {
       case 'verifying':
         return (
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verifying Your Payment</h2>
-            <p className="text-gray-600">Please wait while we confirm your payment...</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {isFreeBooking ? 'Confirming Your Booking' : 'Verifying Your Payment'}
+            </h2>
+            <p className="text-gray-600">
+              {isFreeBooking 
+                ? 'Please wait while we confirm your booking...'
+                : 'Please wait while we confirm your payment...'}
+            </p>
           </div>
         );
 
@@ -64,25 +115,45 @@ const PaymentVerification = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
-            <p className="text-gray-600 mb-6">Your tickets have been booked successfully.</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {isFreeBooking ? 'Booking Confirmed!' : 'Payment Successful!'}
+            </h2>
+            <p className="text-gray-600 mb-6">
+              {isFreeBooking 
+                ? 'Your free event booking has been confirmed successfully.'
+                : 'Your tickets have been booked successfully.'}
+            </p>
             
             {transaction && (
               <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Details</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between border-b border-gray-200 pb-2">
-                    <span className="text-gray-600">Transaction ID:</span>
-                    <span className="font-medium">{transaction.reference}</span>
+                    <span className="text-gray-600">
+                      {isFreeBooking ? 'Booking ID:' : 'Transaction ID:'}
+                    </span>
+                    <span className="font-medium text-sm">{transaction.reference}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
-                    <span className="text-gray-600">Amount Paid:</span>
-                    <span className="font-medium">₦{transaction.totalAmount?.toLocaleString()}</span>
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-medium">
+                      {isFreeBooking ? (
+                        <span className="text-green-600 font-bold">FREE</span>
+                      ) : (
+                        `₦${transaction.totalAmount?.toLocaleString()}`
+                      )}
+                    </span>
                   </div>
                   {transaction.eventTitle && (
-                    <div className="flex justify-between">
+                    <div className="flex justify-between border-b border-gray-200 pb-2">
                       <span className="text-gray-600">Event:</span>
                       <span className="font-medium text-right">{transaction.eventTitle}</span>
+                    </div>
+                  )}
+                  {transaction.attendeeName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Attendee:</span>
+                      <span className="font-medium">{transaction.attendeeName}</span>
                     </div>
                   )}
                 </div>
@@ -91,12 +162,18 @@ const PaymentVerification = () => {
 
             {tickets.length > 0 && (
               <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Tickets</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Your {isFreeBooking ? 'Booking' : 'Tickets'}
+                </h3>
                 <div className="space-y-3">
                   {tickets.map((ticket, index) => (
                     <div key={ticket._id || index} className="bg-white p-4 rounded-lg border-l-4 border-orange-500">
-                      <p className="font-medium">Ticket {index + 1}: {ticket.ticketType}</p>
-                      <p className="text-sm text-gray-600">Ticket Number: {ticket.ticketNumber}</p>
+                      <p className="font-medium">
+                        {isFreeBooking ? 'Entry Pass' : 'Ticket'} {index + 1}: {ticket.ticketType}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {isFreeBooking ? 'Booking' : 'Ticket'} Number: {ticket.ticketNumber}
+                      </p>
                       {ticket.qrCode && (
                         <p className="text-sm text-gray-600">QR Code: {ticket.qrCode}</p>
                       )}
@@ -108,10 +185,10 @@ const PaymentVerification = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <button 
-                onClick={() => navigate('/my-tickets')}
+                onClick={() => navigate(isFreeBooking ? '/my-bookings' : '/my-tickets')}
                 className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                View My Tickets
+                {isFreeBooking ? 'View My Bookings' : 'View My Tickets'}
               </button>
               <button 
                 onClick={() => navigate('/discover')}
@@ -122,7 +199,7 @@ const PaymentVerification = () => {
             </div>
 
             <p className="text-sm text-gray-500">
-              You will be redirected to your tickets in 5 seconds...
+              You will be redirected to your {isFreeBooking ? 'bookings' : 'tickets'} in 5 seconds...
             </p>
           </div>
         );
@@ -135,8 +212,14 @@ const PaymentVerification = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Failed</h2>
-            <p className="text-gray-600 mb-6">Your payment could not be processed. Please try again.</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {isFreeBooking ? 'Booking Failed' : 'Payment Failed'}
+            </h2>
+            <p className="text-gray-600 mb-6">
+              {isFreeBooking 
+                ? 'Your booking could not be confirmed. Please try again.'
+                : 'Your payment could not be processed. Please try again.'}
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
                 onClick={() => navigate('/discover')}
@@ -164,13 +247,16 @@ const PaymentVerification = () => {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Error</h2>
-            <p className="text-gray-600 mb-6">Something went wrong verifying your payment. Please contact support if your payment was deducted.</p>
+            <p className="text-gray-600 mb-6">
+              Something went wrong verifying your {isFreeBooking ? 'booking' : 'payment'}. 
+              {!isFreeBooking && ' Please contact support if your payment was deducted.'}
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
-                onClick={() => navigate('/my-tickets')}
+                onClick={() => navigate(isFreeBooking ? '/my-bookings' : '/my-tickets')}
                 className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                View My Tickets
+                {isFreeBooking ? 'View My Bookings' : 'View My Tickets'}
               </button>
               <button 
                 onClick={() => navigate('/')}

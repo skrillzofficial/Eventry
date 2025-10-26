@@ -240,14 +240,26 @@ export default function EventPage() {
     }
   };
 
-  const handlePaymentSuccess = (result) => {
+  const handlePaymentSuccess = (bookingData) => {
     setShowCheckout(false);
+
+    const ticketCount = bookingData?.quantity || ticketQuantity;
+    const ticketTypeName =
+      bookingData?.ticketType || selectedTicketType?.name || "Regular";
+    const reference =
+      bookingData?.transactionId || bookingData?._id || "Confirmed";
+
     alert(
-      `Payment successful — ${result.tickets} tickets for ${result.event.title}. Transaction: ${result.transactionId}`
+      `🎉 Booking Successful!\n\n` +
+        `Event: ${event.title}\n` +
+        `Tickets: ${ticketCount} x ${ticketTypeName}\n` +
+        `Reference: ${reference}\n\n` +
+        `Check your email for confirmation details.`
     );
+
+    // Reload event data to show updated capacity
     loadEvent();
   };
-
   const toggleFavorite = () => {
     if (!isAuthenticated) {
       console.log("Sign in to save favorites");
@@ -557,7 +569,7 @@ export default function EventPage() {
     const handleTabChange = (e, tabName) => {
       e.preventDefault();
       setTabLoading(true);
-      
+
       // Use requestAnimationFrame to ensure state updates properly
       requestAnimationFrame(() => {
         setActiveTab(tabName);
@@ -593,12 +605,20 @@ export default function EventPage() {
             <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10 rounded-b-2xl">
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin h-10 w-10 border-4 border-[#FF6B35] border-t-transparent rounded-full"></div>
-                <div className="text-sm text-gray-600 font-medium">Loading...</div>
+                <div className="text-sm text-gray-600 font-medium">
+                  Loading...
+                </div>
               </div>
             </div>
           )}
-          
-          <div className={tabLoading ? "opacity-30" : "opacity-100 transition-opacity duration-200"}>
+
+          <div
+            className={
+              tabLoading
+                ? "opacity-30"
+                : "opacity-100 transition-opacity duration-200"
+            }
+          >
             {activeTab === "details" && (
               <>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">
@@ -667,7 +687,9 @@ export default function EventPage() {
 
                     <div className="grid grid-cols-2 gap-3 mt-4">
                       <div className="p-3 bg-gray-50 border border-gray-100 rounded">
-                        <div className="text-sm text-gray-500">Events hosted</div>
+                        <div className="text-sm text-gray-500">
+                          Events hosted
+                        </div>
                         <div className="font-semibold text-gray-900">
                           {ev.organizer.eventsHosted || "Multiple"}
                         </div>
@@ -689,7 +711,9 @@ export default function EventPage() {
             {activeTab === "reviews" && (
               <>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Reviews</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Reviews
+                  </h3>
                   <div className="text-right">
                     <div className="text-xl font-semibold">{ev.rating}</div>
                     <div className="text-sm text-gray-600">
@@ -717,7 +741,9 @@ export default function EventPage() {
 
                 <div className="mt-4">
                   <div className="p-4 bg-gray-50 border border-gray-100 rounded">
-                    <div className="font-semibold text-gray-900">Chinedu O.</div>
+                    <div className="font-semibold text-gray-900">
+                      Chinedu O.
+                    </div>
                     <div className="text-sm text-gray-600">
                       "One of the best events I've attended. Great organization
                       and networking opportunities!"
@@ -1176,7 +1202,7 @@ export default function EventPage() {
               : event.price,
           }}
           ticketQuantity={ticketQuantity}
-          onSuccess={handlePaymentSuccess}
+          onSuccess={(bookingData) => handlePaymentSuccess(bookingData)}
           onClose={() => setShowCheckout(false)}
         />
       )}

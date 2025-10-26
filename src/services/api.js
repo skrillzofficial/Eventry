@@ -120,6 +120,15 @@ export const eventAPI = {
   
   getEventById: (id) => apiClient.get(`/events/${id}`),
 
+  parseVoiceSearch: (voiceQuery) =>
+    apiClient.post("/events/voice-search", { query: voiceQuery }),
+
+  searchEventsAdvanced: (params = {}) =>
+    apiClient.get("/events/search/advanced", { params }),
+
+  getTicketAvailability: (eventId) =>
+    apiClient.get(`/events/${eventId}/ticket-availability`),
+
   // ========== PROTECTED ROUTES ==========
   getMyBookings: (params = {}) =>
     apiClient.get("/events/my-bookings", { params }),
@@ -130,37 +139,102 @@ export const eventAPI = {
   cancelBooking: (eventId) =>
     apiClient.delete(`/events/${eventId}/cancel-booking`),
   
-  toggleLikeEvent: (eventId) => apiClient.post(`/events/${eventId}/like`),
+  toggleLikeEvent: (eventId) => 
+    apiClient.post(`/events/${eventId}/like`),
 
   // ========== ORGANIZER ROUTES ==========
   getOrganizerEvents: (params = {}) =>
     apiClient.get("/events/organizer/my-events", { params }),
 
-  getOrganizerStatistics: () => apiClient.get("/events/organizer/statistics"),
+  getOrganizerStatistics: () => 
+    apiClient.get("/events/organizer/statistics"),
 
   createEvent: (eventData) =>
     apiClient.post("/events/create", eventData, {
       timeout: 120000,
-      // Headers will be set automatically by interceptor
     }),
 
   updateEvent: (eventId, eventData) =>
     apiClient.patch(`/events/${eventId}`, eventData, {
       timeout: 120000,
-      // Headers will be set automatically by interceptor
     }),
 
   deleteEventImage: (eventId, imageIndex) =>
     apiClient.delete(`/events/${eventId}/images/${imageIndex}`),
 
-  cancelEvent: (eventId) => apiClient.patch(`/events/${eventId}/cancel`),
+  cancelEvent: (eventId) => 
+    apiClient.patch(`/events/${eventId}/cancel`),
 
-  deleteEvent: (eventId) => apiClient.delete(`/events/${eventId}`),
+  completeEvent: (eventId) =>
+    apiClient.put(`/events/${eventId}/complete`),
 
-  getEventAnalytics: (eventId) => apiClient.get(`/events/${eventId}/analytics`),
+  deleteEvent: (eventId) => 
+    apiClient.delete(`/events/${eventId}`),
 
-  updateEventStatus: (eventId, status) =>
-    apiClient.patch(`/events/${eventId}/status`, { status }),
+  checkInAttendee: (eventId, ticketId) =>
+    apiClient.post(`/events/${eventId}/check-in/${ticketId}`),
+
+  // Live Location Sharing
+  startLocationSharing: (eventId, locationData) =>
+    apiClient.post(`/events/${eventId}/start-location-sharing`, locationData),
+
+  updateLiveLocation: (eventId, locationData) =>
+    apiClient.put(`/events/${eventId}/update-location`, locationData),
+
+  stopLocationSharing: (eventId) =>
+    apiClient.post(`/events/${eventId}/stop-location-sharing`),
+};
+
+// ============================================
+// TICKET API CALLS
+// ============================================
+export const ticketAPI = {
+  // ========== TICKET PURCHASE ==========
+  purchaseTicket: (ticketData) =>
+    apiClient.post("/purchase", ticketData),
+  
+  purchaseMultipleTickets: (ticketsData) =>
+    apiClient.post("/purchase-multiple", ticketsData),
+  
+  // ========== USER TICKETS ==========
+  getUserTickets: (params = {}) =>
+    apiClient.get("/tickets/my-tickets", { params }),
+  
+  getTicketById: (ticketId) =>
+    apiClient.get(`/tickets/${ticketId}`),
+  
+  // ========== ORGANIZER ROUTES ==========
+  getEventTickets: (eventId, params = {}) =>
+    apiClient.get(`/tickets/event/${eventId}`, { params }),
+  
+  getTicketAnalytics: (eventId) =>
+    apiClient.get(`/tickets/analytics/event/${eventId}`),
+  
+  validateTicket: (ticketId, validationData = {}) =>
+    apiClient.post(`/tickets/${ticketId}/validate`, validationData),
+  
+  // ========== TICKET MANAGEMENT ==========
+  cancelTicket: (ticketId, cancelData = {}) =>
+    apiClient.post(`/tickets/${ticketId}/cancel`, cancelData),
+  
+  transferTicket: (ticketId, transferData) =>
+    apiClient.post(`/tickets/${ticketId}/transfer`, transferData),
+  
+  // ========== LOCATION TRACKING ==========
+  addTicketLocation: (ticketId, locationData) =>
+    apiClient.post(`/tickets/${ticketId}/location`, locationData),
+  
+  getTicketLocationHistory: (ticketId) =>
+    apiClient.get(`/tickets/${ticketId}/location-history`),
+  
+  // ========== TICKET UTILITIES ==========
+  downloadTicket: (ticketId) =>
+    apiClient.get(`/tickets/${ticketId}/download`, {
+      responseType: "blob",
+    }),
+  
+  resendTicketEmail: (ticketId) =>
+    apiClient.post(`/tickets/${ticketId}/resend-email`),
 };
 
 // ============================================
@@ -179,7 +253,8 @@ export const organizerAPI = {
   getAttendanceAnalytics: (params = {}) =>
     apiClient.get("/events/organizer/analytics/attendance", { params }),
 
-  getDashboardStats: () => apiClient.get("/events/organizer/dashboard/stats"),
+  getDashboardStats: () => 
+    apiClient.get("/events/organizer/dashboard/stats"),
 
   publishEvent: (eventId) =>
     apiClient.patch(`/events/organizer/events/${eventId}/publish`),
@@ -235,9 +310,11 @@ export const transactionAPI = {
 // WALLET API CALLS
 // ============================================
 export const walletAPI = {
-  getWalletBalance: () => apiClient.get("/wallet/balance"),
+  getWalletBalance: () => 
+    apiClient.get("/wallet/balance"),
   
-  getWalletStats: (params = {}) => apiClient.get("/wallet/stats", { params }),
+  getWalletStats: (params = {}) => 
+    apiClient.get("/wallet/stats", { params }),
   
   getTransactions: (params = {}) =>
     apiClient.get("/wallet/transactions", { params }),
@@ -251,7 +328,8 @@ export const walletAPI = {
   getWithdrawals: (params = {}) =>
     apiClient.get("/wallet/withdrawals", { params }),
   
-  getPaymentMethods: () => apiClient.get("/wallet/payment-methods"),
+  getPaymentMethods: () => 
+    apiClient.get("/wallet/payment-methods"),
   
   addPaymentMethod: (paymentData) =>
     apiClient.post("/wallet/payment-methods", paymentData),
@@ -271,7 +349,8 @@ export const walletAPI = {
   getMonthlyEarnings: (params = {}) =>
     apiClient.get("/wallet/earnings/monthly", { params }),
   
-  getPendingPayouts: () => apiClient.get("/wallet/payouts/pending"),
+  getPendingPayouts: () => 
+    apiClient.get("/wallet/payouts/pending"),
   
   requestEventPayout: (eventId, payoutData) =>
     apiClient.post(`/wallet/payouts/event/${eventId}`, payoutData),
@@ -285,12 +364,14 @@ export const walletAPI = {
       responseType: "blob",
     }),
   
-  getFeeStructure: () => apiClient.get("/wallet/fees"),
+  getFeeStructure: () => 
+    apiClient.get("/wallet/fees"),
   
   verifyBankAccount: (bankData) =>
     apiClient.post("/wallet/verify-bank-account", bankData),
   
-  getBankList: () => apiClient.get("/wallet/banks"),
+  getBankList: () => 
+    apiClient.get("/wallet/banks"),
   
   resolveAccountNumber: (bankCode, accountNumber) =>
     apiClient.post("/wallet/resolve-account", { bankCode, accountNumber }),
@@ -303,7 +384,8 @@ export const superadminAPI = {
   createSuperadmin: (userData) =>
     apiClient.post("/admin/users/register", userData),
   
-  getAllUsers: (params = {}) => apiClient.get("/admin/users", { params }),
+  getAllUsers: (params = {}) => 
+    apiClient.get("/admin/users", { params }),
   
   updateUserRole: (userId, roleData) =>
     apiClient.patch(`/admin/users/${userId}/role`, roleData),
@@ -314,7 +396,8 @@ export const superadminAPI = {
   suspendUser: (userId, suspendData) =>
     apiClient.patch(`/admin/users/${userId}/suspend`, suspendData),
   
-  deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}/delete`),
+  deleteUser: (userId) => 
+    apiClient.delete(`/admin/users/${userId}/delete`),
   
   getAllEventsAdmin: (params = {}) =>
     apiClient.get("/admin/events", { params }),
@@ -322,9 +405,11 @@ export const superadminAPI = {
   updateEventAdmin: (eventId, eventData) =>
     apiClient.patch(`/admin/events/${eventId}`, eventData),
   
-  deleteEventAdmin: (eventId) => apiClient.delete(`/admin/events/${eventId}`),
+  deleteEventAdmin: (eventId) => 
+    apiClient.delete(`/admin/events/${eventId}`),
   
-  getPlatformStats: () => apiClient.get("/admin/stats"),
+  getPlatformStats: () => 
+    apiClient.get("/admin/stats"),
   
   getPlatformAnalytics: (params = {}) =>
     apiClient.get("/admin/analytics", { params }),
@@ -342,9 +427,11 @@ export const voiceSearchAPI = {
       `/voice-search/suggestions?query=${encodeURIComponent(voiceQuery)}`
     ),
   
-  getVoiceSearchHistory: () => apiClient.get("/voice-search/history"),
+  getVoiceSearchHistory: () => 
+    apiClient.get("/voice-search/history"),
   
-  clearVoiceSearchHistory: () => apiClient.delete("/voice-search/history"),
+  clearVoiceSearchHistory: () => 
+    apiClient.delete("/voice-search/history"),
 };
 
 // ============================================
@@ -354,17 +441,20 @@ export const notificationAPI = {
   getNotifications: (params = {}) =>
     apiClient.get("/notifications", { params }),
   
-  getUnreadCount: () => apiClient.get("/notifications/unread-count"),
+  getUnreadCount: () => 
+    apiClient.get("/notifications/unread-count"),
   
   markAsRead: (notificationId) =>
     apiClient.patch(`/notifications/${notificationId}/read`),
   
-  markAllAsRead: () => apiClient.patch("/notifications/read-all"),
+  markAllAsRead: () => 
+    apiClient.patch("/notifications/read-all"),
   
   deleteNotification: (notificationId) =>
     apiClient.delete(`/notifications/${notificationId}`),
   
-  getStats: () => apiClient.get("/notifications/stats"),
+  getStats: () => 
+    apiClient.get("/notifications/stats"),
 };
 
 // ============================================
@@ -383,7 +473,7 @@ export const apiCall = async (apiFunction, ...args) => {
       status: response.status,
     };
   } catch (error) {
-    console.error(" API call failed:", error);
+    console.error("❌ API call failed:", error);
 
     let errorMessage = "An unexpected error occurred";
     let errorCode = error.response?.status;

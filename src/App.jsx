@@ -4,7 +4,7 @@ import { RingLoader } from "react-spinners";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "./context/AuthContext";
 import { EventProvider } from "./context/EventContext";
-import { NotificationProvider } from "./context/NotificationContext"; // NEW
+import { NotificationProvider } from "./context/NotificationContext";
 import "./App.css";
 
 // Pages
@@ -22,7 +22,7 @@ import CheckoutFlow from "./checkout/Checkout";
 import MyEvents from "./pages/dashboard/MyEvents";
 import MyTickets from "./pages/ticket/MyTickets";
 import PaymentVerification from "./checkout/PaymentVerification";
-import NotificationsPage from "./pages/notification/NotificationPage"; // NEW
+import NotificationsPage from "./pages/notification/NotificationPage";
 
 // Auth Pages
 import SignUp from "./Auths/SignUp";
@@ -34,12 +34,67 @@ import ResetPassword from "./Auths/ResetPassword";
 import EditEvent from "./pages/dashboard/EditEvent";
 import Contact from "./pages/Contact";
 
-// Layout Components
-import Navbar from "./components/layout/Navbar"; // Make sure you have this
-
 // Google OAuth Client ID
 const GOOGLE_CLIENT_ID =
   "826217156762-hvf3gphuoiah9kkbbo59tlnr2m2517as.apps.googleusercontent.com";
+
+// Separate component for routes to ensure providers are ready
+const AppRoutes = () => {
+  return (
+    <BrowserRouter>
+      <main className="min-h-screen bg-gray-50">
+        <Routes>
+          {/* Home */}
+          <Route path="/" element={<Home />} />
+          <Route path="/team" element={<Team />} />
+          <Route path="/contact" element={<Contact />} />
+
+          {/* Dashboard Routes */}
+          <Route path="/dashboard" element={<UserProfile />} />
+          <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
+          <Route path="/dashboard/profile" element={<Profile />} />
+          <Route path="/dashboard/settings" element={<Settings />} />
+          <Route path="/dashboard/wallet" element={<WalletComponent />} />
+
+          {/* Notifications Route */}
+          <Route path="/notifications" element={<NotificationsPage />} />
+
+          {/* Checkout route with eventId parameter */}
+          <Route path="/checkout/:eventId" element={<CheckoutFlow />} />
+
+          {/* Payment Verification */}
+          <Route path="/payment/verify" element={<PaymentVerification />} />
+          
+          {/* Tickets */}
+          <Route path="/my-tickets" element={<MyTickets />} />
+
+          {/* Auth Routes */}
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Email Verification Routes */}
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/resend-verification" element={<ResendVerification />} />
+
+          {/* Event Routes */}
+          <Route path="/create-event" element={<CreateEvent />} />
+          <Route path="/discover" element={<DiscoverEvents />} />
+          <Route path="/event/:id" element={<EventPage />} />
+
+          {/* Organizer Event Routes */}
+          <Route path="/dashboard/organizer/events" element={<MyEvents />} />
+          <Route path="/dashboard/events" element={<MyEvents />} />
+          <Route path="/organizer/events/create" element={<CreateEvent />} />
+
+          {/* EditEvent route with ID parameter */}
+          <Route path="/organizer/events/edit/:id" element={<EditEvent />} />
+        </Routes>
+      </main>
+    </BrowserRouter>
+  );
+};
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -47,15 +102,16 @@ function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 5000);
+    }, 2000); // Reduced from 5000 to 2000ms for faster load
     return () => clearTimeout(timer);
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="flex flex-col items-center space-y-6">
           <RingLoader color="#FF6B35" loading={loading} size={80} />
+          <p className="text-gray-600 font-medium">Loading Eventry...</p>
         </div>
       </div>
     );
@@ -65,77 +121,8 @@ function App() {
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
         <EventProvider>
-          <NotificationProvider> {/* NEW: Wrap with NotificationProvider */}
-            <BrowserRouter>
-              {/* Add Navbar here so it appears on all pages */}
-              <Navbar />
-              
-              <main className="min-h-screen bg-gray-50">
-                <Routes>
-                  {/* Home */}
-                  <Route path="/" element={<Home />} />
-                  <Route path="/team" element={<Team />} />
-                  <Route path="/contact" element={<Contact />} />
-
-                  {/* Dashboard Routes */}
-                  <Route path="/dashboard" element={<UserProfile />} />
-                  <Route
-                    path="/dashboard/organizer"
-                    element={<OrganizerDashboard />}
-                  />
-                  <Route path="/dashboard/profile" element={<Profile />} />
-                  <Route path="/dashboard/settings" element={<Settings />} />
-                  <Route path="/dashboard/wallet" element={<WalletComponent />} />
-
-                  {/* Notifications Route - NEW */}
-                  <Route path="/notifications" element={<NotificationsPage />} />
-
-                  {/* Checkout route with eventId parameter */}
-                  <Route path="/checkout/:eventId" element={<CheckoutFlow />} />
-
-                  {/* Payment Verification */}
-                  <Route path="/payment/verify" element={<PaymentVerification />} />
-                  
-                  {/* Tickets */}
-                  <Route path="/my-tickets" element={<MyTickets />} />
-
-                  {/* Auth Routes */}
-                  <Route path="/signup" element={<SignUp />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-
-                  {/* Email Verification Routes */}
-                  <Route path="/verify-email" element={<VerifyEmail />} />
-                  <Route
-                    path="/resend-verification"
-                    element={<ResendVerification />}
-                  />
-
-                  {/* Event Routes */}
-                  <Route path="/create-event" element={<CreateEvent />} />
-                  <Route path="/discover" element={<DiscoverEvents />} />
-                  <Route path="/event/:id" element={<EventPage />} />
-
-                  {/* Organizer Event Routes */}
-                  <Route
-                    path="/dashboard/organizer/events"
-                    element={<MyEvents />}
-                  />
-                  <Route path="/dashboard/events" element={<MyEvents />} />
-                  <Route
-                    path="/organizer/events/create"
-                    element={<CreateEvent />}
-                  />
-
-                  {/* EditEvent route with ID parameter */}
-                  <Route
-                    path="/organizer/events/edit/:id"
-                    element={<EditEvent />}
-                  />
-                </Routes>
-              </main>
-            </BrowserRouter>
+          <NotificationProvider>
+            <AppRoutes />
           </NotificationProvider>
         </EventProvider>
       </AuthProvider>

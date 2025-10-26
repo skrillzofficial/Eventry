@@ -107,18 +107,18 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
         console.log("Booking response:", response.data);
 
         if (response.data.success) {
-          alert("🎉 Booking confirmed successfully!");
+          // Generate a booking reference for free events
+          const bookingReference = response.data.booking?._id || 
+                                  response.data.booking?.bookingId || 
+                                  `FREE-${Date.now()}`;
           
-          // Call success callback if provided
-          if (onSuccess) {
-            onSuccess(response.data.booking);
-          }
-          
-          // Close modal and navigate to bookings
+          // Close modal
           onClose();
-          navigate("/my-bookings");
+          
+          // Redirect to verification page with the booking reference
+          navigate(`/payment-verification?reference=${bookingReference}&type=free`);
         } else {
-          throw new Error("Booking failed");
+          throw new Error(response.data.message || "Booking failed");
         }
       } else {
         // ===== PAID EVENT FLOW =====
@@ -166,6 +166,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
       const errorMessage =
         err.response?.data?.message ||
         err.response?.data?.error ||
+        err.message ||
         "Booking failed. Please try again.";
 
       setError(errorMessage);
@@ -185,7 +186,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <h2 className="text-2xl font-bold text-gray-900">
             {isFreeEvent ? "Confirm Booking" : "Checkout"}
           </h2>
@@ -220,7 +221,12 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
             <h3 className="font-semibold text-gray-900 mb-2">{event.title}</h3>
             <div className="text-sm text-gray-600 space-y-1">
               <p>
-                {new Date(event.date).toLocaleDateString()} at {event.time}
+                {new Date(event.date).toLocaleDateString("en-NG", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })} at {event.time}
               </p>
               <p>
                 {event.venue}, {event.city}
@@ -251,6 +257,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                   value={formData.fullName}
                   onChange={handleInputChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  placeholder="Enter your full name"
                   required
                 />
               </div>
@@ -266,6 +273,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                   value={formData.email}
                   onChange={handleInputChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  placeholder="your.email@example.com"
                   required
                 />
               </div>
