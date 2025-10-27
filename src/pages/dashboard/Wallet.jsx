@@ -46,7 +46,7 @@ const WalletComponent = () => {
     accountNumber: '',
     accountName: '',
     walletAddress: '',
-    walletType: 'ethereum'
+    walletType: 'Solana'
   });
 
   useEffect(() => {
@@ -122,9 +122,9 @@ const WalletComponent = () => {
           {
             id: 2,
             type: 'crypto',
-            name: 'Ethereum Wallet',
+            name: 'Solana Wallet',
             walletAddress: '0x742d...8D',
-            walletType: 'ethereum',
+            walletType: 'Solana',
             primary: false
           }
         ],
