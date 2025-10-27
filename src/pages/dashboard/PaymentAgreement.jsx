@@ -77,6 +77,7 @@ const PaymentAgreement = ({
 
   const estimatedFee = selectedCapacity ? calculateFee(selectedCapacity) : null;
 
+  // In PaymentAgreement.jsx - Update the handleAgree function
   const handleAgree = async () => {
     if (!agreed) return;
 
@@ -87,15 +88,23 @@ const PaymentAgreement = ({
       isFreeEvent,
       totalCapacity: selectedCapacity || totalCapacity,
       serviceFee: isFreeEvent ? estimatedFee : null,
-      platformFee: !isFreeEvent ? 0.03 : null, // 3% for paid events
+      platformFee: !isFreeEvent ? 0.03 : null,
       agreedAt: new Date().toISOString(),
     };
 
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    onAgree(agreementData);
-    setCalculating(false);
+    try {
+      if (isFreeEvent) {
+        // For free events - proceed to service fee payment
+        onAgree(agreementData, "service_fee_payment");
+      } else {
+        // For paid events - publish directly
+        onAgree(agreementData, "publish_direct");
+      }
+    } catch (error) {
+      console.error("Agreement processing error:", error);
+    } finally {
+      setCalculating(false);
+    }
   };
 
   return (

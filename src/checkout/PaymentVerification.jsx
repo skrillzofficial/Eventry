@@ -9,7 +9,7 @@ const PaymentVerification = () => {
   const [verificationStatus, setVerificationStatus] = useState('verifying');
   const [transaction, setTransaction] = useState(null);
   const [tickets, setTickets] = useState([]);
-  const [bookingType, setBookingType] = useState('paid'); // 'paid' or 'free'
+  const [paymentType, setPaymentType] = useState('ticket'); // 'ticket', 'free_booking', 'service_fee'
 
   useEffect(() => {
     verifyPayment();
@@ -17,19 +17,25 @@ const PaymentVerification = () => {
 
   const verifyPayment = async () => {
     const reference = searchParams.get('reference');
-    const type = searchParams.get('type'); // 'free' or undefined (paid)
+    const type = searchParams.get('type'); // 'free', 'service_fee', or undefined (paid ticket)
     
     if (!reference) {
       setVerificationStatus('error');
       return;
     }
 
-    setBookingType(type === 'free' ? 'free' : 'paid');
+    // Set payment type based on URL parameter
+    if (type === 'free') {
+      setPaymentType('free_booking');
+    } else if (type === 'service_fee') {
+      setPaymentType('service_fee');
+    } else {
+      setPaymentType('ticket');
+    }
 
     try {
       if (type === 'free') {
-        // ===== FREE EVENT VERIFICATION =====
-        // Fetch the booking details
+        // ===== FREE EVENT BOOKING VERIFICATION =====
         const response = await apiClient.get(`/bookings/${reference}`);
         
         if (response.data.success) {
@@ -64,8 +70,32 @@ const PaymentVerification = () => {
         } else {
           setVerificationStatus('failed');
         }
+      } else if (type === 'service_fee') {
+        // ===== SERVICE FEE PAYMENT VERIFICATION =====
+        const response = await transactionAPI.verifyServiceFee(reference);
+        
+        if (response.data.success) {
+          setVerificationStatus('success');
+          setTransaction(response.data.data?.transaction || response.data.transaction);
+          
+          // Set event data for display
+          if (response.data.data?.event) {
+            setTransaction(prev => ({
+              ...prev,
+              eventTitle: response.data.data.event.title,
+              eventPublished: true
+            }));
+          }
+          
+          // Redirect to organizer dashboard after 5 seconds
+          setTimeout(() => {
+            navigate('/dashboard/organizer?published=true');
+          }, 5000);
+        } else {
+          setVerificationStatus('failed');
+        }
       } else {
-        // ===== PAID EVENT VERIFICATION =====
+        // ===== PAID TICKET PAYMENT VERIFICATION =====
         const response = await transactionAPI.verifyPayment(reference);
         
         if (response.data.success) {
@@ -88,8 +118,64 @@ const PaymentVerification = () => {
     }
   };
 
+  const getStatusMessages = () => {
+    switch (paymentType) {
+      case 'service_fee':
+        return {
+          verifying: {
+            title: 'Confirming Service Fee Payment',
+            message: 'Please wait while we confirm your service fee payment...'
+          },
+          success: {
+            title: 'Service Fee Paid Successfully!',
+            message: 'Your event has been published successfully!',
+            buttonText: 'Go to Dashboard',
+            redirectTo: '/dashboard/organizer'
+          },
+          failed: {
+            title: 'Service Fee Payment Failed',
+            message: 'Your service fee payment could not be processed. Please try again.'
+          }
+        };
+      case 'free_booking':
+        return {
+          verifying: {
+            title: 'Confirming Your Booking',
+            message: 'Please wait while we confirm your booking...'
+          },
+          success: {
+            title: 'Booking Confirmed!',
+            message: 'Your free event booking has been confirmed successfully.',
+            buttonText: 'View My Bookings',
+            redirectTo: '/my-bookings'
+          },
+          failed: {
+            title: 'Booking Failed',
+            message: 'Your booking could not be confirmed. Please try again.'
+          }
+        };
+      default: // ticket payment
+        return {
+          verifying: {
+            title: 'Verifying Your Payment',
+            message: 'Please wait while we confirm your payment...'
+          },
+          success: {
+            title: 'Payment Successful!',
+            message: 'Your tickets have been booked successfully.',
+            buttonText: 'View My Tickets',
+            redirectTo: '/my-tickets'
+          },
+          failed: {
+            title: 'Payment Failed',
+            message: 'Your payment could not be processed. Please try again.'
+          }
+        };
+    }
+  };
+
   const renderContent = () => {
-    const isFreeBooking = bookingType === 'free';
+    const messages = getStatusMessages();
     
     switch (verificationStatus) {
       case 'verifying':
@@ -97,12 +183,10 @@ const PaymentVerification = () => {
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {isFreeBooking ? 'Confirming Your Booking' : 'Verifying Your Payment'}
+              {messages.verifying.title}
             </h2>
             <p className="text-gray-600">
-              {isFreeBooking 
-                ? 'Please wait while we confirm your booking...'
-                : 'Please wait while we confirm your payment...'}
+              {messages.verifying.message}
             </p>
           </div>
         );
@@ -116,63 +200,76 @@ const PaymentVerification = () => {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {isFreeBooking ? 'Booking Confirmed!' : 'Payment Successful!'}
+              {messages.success.title}
             </h2>
             <p className="text-gray-600 mb-6">
-              {isFreeBooking 
-                ? 'Your free event booking has been confirmed successfully.'
-                : 'Your tickets have been booked successfully.'}
+              {messages.success.message}
             </p>
             
             {transaction && (
               <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Details</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  {paymentType === 'service_fee' ? 'Payment Details' : 'Booking Details'}
+                </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span className="text-gray-600">
-                      {isFreeBooking ? 'Booking ID:' : 'Transaction ID:'}
+                      {paymentType === 'service_fee' ? 'Payment ID:' : 
+                       paymentType === 'free_booking' ? 'Booking ID:' : 'Transaction ID:'}
                     </span>
                     <span className="font-medium text-sm">{transaction.reference}</span>
                   </div>
+                  
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span className="text-gray-600">Amount:</span>
                     <span className="font-medium">
-                      {isFreeBooking ? (
+                      {paymentType === 'free_booking' ? (
                         <span className="text-green-600 font-bold">FREE</span>
                       ) : (
                         `₦${transaction.totalAmount?.toLocaleString()}`
                       )}
                     </span>
                   </div>
+                  
                   {transaction.eventTitle && (
                     <div className="flex justify-between border-b border-gray-200 pb-2">
-                      <span className="text-gray-600">Event:</span>
+                      <span className="text-gray-600">
+                        {paymentType === 'service_fee' ? 'Event Published:' : 'Event:'}
+                      </span>
                       <span className="font-medium text-right">{transaction.eventTitle}</span>
                     </div>
                   )}
-                  {transaction.attendeeName && (
+                  
+                  {transaction.attendeeName && paymentType !== 'service_fee' && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">Attendee:</span>
                       <span className="font-medium">{transaction.attendeeName}</span>
+                    </div>
+                  )}
+
+                  {paymentType === 'service_fee' && transaction.eventPublished && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Status:</span>
+                      <span className="font-medium text-green-600">Event Published ✓</span>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {tickets.length > 0 && (
+            {tickets.length > 0 && paymentType !== 'service_fee' && (
               <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Your {isFreeBooking ? 'Booking' : 'Tickets'}
+                  Your {paymentType === 'free_booking' ? 'Booking' : 'Tickets'}
                 </h3>
                 <div className="space-y-3">
                   {tickets.map((ticket, index) => (
                     <div key={ticket._id || index} className="bg-white p-4 rounded-lg border-l-4 border-orange-500">
                       <p className="font-medium">
-                        {isFreeBooking ? 'Entry Pass' : 'Ticket'} {index + 1}: {ticket.ticketType}
+                        {paymentType === 'free_booking' ? 'Entry Pass' : 'Ticket'} {index + 1}: {ticket.ticketType}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {isFreeBooking ? 'Booking' : 'Ticket'} Number: {ticket.ticketNumber}
+                        {paymentType === 'free_booking' ? 'Booking' : 'Ticket'} Number: {ticket.ticketNumber}
                       </p>
                       {ticket.qrCode && (
                         <p className="text-sm text-gray-600">QR Code: {ticket.qrCode}</p>
@@ -185,21 +282,31 @@ const PaymentVerification = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <button 
-                onClick={() => navigate(isFreeBooking ? '/my-bookings' : '/my-tickets')}
+                onClick={() => navigate(messages.success.redirectTo)}
                 className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                {isFreeBooking ? 'View My Bookings' : 'View My Tickets'}
+                {messages.success.buttonText}
               </button>
-              <button 
-                onClick={() => navigate('/discover')}
-                className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-              >
-                Browse More Events
-              </button>
+              
+              {paymentType === 'service_fee' ? (
+                <button 
+                  onClick={() => navigate('/events/create')}
+                  className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                >
+                  Create Another Event
+                </button>
+              ) : (
+                <button 
+                  onClick={() => navigate('/discover')}
+                  className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                >
+                  Browse More Events
+                </button>
+              )}
             </div>
 
             <p className="text-sm text-gray-500">
-              You will be redirected to your {isFreeBooking ? 'bookings' : 'tickets'} in 5 seconds...
+              You will be redirected {paymentType === 'service_fee' ? 'to your dashboard' : `to your ${paymentType === 'free_booking' ? 'bookings' : 'tickets'}`} in 5 seconds...
             </p>
           </div>
         );
@@ -213,26 +320,43 @@ const PaymentVerification = () => {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {isFreeBooking ? 'Booking Failed' : 'Payment Failed'}
+              {messages.failed.title}
             </h2>
             <p className="text-gray-600 mb-6">
-              {isFreeBooking 
-                ? 'Your booking could not be confirmed. Please try again.'
-                : 'Your payment could not be processed. Please try again.'}
+              {messages.failed.message}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
-                onClick={() => navigate('/discover')}
-                className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
-              >
-                Browse Events
-              </button>
-              <button 
-                onClick={() => navigate('/')}
-                className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-              >
-                Go Home
-              </button>
+              {paymentType === 'service_fee' ? (
+                <>
+                  <button 
+                    onClick={() => navigate('/dashboard/organizer')}
+                    className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+                  >
+                    Back to Dashboard
+                  </button>
+                  <button 
+                    onClick={() => navigate('/events/create')}
+                    className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => navigate('/discover')}
+                    className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+                  >
+                    Browse Events
+                  </button>
+                  <button 
+                    onClick={() => navigate('/')}
+                    className="bg-gray-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                  >
+                    Go Home
+                  </button>
+                </>
+              )}
             </div>
           </div>
         );
@@ -248,15 +372,20 @@ const PaymentVerification = () => {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Error</h2>
             <p className="text-gray-600 mb-6">
-              Something went wrong verifying your {isFreeBooking ? 'booking' : 'payment'}. 
-              {!isFreeBooking && ' Please contact support if your payment was deducted.'}
+              Something went wrong verifying your {paymentType === 'service_fee' ? 'service fee payment' : 
+              paymentType === 'free_booking' ? 'booking' : 'payment'}. 
+              {paymentType === 'ticket' && ' Please contact support if your payment was deducted.'}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
-                onClick={() => navigate(isFreeBooking ? '/my-bookings' : '/my-tickets')}
+                onClick={() => navigate(
+                  paymentType === 'service_fee' ? '/dashboard/organizer' :
+                  paymentType === 'free_booking' ? '/my-bookings' : '/my-tickets'
+                )}
                 className="bg-orange-500 text-white px-6 py-3 rounded-md font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                {isFreeBooking ? 'View My Bookings' : 'View My Tickets'}
+                {paymentType === 'service_fee' ? 'Go to Dashboard' :
+                 paymentType === 'free_booking' ? 'View My Bookings' : 'View My Tickets'}
               </button>
               <button 
                 onClick={() => navigate('/')}

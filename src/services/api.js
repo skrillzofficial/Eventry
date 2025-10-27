@@ -293,6 +293,12 @@ export const transactionAPI = {
   getTransaction: (transactionId) =>
     apiClient.get(`/transactions/${transactionId}`),
 
+   initializeServiceFee: (paymentData) =>
+    apiClient.post("/transactions/initialize-service-fee", paymentData),
+
+  verifyServiceFee: (reference, verificationData) =>
+    apiClient.post(`/transactions/verify-service-fee/${reference}`, verificationData),
+
   getEventTransactions: (eventId, params = {}) =>
     apiClient.get(`/transactions/event/${eventId}`, { params }),
 
