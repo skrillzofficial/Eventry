@@ -27,6 +27,7 @@ import { eventAPI, apiCall } from "../../services/api";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import PaymentAgreement from "../../pages/dashboard/PaymentAgreement";
+import ServiceFeeCheckout from "../../checkout/ServiceFeeCheckout";
 
 // Validation schema
 const eventSchema = yup.object().shape({
@@ -344,33 +345,86 @@ const CreateEvent = () => {
     setShowPaymentAgreement(true);
   };
 
-  const handleAgreementConfirm = async (
-    agreementData,
-    actionType = "publish_direct"
-  ) => {
-    try {
-      if (actionType === "service_fee_payment") {
-        // Show service fee checkout for free events
-        setServiceFeeData({
-          eventData: publishData,
-          agreementData,
-          serviceFee: agreementData.serviceFee.min, // Use min fee or calculate
-          attendanceRange: agreementData.totalCapacity,
-        });
-        setShowServiceFeeCheckout(true);
-        return;
-      }
+  const handleAgreementConfirm = async (agreementData, actionType = "publish_direct") => {
+  try {
+    if (actionType === "service_fee_payment") {
+      // Show service fee checkout for free events
+      setShowPaymentAgreement(false); // Close the agreement modal
+      setServiceFeeData({
+        eventData: publishData,
+        agreementData,
+        serviceFee: agreementData.serviceFee.min, 
+        attendanceRange: agreementData.attendanceRange,
+      });
+      setShowServiceFeeCheckout(true);
+      return;
+    }
 
       // For paid events or after service fee payment - publish the event
       setSavingAs("published");
 
       const formData = new FormData();
 
-      // Append all event data...
+      // Append all event data
       formData.append("title", publishData.title);
       formData.append("status", "published");
       formData.append("description", publishData.description);
-      // ... other form data
+      
+      if (publishData.longDescription) {
+        formData.append("longDescription", publishData.longDescription);
+      }
+      if (publishData.category) {
+        formData.append("category", publishData.category);
+      }
+      if (publishData.date) {
+        formData.append("date", publishData.date);
+      }
+      if (publishData.time) {
+        formData.append("time", publishData.time);
+      }
+      if (publishData.endTime) {
+        formData.append("endTime", publishData.endTime);
+      }
+      if (publishData.venue) {
+        formData.append("venue", publishData.venue);
+      }
+      if (publishData.address) {
+        formData.append("address", publishData.address);
+      }
+      if (publishData.city) {
+        formData.append("city", publishData.city);
+      }
+
+      // Append ticket types or legacy pricing
+      if (!useLegacyPricing) {
+        const validTicketTypes = ticketTypes
+          .filter((t) => t.price && t.capacity)
+          .map((t) => ({
+            name: t.name,
+            price: parseFloat(t.price),
+            capacity: parseInt(t.capacity),
+            description: t.description || "",
+            benefits: t.benefits || [],
+          }));
+
+        if (validTicketTypes.length > 0) {
+          formData.append("ticketTypes", JSON.stringify(validTicketTypes));
+        }
+      } else {
+        if (publishData.price) formData.append("price", publishData.price);
+        if (publishData.capacity) formData.append("capacity", publishData.capacity);
+      }
+
+      // Append tags and requirements
+      if (tags.length > 0) formData.append("tags", JSON.stringify(tags));
+      if (requirements.length > 0) {
+        formData.append("requirements", JSON.stringify(requirements));
+      }
+
+      // Append images
+      imageFiles.forEach((file) => {
+        formData.append("images", file);
+      });
 
       // Append agreement data
       formData.append("agreement", JSON.stringify(agreementData));
@@ -407,18 +461,6 @@ const CreateEvent = () => {
     handleAgreementConfirm(serviceFeeData.agreementData, "publish_direct");
   };
 
-  // Render the service fee checkout when needed
-  {
-    showServiceFeeCheckout && serviceFeeData && (
-      <ServiceFeeCheckout
-        eventData={serviceFeeData.eventData}
-        serviceFee={serviceFeeData.serviceFee}
-        attendanceRange={serviceFeeData.attendanceRange}
-        onSuccess={handleServiceFeeSuccess}
-        onClose={() => setShowServiceFeeCheckout(false)}
-      />
-    );
-  }
   const onSubmit = async (data, status = "draft") => {
     try {
       setSavingAs(status);
@@ -1330,6 +1372,18 @@ const CreateEvent = () => {
           </div>
         </form>
       </div>
+
+      {/* Service Fee Checkout Modal */}
+      {showServiceFeeCheckout && serviceFeeData && (
+        <ServiceFeeCheckout
+          eventData={serviceFeeData.eventData}
+          serviceFee={serviceFeeData.serviceFee}
+          attendanceRange={serviceFeeData.attendanceRange}
+          agreementData={serviceFeeData.agreementData}
+          onSuccess={handleServiceFeeSuccess}
+          onClose={() => setShowServiceFeeCheckout(false)}
+        />
+      )}
 
       <div className="bg-black">
         <Footer />

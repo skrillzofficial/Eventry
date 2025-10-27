@@ -59,17 +59,21 @@ const PaymentAgreement = ({
   ];
 
   // Calculate estimated fee based on capacity
-  const calculateFee = (capacity) => {
-    const cap = parseInt(capacity);
+  // Calculate estimated fee based on capacity
+  const calculateFee = (capacityRange) => {
+    // Extract the first number from the range string, removing commas
+    // e.g., "1,001 – 5,000" -> 1001, "5,001+" -> 5001
+    const match = capacityRange.match(/^([\d,]+)/);
+    if (!match) return null;
+    
+    const cap = parseInt(match[1].replace(/,/g, ''));
+    
     if (cap <= 100) return { min: 2000, max: 3000, range: "₦2,000 – ₦3,000" };
     if (cap <= 500) return { min: 5000, max: 8000, range: "₦5,000 – ₦8,000" };
-    if (cap <= 1000)
-      return { min: 10000, max: 15000, range: "₦10,000 – ₦15,000" };
-    if (cap <= 5000)
-      return { min: 20000, max: 35000, range: "₦20,000 – ₦35,000" };
-    return { min: 50000, max: 50000, range: "₦50,000+" };
+    if (cap <= 1000) return { min: 10000, max: 15000, range: "₦10,000 – ₦15,000" };
+    if (cap <= 5000) return { min: 20000, max: 35000, range: "₦20,000 – ₦35,000" };
+    return { min: 50000, max: null, range: "₦50,000+" };
   };
-
   const totalCapacity = ticketTypes.reduce(
     (sum, ticket) => sum + parseInt(ticket.capacity || 0),
     0

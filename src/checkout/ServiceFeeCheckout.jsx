@@ -1,22 +1,28 @@
-// components/checkout/ServiceFeeCheckout.jsx
 import React, { useState } from "react";
-import { X, CreditCard, Lock, Calendar, Users, CheckCircle } from "lucide-react";
-import { transactionAPI, apiCall } from "../../services/api";
+import {
+  X,
+  CreditCard,
+  Lock,
+  Calendar,
+  Users,
+  CheckCircle,
+} from "lucide-react";
+import { transactionAPI, apiCall } from "../services/api";
 
-const ServiceFeeCheckout = ({ 
-  eventData, 
-  serviceFee, 
-  attendanceRange, 
+const ServiceFeeCheckout = ({
+  eventData,
+  serviceFee,
+  attendanceRange,
   agreementData,
-  onSuccess, 
-  onClose 
+  onSuccess,
+  onClose,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
-    phone: ""
+    phone: "",
   });
 
   const handleInputChange = (e) => {
@@ -55,23 +61,29 @@ const ServiceFeeCheckout = ({
           city: eventData.city,
           category: eventData.category,
           // Include all other event data needed for publishing
-          ...eventData
-        }
+          ...eventData,
+        },
       };
 
       console.log("Initializing service fee payment:", paymentData);
 
-      const result = await apiCall(transactionAPI.initializeServiceFee, paymentData);
+      const result = await apiCall(
+        transactionAPI.initializeServiceFee,
+        paymentData
+      );
 
       if (result.success && result.data?.authorizationUrl) {
         // Store agreement data in session storage for after payment
-        sessionStorage.setItem('pendingAgreement', JSON.stringify({
-          agreementData,
-          eventData,
-          serviceFee,
-          attendanceRange
-        }));
-        
+        sessionStorage.setItem(
+          "pendingAgreement",
+          JSON.stringify({
+            agreementData,
+            eventData,
+            serviceFee,
+            attendanceRange,
+          })
+        );
+
         // Redirect to payment gateway
         window.location.href = result.data.authorizationUrl;
       } else {
@@ -90,7 +102,9 @@ const ServiceFeeCheckout = ({
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h2 className="text-2xl font-bold text-gray-900">Publish Free Event</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Publish Free Event
+          </h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -107,21 +121,27 @@ const ServiceFeeCheckout = ({
                 <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                   <CheckCircle className="h-5 w-5 text-white" />
                 </div>
-                <span className="ml-2 text-sm font-medium text-green-600">Agreement Signed</span>
+                <span className="ml-2 text-sm font-medium text-green-600">
+                  Agreement Signed
+                </span>
               </div>
               <div className="flex-1 h-1 bg-green-500 mx-2"></div>
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-[#FF6B35] rounded-full flex items-center justify-center">
                   <CreditCard className="h-4 w-4 text-white" />
                 </div>
-                <span className="ml-2 text-sm font-medium text-gray-900">Pay Service Fee</span>
+                <span className="ml-2 text-sm font-medium text-gray-900">
+                  Pay Service Fee
+                </span>
               </div>
               <div className="flex-1 h-1 bg-gray-200 mx-2"></div>
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
                   <Calendar className="h-4 w-4 text-white" />
                 </div>
-                <span className="ml-2 text-sm font-medium text-gray-500">Event Live</span>
+                <span className="ml-2 text-sm font-medium text-gray-500">
+                  Event Live
+                </span>
               </div>
             </div>
           </div>
@@ -140,9 +160,15 @@ const ServiceFeeCheckout = ({
               Free Event Service Fee
             </h3>
             <div className="text-sm text-blue-700 space-y-1">
-              <p><strong>Event:</strong> {eventData.title}</p>
-              <p><strong>Attendance Range:</strong> {attendanceRange} attendees</p>
-              <p><strong>Service Type:</strong> Platform hosting & support</p>
+              <p>
+                <strong>Event:</strong> {eventData.title}
+              </p>
+              <p>
+                <strong>Attendance Range:</strong> {attendanceRange} attendees
+              </p>
+              <p>
+                <strong>Service Type:</strong> Platform hosting & support
+              </p>
             </div>
           </div>
 
@@ -201,15 +227,21 @@ const ServiceFeeCheckout = ({
 
           {/* Payment Summary */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Payment Summary</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              Payment Summary
+            </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Platform Service Fee</span>
-                <span className="font-medium">₦{serviceFee.toLocaleString()}</span>
+                <span className="font-medium">
+                  ₦{serviceFee.toLocaleString()}
+                </span>
               </div>
-              
+
               <div className="flex justify-between pt-2 border-t border-gray-200">
-                <span className="font-semibold text-gray-900">Total Amount</span>
+                <span className="font-semibold text-gray-900">
+                  Total Amount
+                </span>
                 <span className="font-bold text-[#FF6B35] text-lg">
                   ₦{serviceFee.toLocaleString()}
                 </span>
