@@ -28,7 +28,7 @@ const TicketManager = ({
   // Single ticket benefit handlers
   const handleAddSingleBenefit = () => {
     const input = document.getElementById("single-benefit-input");
-    if (input.value.trim() && singleTicketBenefits.length < 10) {
+    if (input && input.value.trim() && singleTicketBenefits.length < 10) {
       onAddSingleBenefit(input.value.trim());
       input.value = "";
     }
@@ -44,7 +44,7 @@ const TicketManager = ({
   // Multiple ticket benefit handlers
   const handleAddTicketBenefit = (ticketIndex) => {
     const input = document.getElementById(`benefit-input-${ticketIndex}`);
-    if (input.value.trim()) {
+    if (input && input.value.trim()) {
       onAddTicketBenefit(ticketIndex, input.value.trim());
       input.value = "";
     }
@@ -76,6 +76,10 @@ const TicketManager = ({
     "Networking session"
   ];
 
+  // Check if there's pricing data
+  const hasMultipleTicketData = ticketTypes && ticketTypes.length > 0 && ticketTypes.some(t => t.price || t.capacity);
+  const hasSingleTicketData = watch && (watch("price") || watch("capacity"));
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -84,7 +88,7 @@ const TicketManager = ({
           <h3 className="text-lg font-semibold text-gray-900">
             Ticket Types & Pricing
           </h3>
-          {ticketTypes.every((t) => !t.price || !t.capacity) && !watch("price") && (
+          {!hasMultipleTicketData && !hasSingleTicketData && (
             <span className="text-sm text-gray-400">(Required to publish)</span>
           )}
         </div>
@@ -92,14 +96,14 @@ const TicketManager = ({
           type="button"
           onClick={onTogglePricing}
           disabled={savingAs}
-          className="text-sm text-[#FF6B35] hover:underline disabled:opacity-50"
+          className="text-sm text-[#FF6B35] hover:underline disabled:opacity-50 font-medium"
         >
           {useLegacyPricing ? "Use Multiple Ticket Types" : "Use Single Price"}
         </button>
       </div>
 
       {/* Event Type Selection */}
-      <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-blue-200">
+      <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
         <label className="block text-sm font-medium text-gray-700 mb-3">
           Event Type *
         </label>
@@ -107,10 +111,10 @@ const TicketManager = ({
           {EVENT_TYPES.map((type) => (
             <label
               key={type}
-              className={`relative flex cursor-pointer rounded-lg border p-4 focus:outline-none ${
+              className={`relative flex cursor-pointer rounded-lg border p-4 focus:outline-none transition-all ${
                 eventType === type
-                  ? 'border-[#FF6B35] bg-orange-50 bg-opacity-5'
-                  : 'border-gray-300'
+                  ? 'border-[#FF6B35] bg-orange-50'
+                  : 'border-gray-300 hover:border-gray-400'
               }`}
             >
               <input
@@ -181,14 +185,14 @@ const TicketManager = ({
 
       {!useLegacyPricing ? (
         <div className="space-y-6">
-          {ticketTypes.map((ticket, index) => (
+          {ticketTypes && ticketTypes.map((ticket, index) => (
             <div
               key={index}
               className="border border-gray-200 rounded-lg p-4 bg-gray-50"
             >
               <div className="flex items-center justify-between mb-4">
                 <select
-                  value={ticket.name}
+                  value={ticket.name || "Regular"}
                   onChange={(e) => onUpdateTicket(index, "name", e.target.value)}
                   disabled={savingAs}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-semibold disabled:opacity-50"
@@ -267,11 +271,11 @@ const TicketManager = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price (₦)
+                    Price (₦) *
                   </label>
                   <input
                     type="number"
-                    value={ticket.price}
+                    value={ticket.price || ''}
                     onChange={(e) => onUpdateTicket(index, "price", e.target.value)}
                     disabled={savingAs}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
@@ -283,11 +287,11 @@ const TicketManager = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Capacity
+                    Capacity *
                   </label>
                   <input
                     type="number"
-                    value={ticket.capacity}
+                    value={ticket.capacity || ''}
                     onChange={(e) => onUpdateTicket(index, "capacity", e.target.value)}
                     disabled={savingAs}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
@@ -303,7 +307,7 @@ const TicketManager = ({
                 </label>
                 <input
                   type="text"
-                  value={ticket.description}
+                  value={ticket.description || ''}
                   onChange={(e) => onUpdateTicket(index, "description", e.target.value)}
                   disabled={savingAs}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
@@ -320,11 +324,6 @@ const TicketManager = ({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Benefits (Optional)
-                  <span className="text-xs text-gray-500 ml-2">
-                    {eventType === 'virtual' && 'Suggestions: ' + getVirtualBenefitSuggestions().join(', ')}
-                    {eventType === 'physical' && 'Suggestions: ' + getPhysicalBenefitSuggestions().join(', ')}
-                    {eventType === 'hybrid' && 'Include benefits for both virtual and physical access'}
-                  </span>
                 </label>
                 <div className="flex gap-2 mb-2">
                   <input
@@ -349,7 +348,7 @@ const TicketManager = ({
                   </button>
                 </div>
 
-                {ticket.benefits.length > 0 && (
+                {ticket.benefits && ticket.benefits.length > 0 && (
                   <div className="space-y-1">
                     {ticket.benefits.map((benefit, benefitIndex) => (
                       <div
@@ -375,7 +374,7 @@ const TicketManager = ({
             </div>
           ))}
 
-          {ticketTypes.length < 3 && (
+          {ticketTypes && ticketTypes.length < 3 && (
             <button
               type="button"
               onClick={onAddTicket}
@@ -392,7 +391,7 @@ const TicketManager = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ticket Price (₦)
+                Ticket Price (₦) *
               </label>
               <input
                 type="number"
@@ -407,7 +406,7 @@ const TicketManager = ({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Capacity
+                Capacity *
               </label>
               <input
                 type="number"
@@ -440,11 +439,6 @@ const TicketManager = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Ticket Benefits (Optional)
-              <span className="text-xs text-gray-500 ml-2">
-                {eventType === 'virtual' && 'Virtual event benefits'}
-                {eventType === 'physical' && 'Physical event benefits'}
-                {eventType === 'hybrid' && 'Benefits for both access types'}
-              </span>
             </label>
             <div className="flex gap-2 mb-2">
               <input
@@ -469,7 +463,7 @@ const TicketManager = ({
               </button>
             </div>
 
-            {singleTicketBenefits.length > 0 && (
+            {singleTicketBenefits && singleTicketBenefits.length > 0 && (
               <div className="space-y-1">
                 {singleTicketBenefits.map((benefit, index) => (
                   <div
@@ -496,11 +490,12 @@ const TicketManager = ({
       )}
 
       {/* Event Type Specific Notes */}
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
         <p className="text-sm text-gray-600">
-          {eventType === 'virtual' && ' Virtual events require a streaming link that will be shared with attendees after purchase.'}
-          {eventType === 'physical' && ' Physical events require venue details that will be shown to attendees.'}
-          {eventType === 'hybrid' && ' Hybrid events support both virtual and physical attendance. You can set different access types for each ticket.'}
+          <span className="font-medium">💡 Tip: </span>
+          {eventType === 'virtual' && 'Virtual events require a streaming link that will be shared with attendees after purchase.'}
+          {eventType === 'physical' && 'Physical events require venue details that will be shown to attendees.'}
+          {eventType === 'hybrid' && 'Hybrid events support both virtual and physical attendance. You can set different access types for each ticket.'}
         </p>
       </div>
     </div>

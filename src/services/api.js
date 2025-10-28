@@ -114,7 +114,7 @@ export const eventAPI = {
   
   getUpcomingEvents: () => apiClient.get("/events/upcoming"),
   
-  getAllEvents: (params = {}) => apiClient.get("/events", { params }),
+  getAllEvents: (params = {}) => apiClient.get("/events/all", { params }),
   
   getPastEvents: (params = {}) => apiClient.get("/events/past", { params }),
   
@@ -131,7 +131,7 @@ export const eventAPI = {
 
   // ========== PROTECTED ROUTES ==========
   getMyBookings: (params = {}) =>
-    apiClient.get("/events/my-bookings", { params }),
+    apiClient.get("/bookings/my-bookings", { params }),
   
   bookEventTicket: (eventId, bookingData) =>
     apiClient.post(`/events/${eventId}/book`, bookingData),
