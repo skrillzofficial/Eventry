@@ -20,6 +20,7 @@ import {
   MapPin,
   Clock,
   Image,
+  Monitor,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -28,6 +29,10 @@ import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import PaymentAgreement from "../../pages/dashboard/PaymentAgreement";
 import ServiceFeeCheckout from "../../checkout/ServiceFeeCheckout";
+import SocialBannerUploader from "../../../form/SocialBannerUploader/SocialBannerUploader";
+import EventCommunity from "../../../form/EventCommunity/EventCommunity";
+import LocationSelector from "../../../form/LocationSelector/LocationSelector";
+import TicketManager from "../../../form/TicketManager/TicketManager";
 
 // Validation schema
 const eventSchema = yup.object().shape({
@@ -44,12 +49,23 @@ const eventSchema = yup.object().shape({
     .string()
     .max(5000, "Long description must be less than 5000 characters"),
   category: yup.string(),
-  date: yup.string(),
+  startDate: yup.string(),
+  endDate: yup.string(),
   time: yup.string(),
   endTime: yup.string(),
   venue: yup.string(),
   address: yup.string(),
+  state: yup.string(),
   city: yup.string(),
+  virtualEventLink: yup.string().when('eventType', {
+    is: 'virtual',
+    then: (schema) => schema.required('Virtual event link is required'),
+    otherwise: (schema) => schema.notRequired()
+  }),
+  // Single ticket fields
+  price: yup.string(),
+  capacity: yup.string(),
+  ticketDescription: yup.string(),
 });
 
 const CreateEvent = () => {
@@ -69,11 +85,34 @@ const CreateEvent = () => {
   const [showServiceFeeCheckout, setShowServiceFeeCheckout] = useState(false);
   const [serviceFeeData, setServiceFeeData] = useState(null);
 
+  // Event type and location states
+  const [eventType, setEventType] = useState("physical");
+  const [virtualEventLink, setVirtualEventLink] = useState("");
+  const [selectedState, setSelectedState] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [isMultiDay, setIsMultiDay] = useState(false);
+
+  // Social banner states
+  const [socialBannerFile, setSocialBannerFile] = useState(null);
+  const [socialBannerEnabled, setSocialBannerEnabled] = useState(false);
+
+  // Community states
+  const [communityData, setCommunityData] = useState(null);
+  const [communityEnabled, setCommunityEnabled] = useState(false);
+
   // Form and data management
   const [ticketTypes, setTicketTypes] = useState([
-    { name: "Regular", price: "", capacity: "", description: "", benefits: [] },
+    { 
+      name: "Regular", 
+      price: "", 
+      capacity: "", 
+      description: "", 
+      benefits: [],
+      accessType: "both"
+    },
   ]);
   const [useLegacyPricing, setUseLegacyPricing] = useState(false);
+  const [singleTicketBenefits, setSingleTicketBenefits] = useState([]);
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState("");
   const [requirements, setRequirements] = useState([]);
@@ -85,6 +124,7 @@ const CreateEvent = () => {
     formState: { errors, isSubmitting },
     setError,
     watch,
+    setValue,
   } = useForm({
     resolver: yupResolver(eventSchema),
     mode: "onChange",
@@ -107,48 +147,6 @@ const CreateEvent = () => {
     "Other",
   ];
 
-  const CITIES = [
-    "Abia",
-    "Adamawa",
-    "Akwa Ibom",
-    "Anambra",
-    "Bauchi",
-    "Bayelsa",
-    "Benue",
-    "Borno",
-    "Cross River",
-    "Delta",
-    "Ebonyi",
-    "Edo",
-    "Ekiti",
-    "Enugu",
-    "FCT (Abuja)",
-    "Gombe",
-    "Imo",
-    "Jigawa",
-    "Kaduna",
-    "Kano",
-    "Katsina",
-    "Kebbi",
-    "Kogi",
-    "Kwara",
-    "Lagos",
-    "Nasarawa",
-    "Niger",
-    "Ogun",
-    "Ondo",
-    "Osun",
-    "Oyo",
-    "Plateau",
-    "Rivers",
-    "Sokoto",
-    "Taraba",
-    "Yobe",
-    "Zamfara",
-  ];
-
-  const TICKET_TYPES = ["Regular", "VIP", "VVIP"];
-
   // Effects
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -157,10 +155,39 @@ const CreateEvent = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Update form values when state/city changes
+  useEffect(() => {
+    setValue("state", selectedState);
+    setValue("city", selectedCity);
+  }, [selectedState, selectedCity, setValue]);
+
+  // Social Banner handler
+  const handleBannerChange = (file, enabled) => {
+    setSocialBannerFile(file);
+    setSocialBannerEnabled(enabled);
+  };
+
+  // Community handler
+  const handleCommunityChange = (data, enabled) => {
+    setCommunityData(data);
+    setCommunityEnabled(enabled);
+  };
+
+  // Single ticket benefits management
+  const addSingleTicketBenefit = (benefit) => {
+    if (benefit.trim() && singleTicketBenefits.length < 10) {
+      setSingleTicketBenefits([...singleTicketBenefits, benefit.trim()]);
+    }
+  };
+
+  const removeSingleTicketBenefit = (index) => {
+    setSingleTicketBenefits(singleTicketBenefits.filter((_, i) => i !== index));
+  };
+
   // Ticket type management
   const addTicketType = () => {
     if (ticketTypes.length < 3) {
-      const availableTypes = TICKET_TYPES.filter(
+      const availableTypes = ["Regular", "VIP", "VVIP"].filter(
         (type) => !ticketTypes.find((t) => t.name === type)
       );
       if (availableTypes.length > 0) {
@@ -172,6 +199,7 @@ const CreateEvent = () => {
             capacity: "",
             description: "",
             benefits: [],
+            accessType: eventType === "hybrid" ? "both" : undefined
           },
         ]);
       }
@@ -295,18 +323,37 @@ const CreateEvent = () => {
     const requiredFields = {
       description: "Description is required to publish",
       category: "Category is required to publish",
-      date: "Event date is required to publish",
+      startDate: "Start date is required to publish",
       time: "Start time is required to publish",
       endTime: "End time is required to publish",
-      venue: "Venue is required to publish",
-      address: "Address is required to publish",
-      city: "City/State is required to publish",
     };
+
+    // Location validation for physical/hybrid events
+    if (eventType !== "virtual") {
+      requiredFields.venue = "Venue is required to publish";
+      requiredFields.address = "Address is required to publish";
+      requiredFields.state = "State is required to publish";
+      requiredFields.city = "City is required to publish";
+    }
+
+    // Virtual event link validation
+    if (eventType === "virtual" && !virtualEventLink) {
+      requiredFields.virtualEventLink = "Virtual event link is required to publish";
+    }
 
     const errors = [];
     for (const [field, message] of Object.entries(requiredFields)) {
       if (!data[field]) {
         errors.push(message);
+      }
+    }
+
+    // Multi-day event validation
+    if (isMultiDay && data.startDate && data.endDate) {
+      const start = new Date(data.startDate);
+      const end = new Date(data.endDate);
+      if (end < start) {
+        errors.push("End date cannot be before start date");
       }
     }
 
@@ -345,39 +392,45 @@ const CreateEvent = () => {
     setShowPaymentAgreement(true);
   };
 
-  const handleAgreementConfirm = async (agreementData, actionType = "publish_direct") => {
-  try {
-    if (actionType === "service_fee_payment") {
-      // Show service fee checkout for free events
-      setShowPaymentAgreement(false); // Close the agreement modal
-      setServiceFeeData({
-        eventData: publishData,
-        agreementData,
-        serviceFee: agreementData.serviceFee.min, 
-        attendanceRange: agreementData.attendanceRange,
-      });
-      setShowServiceFeeCheckout(true);
-      return;
-    }
+  const handleAgreementConfirm = async (
+    agreementData,
+    actionType = "publish_direct"
+  ) => {
+    try {
+      if (actionType === "service_fee_payment") {
+        setShowPaymentAgreement(false);
+        setServiceFeeData({
+          eventData: publishData,
+          agreementData,
+          serviceFee: agreementData.serviceFee.min,
+          attendanceRange: agreementData.attendanceRange,
+        });
+        setShowServiceFeeCheckout(true);
+        return;
+      }
 
-      // For paid events or after service fee payment - publish the event
       setSavingAs("published");
 
       const formData = new FormData();
 
-      // Append all event data
       formData.append("title", publishData.title);
       formData.append("status", "published");
       formData.append("description", publishData.description);
-      
+      formData.append("eventType", eventType);
+
       if (publishData.longDescription) {
         formData.append("longDescription", publishData.longDescription);
       }
       if (publishData.category) {
         formData.append("category", publishData.category);
       }
-      if (publishData.date) {
-        formData.append("date", publishData.date);
+      if (publishData.startDate) {
+        formData.append("startDate", publishData.startDate);
+      }
+      if (isMultiDay && publishData.endDate) {
+        formData.append("endDate", publishData.endDate);
+      } else {
+        formData.append("endDate", publishData.startDate);
       }
       if (publishData.time) {
         formData.append("time", publishData.time);
@@ -385,14 +438,20 @@ const CreateEvent = () => {
       if (publishData.endTime) {
         formData.append("endTime", publishData.endTime);
       }
-      if (publishData.venue) {
-        formData.append("venue", publishData.venue);
+
+      // Location data for physical/hybrid events
+      if (eventType !== "virtual") {
+        if (publishData.venue) formData.append("venue", publishData.venue);
+        if (publishData.address) formData.append("address", publishData.address);
+        if (publishData.state) formData.append("state", publishData.state);
+        if (publishData.city) formData.append("city", publishData.city);
       }
-      if (publishData.address) {
-        formData.append("address", publishData.address);
-      }
-      if (publishData.city) {
-        formData.append("city", publishData.city);
+
+      // Virtual event data
+      if (eventType === "virtual" || eventType === "hybrid") {
+        if (virtualEventLink) {
+          formData.append("virtualEventLink", virtualEventLink);
+        }
       }
 
       // Append ticket types or legacy pricing
@@ -405,6 +464,7 @@ const CreateEvent = () => {
             capacity: parseInt(t.capacity),
             description: t.description || "",
             benefits: t.benefits || [],
+            accessType: t.accessType || "both"
           }));
 
         if (validTicketTypes.length > 0) {
@@ -413,23 +473,38 @@ const CreateEvent = () => {
       } else {
         if (publishData.price) formData.append("price", publishData.price);
         if (publishData.capacity) formData.append("capacity", publishData.capacity);
+        if (publishData.ticketDescription)
+          formData.append("ticketDescription", publishData.ticketDescription);
+        if (singleTicketBenefits.length > 0) {
+          formData.append(
+            "ticketBenefits",
+            JSON.stringify(singleTicketBenefits)
+          );
+        }
       }
 
-      // Append tags and requirements
       if (tags.length > 0) formData.append("tags", JSON.stringify(tags));
       if (requirements.length > 0) {
         formData.append("requirements", JSON.stringify(requirements));
       }
 
-      // Append images
       imageFiles.forEach((file) => {
         formData.append("images", file);
       });
 
-      // Append agreement data
-      formData.append("agreement", JSON.stringify(agreementData));
+      // Append social banner data
+      if (socialBannerEnabled && socialBannerFile) {
+        formData.append("socialBanner", socialBannerFile);
+        formData.append("socialBannerEnabled", "true");
+      }
 
-      console.log("Publishing event with agreement:", agreementData);
+      // Append community data
+      if (communityEnabled && communityData) {
+        formData.append("community", JSON.stringify(communityData));
+        formData.append("communityEnabled", "true");
+      }
+
+      formData.append("agreement", JSON.stringify(agreementData));
 
       const result = await apiCall(eventAPI.createEvent, formData);
 
@@ -452,12 +527,9 @@ const CreateEvent = () => {
     }
   };
 
-  // Add service fee payment success handler
   const handleServiceFeeSuccess = (paymentResult) => {
     console.log("Service fee payment successful:", paymentResult);
     setShowServiceFeeCheckout(false);
-
-    // Now publish the event after successful service fee payment
     handleAgreementConfirm(serviceFeeData.agreementData, "publish_direct");
   };
 
@@ -470,21 +542,38 @@ const CreateEvent = () => {
         return;
       }
 
-      // Draft submission
       const formData = new FormData();
       formData.append("title", data.title);
       formData.append("status", status);
+      formData.append("eventType", eventType);
 
       if (data.description) formData.append("description", data.description);
       if (data.longDescription)
         formData.append("longDescription", data.longDescription);
       if (data.category) formData.append("category", data.category);
-      if (data.date) formData.append("date", data.date);
+      if (data.startDate) formData.append("startDate", data.startDate);
+      if (isMultiDay && data.endDate) {
+        formData.append("endDate", data.endDate);
+      } else {
+        formData.append("endDate", data.startDate);
+      }
       if (data.time) formData.append("time", data.time);
       if (data.endTime) formData.append("endTime", data.endTime);
-      if (data.venue) formData.append("venue", data.venue);
-      if (data.address) formData.append("address", data.address);
-      if (data.city) formData.append("city", data.city);
+
+      // Location data for physical/hybrid events
+      if (eventType !== "virtual") {
+        if (data.venue) formData.append("venue", data.venue);
+        if (data.address) formData.append("address", data.address);
+        if (data.state) formData.append("state", data.state);
+        if (data.city) formData.append("city", data.city);
+      }
+
+      // Virtual event data
+      if (eventType === "virtual" || eventType === "hybrid") {
+        if (virtualEventLink) {
+          formData.append("virtualEventLink", virtualEventLink);
+        }
+      }
 
       if (!useLegacyPricing) {
         const validTicketTypes = ticketTypes
@@ -495,6 +584,7 @@ const CreateEvent = () => {
             capacity: parseInt(t.capacity),
             description: t.description || "",
             benefits: t.benefits || [],
+            accessType: t.accessType || "both"
           }));
 
         if (validTicketTypes.length > 0) {
@@ -503,6 +593,14 @@ const CreateEvent = () => {
       } else {
         if (data.price) formData.append("price", data.price);
         if (data.capacity) formData.append("capacity", data.capacity);
+        if (data.ticketDescription)
+          formData.append("ticketDescription", data.ticketDescription);
+        if (singleTicketBenefits.length > 0) {
+          formData.append(
+            "ticketBenefits",
+            JSON.stringify(singleTicketBenefits)
+          );
+        }
       }
 
       if (tags.length > 0) formData.append("tags", JSON.stringify(tags));
@@ -512,6 +610,18 @@ const CreateEvent = () => {
       imageFiles.forEach((file) => {
         formData.append("images", file);
       });
+
+      // Append social banner for drafts too
+      if (socialBannerEnabled && socialBannerFile) {
+        formData.append("socialBanner", socialBannerFile);
+        formData.append("socialBannerEnabled", "true");
+      }
+
+      // Append community data for drafts
+      if (communityEnabled && communityData) {
+        formData.append("community", JSON.stringify(communityData));
+        formData.append("communityEnabled", "true");
+      }
 
       const result = await apiCall(eventAPI.createEvent, formData);
 
@@ -792,30 +902,63 @@ const CreateEvent = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Date & Time{" "}
-              {(!watch("date") || !watch("time") || !watch("endTime")) && (
+              {(!watch("startDate") || !watch("time") || !watch("endTime")) && (
                 <span className="text-sm text-gray-400 font-normal">
                   (Required to publish)
                 </span>
               )}
             </h3>
+            
+            {/* Multi-day Toggle */}
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="checkbox"
+                id="multiDay"
+                checked={isMultiDay}
+                onChange={(e) => setIsMultiDay(e.target.checked)}
+                disabled={savingAs}
+                className="w-4 h-4 text-[#FF6B35] border-gray-300 rounded focus:ring-[#FF6B35]"
+              />
+              <label htmlFor="multiDay" className="text-sm font-medium text-gray-700">
+                This is a multi-day event
+              </label>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Event Date
-                </label>
-                <input
-                  type="date"
-                  {...register("date")}
-                  min={new Date().toISOString().split("T")[0]}
-                  disabled={savingAs}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {isMultiDay ? "Start Date" : "Event Date"} *
+                  </label>
+                  <input
+                    type="date"
+                    {...register("startDate")}
+                    min={new Date().toISOString().split("T")[0]}
+                    disabled={savingAs}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
+                  />
+                </div>
+
+                {isMultiDay && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Date *
+                    </label>
+                    <input
+                      type="date"
+                      {...register("endDate")}
+                      min={watch("startDate") || new Date().toISOString().split("T")[0]}
+                      disabled={savingAs}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Time
+                    Start Time *
                   </label>
                   <input
                     type="time"
@@ -827,7 +970,7 @@ const CreateEvent = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Time
+                    End Time *
                   </label>
                   <input
                     type="time"
@@ -840,291 +983,56 @@ const CreateEvent = () => {
             </div>
           </div>
 
-          {/* Location */}
+          {/* Location Section with LocationSelector */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Location{" "}
-              {(!watch("venue") || !watch("address") || !watch("city")) && (
-                <span className="text-sm text-gray-400 font-normal">
-                  (Required to publish)
-                </span>
-              )}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Venue Name
-                </label>
-                <input
-                  type="text"
-                  {...register("venue")}
-                  disabled={savingAs}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                  placeholder="e.g., International Conference Center"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Address
-                </label>
-                <input
-                  type="text"
-                  {...register("address")}
-                  disabled={savingAs}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                  placeholder="Street address, area, landmark"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  State
-                </label>
-                <select
-                  {...register("city")}
-                  disabled={savingAs}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                >
-                  <option value="">Select your state</option>
-                  {CITIES.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <LocationSelector
+              selectedState={selectedState}
+              selectedCity={selectedCity}
+              onStateChange={setSelectedState}
+              onCityChange={setSelectedCity}
+              disabled={savingAs}
+              errors={errors}
+              register={register}
+            />
           </div>
 
-          {/* Ticket Types & Pricing */}
+          {/* Ticket Types & Pricing with TicketManager */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Ticket className="h-5 w-5 text-[#FF6B35]" />
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Ticket Types & Pricing
-                </h3>
-                {ticketTypes.every((t) => !t.price || !t.capacity) && (
-                  <span className="text-sm text-gray-400">
-                    (Required to publish)
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setUseLegacyPricing(!useLegacyPricing)}
-                disabled={savingAs}
-                className="text-sm text-[#FF6B35] hover:underline disabled:opacity-50"
-              >
-                {useLegacyPricing
-                  ? "Use Multiple Ticket Types"
-                  : "Use Single Price"}
-              </button>
-            </div>
-
-            {!useLegacyPricing ? (
-              <div className="space-y-6">
-                {ticketTypes.map((ticket, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <select
-                        value={ticket.name}
-                        onChange={(e) =>
-                          updateTicketType(index, "name", e.target.value)
-                        }
-                        disabled={savingAs}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-semibold disabled:opacity-50"
-                      >
-                        {TICKET_TYPES.map((type) => (
-                          <option
-                            key={type}
-                            value={type}
-                            disabled={ticketTypes.some(
-                              (t, i) => i !== index && t.name === type
-                            )}
-                          >
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                      {ticketTypes.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeTicketType(index)}
-                          disabled={savingAs}
-                          className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Price (₦)
-                        </label>
-                        <input
-                          type="number"
-                          value={ticket.price}
-                          onChange={(e) =>
-                            updateTicketType(index, "price", e.target.value)
-                          }
-                          disabled={savingAs}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                          placeholder="0"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Capacity
-                        </label>
-                        <input
-                          type="number"
-                          value={ticket.capacity}
-                          onChange={(e) =>
-                            updateTicketType(index, "capacity", e.target.value)
-                          }
-                          disabled={savingAs}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                          placeholder="Number of tickets"
-                          min="1"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={ticket.description}
-                        onChange={(e) =>
-                          updateTicketType(index, "description", e.target.value)
-                        }
-                        disabled={savingAs}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                        placeholder="e.g., Includes front row seating"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Benefits (Optional)
-                      </label>
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          id={`benefit-input-${index}`}
-                          disabled={savingAs}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                          placeholder="e.g., VIP lounge access"
-                          onKeyPress={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const input = e.target;
-                              addTicketBenefit(index, input.value);
-                              input.value = "";
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById(
-                              `benefit-input-${index}`
-                            );
-                            addTicketBenefit(index, input.value);
-                            input.value = "";
-                          }}
-                          disabled={savingAs}
-                          className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors disabled:opacity-50"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      {ticket.benefits.length > 0 && (
-                        <div className="space-y-1">
-                          {ticket.benefits.map((benefit, benefitIndex) => (
-                            <div
-                              key={benefitIndex}
-                              className="flex items-center justify-between bg-white px-3 py-2 rounded border border-gray-200"
-                            >
-                              <span className="text-sm text-gray-700">
-                                • {benefit}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  removeTicketBenefit(index, benefitIndex)
-                                }
-                                disabled={savingAs}
-                                className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {ticketTypes.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={addTicketType}
-                    disabled={savingAs}
-                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-[#FF6B35] hover:text-[#FF6B35] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Another Ticket Type
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ticket Price (₦)
-                  </label>
-                  <input
-                    type="number"
-                    {...register("price")}
-                    disabled={savingAs}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Capacity
-                  </label>
-                  <input
-                    type="number"
-                    {...register("capacity")}
-                    disabled={savingAs}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent disabled:opacity-50"
-                    placeholder="Maximum attendees"
-                    min="1"
-                  />
-                </div>
-              </div>
-            )}
+            <TicketManager
+              useLegacyPricing={useLegacyPricing}
+              onTogglePricing={setUseLegacyPricing}
+              ticketTypes={ticketTypes}
+              onAddTicket={addTicketType}
+              onRemoveTicket={removeTicketType}
+              onUpdateTicket={updateTicketType}
+              onAddTicketBenefit={addTicketBenefit}
+              onRemoveTicketBenefit={removeTicketBenefit}
+              singleTicketBenefits={singleTicketBenefits}
+              onAddSingleBenefit={addSingleTicketBenefit}
+              onRemoveSingleBenefit={removeSingleTicketBenefit}
+              eventType={eventType}
+              onEventTypeChange={setEventType}
+              virtualEventLink={virtualEventLink}
+              onVirtualEventLinkChange={setVirtualEventLink}
+              register={register}
+              savingAs={savingAs}
+              watch={watch}
+              errors={errors}
+            />
           </div>
+
+          {/* Social Banner Component */}
+          <SocialBannerUploader
+            onBannerChange={handleBannerChange}
+            disabled={savingAs}
+          />
+
+          {/* Community Groups Component */}
+          <EventCommunity
+            onCommunityChange={handleCommunityChange}
+            initialCommunity={communityData}
+            disabled={savingAs}
+          />
 
           {/* Requirements */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
