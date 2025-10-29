@@ -1,5 +1,5 @@
 import React from "react";
-import { Ticket, Plus, Trash2, X, Monitor, MapPin, Shield, Calendar, HelpCircle } from "lucide-react";
+import { Ticket, Plus, Trash2, X, Monitor, MapPin, Shield, HelpCircle } from "lucide-react";
 
 const TICKET_TYPES = ["Regular", "VIP", "VVIP"];
 const EVENT_TYPES = ["physical", "virtual", "hybrid"];

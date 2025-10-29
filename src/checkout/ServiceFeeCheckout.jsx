@@ -6,6 +6,7 @@ import {
   Calendar,
   Users,
   CheckCircle,
+  Shield,
 } from "lucide-react";
 import { transactionAPI, apiCall } from "../services/api";
 
@@ -24,6 +25,11 @@ const ServiceFeeCheckout = ({
     email: "",
     phone: "",
   });
+
+  // Check if this is an approval-based event
+  const hasApprovalTickets = eventData?.ticketTypes?.some(ticket => 
+    (ticket.price === 0 || ticket.price === "0") && ticket.requiresApproval
+  );
 
   const handleInputChange = (e) => {
     setFormData({
@@ -60,6 +66,7 @@ const ServiceFeeCheckout = ({
           venue: eventData.venue,
           city: eventData.city,
           category: eventData.category,
+          hasApprovalTickets: hasApprovalTickets,
           // Include all other event data needed for publishing
           ...eventData,
         },
@@ -81,6 +88,7 @@ const ServiceFeeCheckout = ({
             eventData,
             serviceFee,
             attendanceRange,
+            hasApprovalTickets,
           })
         );
 
@@ -118,14 +126,14 @@ const ServiceFeeCheckout = ({
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
                   <CheckCircle className="h-5 w-5 text-white" />
                 </div>
-                <span className="ml-2 text-sm font-medium text-green-600">
+                <span className="ml-2 text-sm font-medium text-orange-600">
                   Agreement Signed
                 </span>
               </div>
-              <div className="flex-1 h-1 bg-green-500 mx-2"></div>
+              <div className="flex-1 h-1 bg-orange-500 mx-2"></div>
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-[#FF6B35] rounded-full flex items-center justify-center">
                   <CreditCard className="h-4 w-4 text-white" />
@@ -153,13 +161,31 @@ const ServiceFeeCheckout = ({
             </div>
           )}
 
+          {/* Approval-Based Event Notice */}
+          {hasApprovalTickets && (
+            <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-orange-900 mb-1">
+                    Approval-Based Registration
+                  </p>
+                  <p className="text-sm text-orange-700">
+                    This event uses approval-based registration. Attendees will apply to attend 
+                    and you'll review their applications before approving and issuing tickets.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Service Details */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
+          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <h3 className="font-semibold text-orange-900 mb-2 flex items-center">
               <Calendar className="h-5 w-5 mr-2" />
               Free Event Service Fee
             </h3>
-            <div className="text-sm text-blue-700 space-y-1">
+            <div className="text-sm text-orange-700 space-y-1">
               <p>
                 <strong>Event:</strong> {eventData.title}
               </p>
@@ -169,6 +195,11 @@ const ServiceFeeCheckout = ({
               <p>
                 <strong>Service Type:</strong> Platform hosting & support
               </p>
+              {hasApprovalTickets && (
+                <p className="font-medium">
+                  <strong>Registration Type:</strong> Approval-Based
+                </p>
+              )}
             </div>
           </div>
 
@@ -188,7 +219,7 @@ const ServiceFeeCheckout = ({
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                   placeholder="Enter your full name"
                   required
                 />
@@ -203,7 +234,7 @@ const ServiceFeeCheckout = ({
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                   placeholder="your.email@example.com"
                   required
                 />
@@ -218,7 +249,7 @@ const ServiceFeeCheckout = ({
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                   placeholder="+234 800 000 0000"
                 />
               </div>
@@ -250,12 +281,12 @@ const ServiceFeeCheckout = ({
           </div>
 
           {/* Benefits */}
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h4 className="font-semibold text-green-900 mb-2 flex items-center">
+          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <h4 className="font-semibold text-orange-900 mb-2 flex items-center">
               <Users className="h-4 w-4 mr-2" />
               What's included:
             </h4>
-            <ul className="text-sm text-green-700 space-y-1">
+            <ul className="text-sm text-orange-700 space-y-1">
               <li>• Event page hosting and management</li>
               <li>• Attendee registration system</li>
               <li>• QR code check-in system</li>
@@ -263,6 +294,13 @@ const ServiceFeeCheckout = ({
               <li>• Platform maintenance and security</li>
               <li>• Event promotion tools</li>
               <li>• Analytics and reporting</li>
+              {hasApprovalTickets && (
+                <>
+                  <li>• Approval-based registration system</li>
+                  <li>• Application review dashboard</li>
+                  <li>• Automated approval notifications</li>
+                </>
+              )}
             </ul>
           </div>
 
@@ -270,7 +308,7 @@ const ServiceFeeCheckout = ({
           <button
             onClick={handlePayment}
             disabled={loading}
-            className="w-full bg-[#FF6B35] text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-[#FF8535] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            className="w-full bg-[#FF6B35] text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-[#FF8535] focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
           >
             {loading ? (
               <>
@@ -292,6 +330,15 @@ const ServiceFeeCheckout = ({
               Secure payment powered by Paystack
             </p>
           </div>
+
+          {/* Additional Info for Approval Events */}
+          {hasApprovalTickets && (
+            <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-xs text-orange-700 text-center">
+                After payment, you'll have access to the approval dashboard to review attendee applications.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

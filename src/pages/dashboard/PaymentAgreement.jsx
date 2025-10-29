@@ -6,6 +6,7 @@ import {
   Users,
   CreditCard,
   AlertCircle,
+  Shield,
 } from "lucide-react";
 
 const PaymentAgreement = ({
@@ -22,6 +23,11 @@ const PaymentAgreement = ({
   // Check if event is free (all ticket types are 0 or no price)
   const isFreeEvent = ticketTypes.every(
     (ticket) => parseFloat(ticket.price || 0) === 0
+  );
+
+  // Check if event has approval-based tickets
+  const hasApprovalTickets = ticketTypes.some(
+    (ticket) => ticket.requiresApproval && parseFloat(ticket.price || 0) === 0
   );
 
   // Fee structure for free events
@@ -59,10 +65,7 @@ const PaymentAgreement = ({
   ];
 
   // Calculate estimated fee based on capacity
-  // Calculate estimated fee based on capacity
   const calculateFee = (capacityRange) => {
-    // Extract the first number from the range string, removing commas
-    // e.g., "1,001 – 5,000" -> 1001, "5,001+" -> 5001
     const match = capacityRange.match(/^([\d,]+)/);
     if (!match) return null;
     
@@ -74,6 +77,7 @@ const PaymentAgreement = ({
     if (cap <= 5000) return { min: 20000, max: 35000, range: "₦20,000 – ₦35,000" };
     return { min: 50000, max: null, range: "₦50,000+" };
   };
+
   const totalCapacity = ticketTypes.reduce(
     (sum, ticket) => sum + parseInt(ticket.capacity || 0),
     0
@@ -81,7 +85,6 @@ const PaymentAgreement = ({
 
   const estimatedFee = selectedCapacity ? calculateFee(selectedCapacity) : null;
 
-  // In PaymentAgreement.jsx - Update the handleAgree function
   const handleAgree = async () => {
     if (!agreed) return;
 
@@ -90,6 +93,7 @@ const PaymentAgreement = ({
     // Prepare agreement data
     const agreementData = {
       isFreeEvent,
+      hasApprovalTickets,
       totalCapacity: selectedCapacity || totalCapacity,
       serviceFee: isFreeEvent ? estimatedFee : null,
       platformFee: !isFreeEvent ? 0.03 : null,
@@ -118,15 +122,13 @@ const PaymentAgreement = ({
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-lg ${
-                  isFreeEvent ? "bg-blue-100" : "bg-green-100"
-                }`}
-              >
+              <div className={`p-2 rounded-lg ${
+                isFreeEvent ? "bg-orange-100" : "bg-orange-100"
+              }`}>
                 {isFreeEvent ? (
-                  <Users className="h-6 w-6 text-blue-600" />
+                  <Users className="h-6 w-6 text-orange-600" />
                 ) : (
-                  <CreditCard className="h-6 w-6 text-green-600" />
+                  <CreditCard className="h-6 w-6 text-orange-600" />
                 )}
               </div>
               <div>
@@ -170,15 +172,32 @@ const PaymentAgreement = ({
               </div>
               <div>
                 <span className="text-gray-600">Event Type:</span>
-                <span
-                  className={`font-medium ml-2 ${
-                    isFreeEvent ? "text-blue-600" : "text-green-600"
-                  }`}
-                >
+                <span className={`font-medium ml-2 ${
+                  isFreeEvent ? "text-orange-600" : "text-orange-600"
+                }`}>
                   {isFreeEvent ? "Free Event" : "Paid Event"}
+                  {hasApprovalTickets && " (Approval-Based)"}
                 </span>
               </div>
             </div>
+
+            {/* Approval-Based Event Notice */}
+            {hasApprovalTickets && (
+              <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Shield className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-orange-900 mb-1">
+                      Approval-Based Registration
+                    </p>
+                    <p className="text-sm text-orange-700">
+                      This event uses approval-based registration. Attendees will apply to attend 
+                      and you'll review their applications before approving and issuing tickets.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -233,21 +252,21 @@ const PaymentAgreement = ({
 
                 {/* Estimated Fee Display */}
                 {estimatedFee && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-semibold text-blue-900">
+                        <h4 className="font-semibold text-orange-900">
                           Estimated Service Fee
                         </h4>
-                        <p className="text-blue-700">
+                        <p className="text-orange-700">
                           Your selected range: {selectedCapacity} attendees
                         </p>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-900">
+                        <div className="text-2xl font-bold text-orange-900">
                           {estimatedFee.range}
                         </div>
-                        <p className="text-sm text-blue-600">
+                        <p className="text-sm text-orange-600">
                           One-time service fee
                         </p>
                       </div>
@@ -261,18 +280,18 @@ const PaymentAgreement = ({
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 Paid Event Platform Fees
               </h3>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <CreditCard className="h-6 w-6 text-green-600 mt-1" />
+                  <CreditCard className="h-6 w-6 text-orange-600 mt-1" />
                   <div>
-                    <h4 className="font-semibold text-green-900 mb-2">
+                    <h4 className="font-semibold text-orange-900 mb-2">
                       3% Platform Fee on Ticket Sales
                     </h4>
-                    <p className="text-green-700 mb-2">
+                    <p className="text-orange-700 mb-2">
                       Eventry earns a small percentage (3%) from every ticket
                       sold through the platform.
                     </p>
-                    <ul className="text-green-700 text-sm space-y-1">
+                    <ul className="text-orange-700 text-sm space-y-1">
                       <li>• No upfront costs for organizers</li>
                       <li>• Fees only apply to successful sales</li>
                       <li>• Transparent pricing with no hidden charges</li>
@@ -330,9 +349,23 @@ const PaymentAgreement = ({
               </p>
             </div>
 
+            {hasApprovalTickets && (
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-2">
+                  3. Approval-Based Registration
+                </h4>
+                <p className="text-sm mb-3">
+                  For approval-based free events, you are responsible for reviewing 
+                  and responding to attendee applications in a timely manner. Eventry 
+                  provides tools for managing applications but the approval decisions 
+                  are your responsibility.
+                </p>
+              </div>
+            )}
+
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">
-                3. Payment Terms
+                {hasApprovalTickets ? "4. Payment Terms" : "3. Payment Terms"}
               </h4>
               <p className="text-sm mb-3">
                 {isFreeEvent
@@ -343,7 +376,7 @@ const PaymentAgreement = ({
 
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">
-                4. Cancellation Policy
+                {hasApprovalTickets ? "5. Cancellation Policy" : "4. Cancellation Policy"}
               </h4>
               <p className="text-sm mb-3">
                 Events can be cancelled or unpublished at any time. However,
@@ -354,12 +387,13 @@ const PaymentAgreement = ({
 
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">
-                5. Organizer Responsibilities
+                {hasApprovalTickets ? "6. Organizer Responsibilities" : "5. Organizer Responsibilities"}
               </h4>
               <p className="text-sm">
                 You are responsible for providing accurate event information,
                 managing attendee expectations, and delivering the event as
                 described. Eventry acts as a platform provider only.
+                {hasApprovalTickets && " For approval-based events, you are also responsible for timely review of applications and clear communication with applicants."}
               </p>
             </div>
           </div>
@@ -375,8 +409,7 @@ const PaymentAgreement = ({
               />
               <div>
                 <span className="font-medium text-gray-900">
-                  I understand and agree to the Eventry Platform Terms and Fee
-                  Structure
+                  I understand and agree to the Eventry Platform Terms and Fee Structure
                 </span>
                 <p className="text-sm text-gray-600 mt-1">
                   {isFreeEvent
@@ -384,6 +417,7 @@ const PaymentAgreement = ({
                         estimatedFee?.range || "based on selected attendance"
                       } for this free event.`
                     : "I agree to the 3% platform fee deduction from all ticket sales for this paid event."}
+                  {hasApprovalTickets && " I understand my responsibilities for reviewing and approving attendee applications."}
                 </p>
               </div>
             </label>
@@ -422,7 +456,7 @@ const PaymentAgreement = ({
               ) : (
                 <>
                   <CheckCircle className="h-4 w-4" />
-                  Agree & Publish Event
+                  {isFreeEvent ? "Agree & Pay Service Fee" : "Agree & Publish Event"}
                 </>
               )}
             </button>
@@ -430,10 +464,10 @@ const PaymentAgreement = ({
         </div>
 
         {/* Help Text */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
           <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-            <div className="text-sm text-blue-700">
+            <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+            <div className="text-sm text-orange-700">
               <p className="font-medium mb-1">
                 Need help understanding the fees?
               </p>
@@ -441,6 +475,7 @@ const PaymentAgreement = ({
                 {isFreeEvent
                   ? "Service fees for free events help us maintain platform quality and provide support for your attendees. Contact support if you have questions about the fee structure."
                   : "The 3% platform fee is competitive and covers all payment processing, platform features, and customer support. No hidden charges."}
+                {hasApprovalTickets && " For approval-based events, you'll have access to special tools for managing applications and approvals."}
               </p>
             </div>
           </div>
