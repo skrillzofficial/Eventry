@@ -67,31 +67,25 @@ const UserProfile = () => {
     }
   };
 
+  // Update your loadBookingsData function - replace line 91
   const loadBookingsData = async () => {
     try {
       const bookingsResult = await apiCall(eventAPI.getMyBookings);
-      console.log("Raw bookings result:", bookingsResult); // Debug log
+      console.log("Raw bookings result:", bookingsResult);
 
-      // Handle multiple possible response structures
       let bookings = [];
 
       if (bookingsResult.success) {
-        // Try different paths where bookings might be located
-        bookings =
-          bookingsResult.data?.data?.bookings ||
-          bookingsResult.data?.bookings ||
-          bookingsResult.data?.data ||
-          bookingsResult.data ||
-          [];
+        // ✅ CORRECT PATH: bookingsResult.data.data.bookings
+        bookings = bookingsResult.data?.data?.bookings || [];
 
-        // Ensure bookings is an array
         if (!Array.isArray(bookings)) {
           console.warn("Bookings is not an array:", bookings);
           bookings = [];
         }
       }
 
-      console.log("Processed bookings array:", bookings); // Debug log
+      console.log("Processed bookings array:", bookings);
 
       const today = new Date();
 
@@ -132,7 +126,128 @@ const UserProfile = () => {
       generateActivityFromBookings(bookings);
     } catch (error) {
       console.error("Error loading bookings:", error);
-      // Set empty arrays on error to prevent crashes
+      setMyBookings([]);
+      setAttendedEvents([]);
+      setStats((prev) => ({
+        ...prev,
+        eventsAttended: 0,
+        upcomingBookings: 0,
+        totalTickets: 0,
+      }));
+    }
+  };
+  // ✅ FIX: Update EventHistorySection to use booking._id instead of event._id
+  const EventHistorySection = ({ events }) => (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">
+          My Event History
+        </h3>
+        <Link
+          to="/my-events"
+          className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center group"
+        >
+          View all{" "}
+          <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
+      <div className="space-y-3">
+        {events.length > 0 ? (
+          events.slice(0, 3).map((event, index) => (
+            // ✅ FIX: Use index as fallback to ensure unique keys
+            <EventHistoryItem key={`${event._id}-${index}`} event={event} />
+          ))
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>No events attended yet</p>
+            <Link
+              to="/discover"
+              className="text-[#FF6B35] hover:text-[#FF8535] text-sm mt-2 inline-block"
+            >
+              Discover events near you
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ✅ ALTERNATIVE FIX: Update the attended events filter to remove duplicates
+  const loadBookingsDataWithDeduplication = async () => {
+    try {
+      const bookingsResult = await apiCall(eventAPI.getMyBookings);
+      console.log("Raw bookings result:", bookingsResult);
+
+      let bookings = [];
+
+      if (bookingsResult.success) {
+        bookings = bookingsResult.data?.data?.bookings || [];
+
+        if (!Array.isArray(bookings)) {
+          console.warn("Bookings is not an array:", bookings);
+          bookings = [];
+        }
+      }
+
+      console.log("Processed bookings array:", bookings);
+
+      const today = new Date();
+
+      // Filter attended events with DEDUPLICATION
+      const attendedMap = new Map();
+      bookings
+        .filter((booking) => {
+          if (!booking || !booking.event) return false;
+          const eventDate = new Date(
+            booking.event.date || booking.event.startDate
+          );
+          return eventDate < today;
+        })
+        .forEach((booking) => {
+          const eventId = booking.event._id;
+          // Only add if not already in map (keeps first occurrence)
+          if (!attendedMap.has(eventId)) {
+            attendedMap.set(eventId, booking.event);
+          }
+        });
+
+      const attended = Array.from(attendedMap.values());
+
+      // Filter upcoming bookings with DEDUPLICATION
+      const upcomingMap = new Map();
+      bookings
+        .filter((booking) => {
+          if (!booking || !booking.event) return false;
+          const eventDate = new Date(
+            booking.event.date || booking.event.startDate
+          );
+          return eventDate >= today;
+        })
+        .forEach((booking) => {
+          const eventId = booking.event._id;
+          if (!upcomingMap.has(eventId)) {
+            upcomingMap.set(eventId, booking.event);
+          }
+        });
+
+      const upcoming = Array.from(upcomingMap.values());
+
+      setMyBookings(bookings);
+      setAttendedEvents(attended);
+
+      // Update stats
+      setStats((prev) => ({
+        ...prev,
+        eventsAttended: attended.length,
+        upcomingBookings: upcoming.length,
+        totalTickets: bookings.length,
+      }));
+
+      // Generate activity from bookings
+      generateActivityFromBookings(bookings);
+    } catch (error) {
+      console.error("Error loading bookings:", error);
       setMyBookings([]);
       setAttendedEvents([]);
       setStats((prev) => ({

@@ -197,11 +197,15 @@ export const ticketAPI = {
     apiClient.post("/purchase-multiple", ticketsData),
   
   // ========== USER TICKETS ==========
-  getUserTickets: (params = {}) =>
-    apiClient.get("/tickets/my-tickets", { params }),
+  // In api.js
+getUserTickets: async (params = {}) => {
+  const response = await apiClient.get("/tickets/my-tickets", { params });
+  // Make sure we return just the data, not the whole response
+  return response; // The apiCall wrapper will handle extraction
+},
   
   getTicketById: (ticketId) =>
-    apiClient.get(`/tickets/${ticketId}`),
+    apiClient.get(`/${ticketId}`),
   
   // ========== ORGANIZER ROUTES ==========
   getEventTickets: (eventId, params = {}) =>
