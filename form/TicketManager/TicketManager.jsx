@@ -1,8 +1,115 @@
 import React from "react";
-import { Ticket, Plus, Trash2, X, Monitor, MapPin } from "lucide-react";
+import { Ticket, Plus, Trash2, X, Monitor, MapPin, Shield, Calendar, HelpCircle } from "lucide-react";
 
 const TICKET_TYPES = ["Regular", "VIP", "VVIP"];
 const EVENT_TYPES = ["physical", "virtual", "hybrid"];
+
+// Approval Questions Component
+const ApprovalQuestions = ({ 
+  questions = [], 
+  onQuestionsChange, 
+  disabled = false 
+}) => {
+  const [newQuestion, setNewQuestion] = React.useState("");
+
+  const addQuestion = () => {
+    if (newQuestion.trim() && questions.length < 5) {
+      const updatedQuestions = [...questions, newQuestion.trim()];
+      onQuestionsChange(updatedQuestions);
+      setNewQuestion("");
+    }
+  };
+
+  const removeQuestion = (index) => {
+    const updatedQuestions = questions.filter((_, i) => i !== index);
+    onQuestionsChange(updatedQuestions);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addQuestion();
+    }
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+      <div className="flex items-center gap-2 mb-3">
+        <Shield className="h-4 w-4 text-orange-600" />
+        <h4 className="font-medium text-orange-900">Registration Questions</h4>
+      </div>
+      
+      <p className="text-sm text-orange-700 mb-3">
+        Ask questions to help you decide which attendees to approve. 
+        These will be shown during registration.
+      </p>
+
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newQuestion}
+            onChange={(e) => setNewQuestion(e.target.value)}
+            onKeyPress={handleKeyPress}
+            disabled={disabled || questions.length >= 5}
+            className="flex-1 px-3 py-2 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50 text-sm"
+            placeholder="e.g., Why do you want to attend this event?"
+          />
+          <button
+            type="button"
+            onClick={addQuestion}
+            disabled={disabled || !newQuestion.trim() || questions.length >= 5}
+            className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-1 text-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Add
+          </button>
+        </div>
+
+        {questions.length > 0 && (
+          <div className="space-y-2">
+            {questions.map((question, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-orange-200"
+              >
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm text-orange-900">{question}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeQuestion(index)}
+                  disabled={disabled}
+                  className="text-orange-500 hover:text-orange-700 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 text-xs text-orange-600">
+          <Shield className="h-3 w-3" />
+          <span>{questions.length}/5 questions added</span>
+        </div>
+
+        <div className="bg-white p-3 rounded border border-orange-200">
+          <p className="text-xs text-orange-800 font-medium mb-1">
+            How approval works:
+          </p>
+          <ul className="text-xs text-orange-700 space-y-1 list-disc list-inside">
+            <li>Attendees answer these questions during registration</li>
+            <li>You review their answers in your organizer dashboard</li>
+            <li>Based on their responses, you approve or reject their registration</li>
+            <li>Approved attendees receive tickets via email</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const TicketManager = ({
   useLegacyPricing,
@@ -57,24 +164,20 @@ const TicketManager = ({
     }
   };
 
-  // Virtual event specific benefits suggestions
-  const getVirtualBenefitSuggestions = () => [
-    "Live Q&A access",
-    "Recording access",
-    "Digital goodie bag",
-    "Virtual networking",
-    "Downloadable resources",
-    "Certificate of attendance"
-  ];
+  // Check if ticket is free
+  const isFreeTicket = (price) => {
+    return price === "0" || price === 0 || price === "" || parseFloat(price) === 0;
+  };
 
-  const getPhysicalBenefitSuggestions = () => [
-    "VIP lounge access",
-    "Free parking",
-    "Event materials",
-    "Refreshments included",
-    "Goodie bag",
-    "Networking session"
-  ];
+  // Check if any ticket requires approval
+  const hasApprovalTickets = ticketTypes?.some(ticket => 
+    isFreeTicket(ticket.price) && ticket.requiresApproval
+  );
+
+  // Handle approval questions change
+  const handleQuestionsChange = (ticketIndex, questions) => {
+    onUpdateTicket(ticketIndex, 'approvalQuestions', questions);
+  };
 
   // Check if there's pricing data
   const hasMultipleTicketData = ticketTypes && ticketTypes.length > 0 && ticketTypes.some(t => t.price || t.capacity);
@@ -182,6 +285,25 @@ const TicketManager = ({
           </div>
         )}
       </div>
+
+      {/* Approval-Based Registration Notice */}
+      {hasApprovalTickets && (
+        <div className="mb-6 bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Shield className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-orange-900 mb-1">
+                Approval-Based Registration Enabled
+              </p>
+              <p className="text-sm text-orange-700">
+                For free tickets with approval required, attendees will register first 
+                and you'll review their application in your organizer dashboard before 
+                approving and issuing tickets.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!useLegacyPricing ? (
         <div className="space-y-6">
@@ -301,6 +423,76 @@ const TicketManager = ({
                 </div>
               </div>
 
+              {/* Free Event Approval Settings */}
+              {isFreeTicket(ticket.price) && (
+                <div className="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="h-4 w-4 text-orange-600" />
+                    <h4 className="font-medium text-orange-900">Approval Settings</h4>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`require-approval-${index}`}
+                        checked={ticket.requiresApproval || false}
+                        onChange={(e) => onUpdateTicket(index, 'requiresApproval', e.target.checked)}
+                        disabled={savingAs}
+                        className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                      />
+                      <label 
+                        htmlFor={`require-approval-${index}`}
+                        className="text-sm font-medium text-orange-900"
+                      >
+                        Require organizer approval for this ticket
+                      </label>
+                    </div>
+
+                    {ticket.requiresApproval && (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-orange-700 mb-1">
+                              Maximum Attendees (Optional)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={ticket.maxAttendees || ""}
+                              onChange={(e) => onUpdateTicket(index, 'maxAttendees', e.target.value)}
+                              disabled={savingAs}
+                              className="w-full px-3 py-2 text-sm border border-orange-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              placeholder="No limit"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-orange-700 mb-1">
+                              Approval Deadline (Optional)
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={ticket.approvalDeadline || ""}
+                              onChange={(e) => onUpdateTicket(index, 'approvalDeadline', e.target.value)}
+                              disabled={savingAs}
+                              className="w-full px-3 py-2 text-sm border border-orange-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Approval Questions Component */}
+                        <ApprovalQuestions
+                          questions={ticket.approvalQuestions || []}
+                          onQuestionsChange={(questions) => handleQuestionsChange(index, questions)}
+                          disabled={savingAs}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description (Optional)
@@ -419,6 +611,76 @@ const TicketManager = ({
             </div>
           </div>
 
+          {/* Legacy Pricing Approval Settings */}
+          {isFreeTicket(watch?.("price")) && (
+            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-4 w-4 text-orange-600" />
+                <h4 className="font-medium text-orange-900">Approval Settings</h4>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="legacy-require-approval"
+                    checked={ticketTypes[0]?.requiresApproval || false}
+                    onChange={(e) => onUpdateTicket(0, 'requiresApproval', e.target.checked)}
+                    disabled={savingAs}
+                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                  />
+                  <label 
+                    htmlFor="legacy-require-approval"
+                    className="text-sm font-medium text-orange-900"
+                  >
+                    Require organizer approval for registrations
+                  </label>
+                </div>
+
+                {ticketTypes[0]?.requiresApproval && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-orange-700 mb-1">
+                          Maximum Attendees (Optional)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={ticketTypes[0]?.maxAttendees || ""}
+                          onChange={(e) => onUpdateTicket(0, 'maxAttendees', e.target.value)}
+                          disabled={savingAs}
+                          className="w-full px-3 py-2 text-sm border border-orange-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          placeholder="No limit"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-orange-700 mb-1">
+                          Approval Deadline (Optional)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={ticketTypes[0]?.approvalDeadline || ""}
+                          onChange={(e) => onUpdateTicket(0, 'approvalDeadline', e.target.value)}
+                          disabled={savingAs}
+                          className="w-full px-3 py-2 text-sm border border-orange-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Approval Questions for Legacy Pricing */}
+                    <ApprovalQuestions
+                      questions={ticketTypes[0]?.approvalQuestions || []}
+                      onQuestionsChange={(questions) => handleQuestionsChange(0, questions)}
+                      disabled={savingAs}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Ticket Description (Optional)
@@ -490,12 +752,13 @@ const TicketManager = ({
       )}
 
       {/* Event Type Specific Notes */}
-      <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+      <div className="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
         <p className="text-sm text-gray-600">
           <span className="font-medium">💡 Tip: </span>
           {eventType === 'virtual' && 'Virtual events require a streaming link that will be shared with attendees after purchase.'}
           {eventType === 'physical' && 'Physical events require venue details that will be shown to attendees.'}
           {eventType === 'hybrid' && 'Hybrid events support both virtual and physical attendance. You can set different access types for each ticket.'}
+          {hasApprovalTickets && ' For free events with approval, attendees answer your questions during registration to help you decide who to approve.'}
         </p>
       </div>
     </div>
