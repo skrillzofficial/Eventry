@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Calendar,
   Users,
@@ -18,16 +18,19 @@ import {
   Download,
   Share2,
   RefreshCw,
-  FileText,
+  Loader,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { eventAPI, organizerAPI, apiCall } from "../services/api";
+import { eventAPI, apiCall } from "../services/api";
+import { createEventAfterPayment } from "../services/createEventAfterPayment";
+import { toast } from "react-hot-toast";
 
 const OrganizerDashboard = () => {
   const { user, isAuthenticated, isOrganizer } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [stats, setStats] = useState({});
   const [recentEvents, setRecentEvents] = useState([]);
   const [allEvents, setAllEvents] = useState([]);
@@ -35,6 +38,88 @@ const OrganizerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Handle payment callback on mount
+  useEffect(() => {
+    const handlePaymentCallback = async () => {
+      const params = new URLSearchParams(location.search);
+      const paymentStatus = params.get("payment");
+      const reference = params.get("reference");
+
+      if (paymentStatus === "success" && reference) {
+        console.log("🎯 Payment callback detected:", { paymentStatus, reference });
+        console.log("📦 Full URL params:", Object.fromEntries(params.entries()));
+        setProcessingPayment(true);
+
+        try {
+          console.log("🚀 Calling createEventAfterPayment with reference:", reference);
+          
+          // Call the utility function to create event after payment
+          const result = await createEventAfterPayment(reference);
+
+          console.log("✅ createEventAfterPayment result:", result);
+
+          if (result.success) {
+            console.log("🎉 Event created successfully:", result.event);
+            
+            toast.success(result.message || "Event created successfully!", {
+              duration: 5000,
+              icon: "🎉",
+            });
+
+            // Clean URL
+            window.history.replaceState({}, "", "/dashboard/organizer/events");
+
+            // Wait a moment for user to see success message
+            setTimeout(() => {
+              // Redirect to the new event page
+              const eventId = result.event?._id || result.event?.id;
+              console.log("🔄 Redirecting to event:", eventId);
+              
+              if (eventId) {
+                navigate(`/event/${eventId}`);
+              } else {
+                console.warn("⚠️ No event ID found, reloading dashboard");
+                setProcessingPayment(false);
+                loadOrganizerData();
+              }
+            }, 2000);
+          } else {
+            console.error("❌ Event creation failed:", result.error);
+            
+            toast.error(result.error || "Failed to create event", {
+              duration: 6000,
+            });
+            
+            // Clean URL even on error
+            window.history.replaceState({}, "", "/dashboard/organizer/events");
+            setProcessingPayment(false);
+            
+            // Still try to load dashboard
+            loadOrganizerData();
+          }
+        } catch (error) {
+          console.error("💥 Error processing payment callback:", error);
+          console.error("Error stack:", error.stack);
+          
+          toast.error("Error creating event. Please contact support.", {
+            duration: 6000,
+          });
+          
+          window.history.replaceState({}, "", "/dashboard/organizer/events");
+          setProcessingPayment(false);
+          
+          // Still try to load dashboard
+          loadOrganizerData();
+        }
+      }
+    };
+
+    if (isAuthenticated && isOrganizer) {
+      handlePaymentCallback();
+    }
+  }, [location.search, isAuthenticated, isOrganizer, navigate]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -47,37 +132,42 @@ const OrganizerDashboard = () => {
       return;
     }
 
-    loadOrganizerData();
-  }, [isAuthenticated, isOrganizer, navigate]);
+    // Only load data if not processing payment
+    if (!processingPayment) {
+      loadOrganizerData();
+    }
+  }, [isAuthenticated, isOrganizer, navigate, processingPayment]);
 
   const loadOrganizerData = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log(" Starting to load organizer data...");
+      console.log("📊 Starting to load organizer data...");
 
-      const result = await apiCall(organizerAPI.getMyEvents);
-      console.log(" API Response:", result);
+      const result = await apiCall(eventAPI.getOrganizerEvents);
+      console.log("✅ API Response:", result);
 
       if (result.success) {
         const events = result.data?.events || result.data || [];
-        console.log(" Events loaded:", events.length);
-        
+        console.log("📅 Events loaded:", events.length);
+
         if (events.length > 0) {
-          console.log(" Events status breakdown:");
+          console.log("📋 Events status breakdown:");
           events.forEach((event, index) => {
-            console.log(`  ${index + 1}. "${event.title}" - Status: "${event.status}" - Date: ${event.date}`);
+            console.log(
+              `  ${index + 1}. "${event.title}" - Status: "${event.status}" - Date: ${event.date}`
+            );
           });
         }
-        
+
         processAndDisplayEvents(events);
         calculateStatistics(events);
       } else {
-        console.log("API call failed:", result.error);
+        console.log("❌ API call failed:", result.error);
         throw new Error(result.error || "Failed to load events");
       }
     } catch (error) {
-      console.error(" Error loading organizer data:", error);
+      console.error("💥 Error loading organizer data:", error);
       setError(error.message || "Failed to load dashboard data");
       setStats({
         totalEvents: 0,
@@ -95,13 +185,13 @@ const OrganizerDashboard = () => {
   };
 
   const processAndDisplayEvents = (events) => {
-    console.log(" Processing events for display:", events.length, "events");
+    console.log("🔄 Processing events for display:", events.length, "events");
 
     const processedEvents = events.map((event) => {
       const ticketsSold = event.totalAttendees || 0;
       const revenue = event.totalRevenue || (event.price || 0) * ticketsSold;
       const capacity = event.capacity || 100;
-      
+
       return {
         ...event,
         id: event._id || event.id,
@@ -114,7 +204,7 @@ const OrganizerDashboard = () => {
       };
     });
 
-    console.log(" Processed events:", processedEvents);
+    console.log("✨ Processed events:", processedEvents);
 
     setAllEvents(processedEvents);
     setRecentEvents(processedEvents.slice(0, 5));
@@ -124,21 +214,21 @@ const OrganizerDashboard = () => {
   };
 
   const calculateStatistics = (events) => {
-    console.log(" Calculating statistics from", events.length, "events");
-    
+    console.log("🧮 Calculating statistics from", events.length, "events");
+
     const totalEvents = events.length;
-    
-    const publishedEvents = events.filter(event => 
-      event.status === "published"
+
+    const publishedEvents = events.filter(
+      (event) => event.status === "published"
     ).length;
 
     const today = new Date();
-    const activeEvents = events.filter(event => {
+    const activeEvents = events.filter((event) => {
       const eventDate = new Date(event.date);
       return eventDate >= today && event.status === "published";
     }).length;
 
-    const completedEvents = events.filter(event => {
+    const completedEvents = events.filter((event) => {
       const eventDate = new Date(event.date);
       return eventDate < today && event.status === "published";
     }).length;
@@ -147,28 +237,32 @@ const OrganizerDashboard = () => {
       (sum, event) => sum + (event.totalAttendees || 0),
       0
     );
-    
+
     const totalRevenue = events.reduce(
       (sum, event) => sum + (event.totalRevenue || 0),
       0
     );
 
-    const totalCapacity = events.reduce((sum, event) => sum + (event.capacity || 0), 0);
-    const conversionRate = totalCapacity > 0 
-      ? Math.round((totalAttendees / totalCapacity) * 100)
-      : 0;
+    const totalCapacity = events.reduce(
+      (sum, event) => sum + (event.capacity || 0),
+      0
+    );
+    const conversionRate =
+      totalCapacity > 0 ? Math.round((totalAttendees / totalCapacity) * 100) : 0;
 
-    const capacityUsage = events.length > 0
-      ? Math.round(events.reduce((sum, event) => {
-          const capacity = event.capacity || 100;
-          const sold = event.totalAttendees || 0;
-          return sum + (sold / capacity) * 100;
-        }, 0) / events.length)
-      : 0;
+    const capacityUsage =
+      events.length > 0
+        ? Math.round(
+            events.reduce((sum, event) => {
+              const capacity = event.capacity || 100;
+              const sold = event.totalAttendees || 0;
+              return sum + (sold / capacity) * 100;
+            }, 0) / events.length
+          )
+        : 0;
 
-    const averageTicketPrice = totalAttendees > 0 
-      ? Math.round(totalRevenue / totalAttendees)
-      : 0;
+    const averageTicketPrice =
+      totalAttendees > 0 ? Math.round(totalRevenue / totalAttendees) : 0;
 
     const statsData = {
       totalEvents: totalEvents,
@@ -184,7 +278,7 @@ const OrganizerDashboard = () => {
       capacityUsage: capacityUsage,
     };
 
-    console.log(" Final statistics:", statsData);
+    console.log("📈 Final statistics:", statsData);
     setStats(statsData);
   };
 
@@ -200,15 +294,26 @@ const OrganizerDashboard = () => {
 
     if (event.status === "cancelled") return "cancelled";
     if (eventDate < today) return "completed";
-    if ((event.totalAttendees || 0) >= (event.capacity || 100)) return "sold-out";
+    if ((event.totalAttendees || 0) >= (event.capacity || 100))
+      return "sold-out";
     return "active";
   };
 
   const generateMonthlyRevenue = (events) => {
     const monthlyData = {};
     const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
 
     const now = new Date();
@@ -221,7 +326,8 @@ const OrganizerDashboard = () => {
     events.forEach((event) => {
       const date = new Date(event.date);
       const monthYear = `${months[date.getMonth()]} ${date.getFullYear()}`;
-      const revenue = event.totalRevenue || (event.price || 0) * (event.totalAttendees || 0);
+      const revenue =
+        event.totalRevenue || (event.price || 0) * (event.totalAttendees || 0);
 
       if (monthlyData.hasOwnProperty(monthYear)) {
         monthlyData[monthYear] += revenue;
@@ -306,13 +412,22 @@ Generated: ${new Date().toLocaleString()}
     );
   }
 
-  if (loading) {
+  if (loading || processingPayment) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mb-4"></div>
-          <p className="text-gray-900">Loading your dashboard...</p>
+          <p className="text-gray-900 font-medium">
+            {processingPayment
+              ? "Processing your payment and creating event..."
+              : "Loading your dashboard..."}
+          </p>
+          {processingPayment && (
+            <p className="text-gray-600 text-sm mt-2">
+              Please wait, this may take a moment...
+            </p>
+          )}
         </div>
         <div className="bg-[#FF6B35]">
           <Footer />
@@ -382,25 +497,45 @@ Generated: ${new Date().toLocaleString()}
             title="Total Events"
             value={stats.totalEvents || 0}
             icon={Calendar}
-            change={stats.publishedEvents > 0 ? `${stats.publishedEvents} published` : null}
+            change={
+              stats.publishedEvents > 0
+                ? `${stats.publishedEvents} published`
+                : null
+            }
           />
           <StatCard
             title="Published Events"
             value={stats.publishedEvents || 0}
             icon={CheckCircle}
-            change={stats.totalEvents > 0 ? `${Math.round((stats.publishedEvents / stats.totalEvents) * 100)}% published` : null}
+            change={
+              stats.totalEvents > 0
+                ? `${Math.round(
+                    (stats.publishedEvents / stats.totalEvents) * 100
+                  )}% published`
+                : null
+            }
           />
           <StatCard
             title="Active Events"
             value={stats.activeEvents || 0}
             icon={Eye}
-            change={stats.publishedEvents > 0 ? `${Math.round((stats.activeEvents / stats.publishedEvents) * 100)}% active` : null}
+            change={
+              stats.publishedEvents > 0
+                ? `${Math.round(
+                    (stats.activeEvents / stats.publishedEvents) * 100
+                  )}% active`
+                : null
+            }
           />
           <StatCard
             title="Total Revenue"
             value={`₦${(stats.totalRevenue || 0).toLocaleString()}`}
             icon={DollarSign}
-            change={stats.walletBalance > 0 ? `₦${stats.walletBalance.toLocaleString()} available` : null}
+            change={
+              stats.walletBalance > 0
+                ? `₦${stats.walletBalance.toLocaleString()} available`
+                : null
+            }
           />
         </div>
 
@@ -484,7 +619,9 @@ const QuickActionsSection = () => (
         <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
           <Users className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-gray-900">Browse Events</span>
+        <span className="text-sm font-medium text-gray-900">
+          Browse Events
+        </span>
       </Link>
       <Link
         to="/dashboard/wallet"
@@ -500,11 +637,20 @@ const QuickActionsSection = () => (
 );
 
 const RevenueSection = ({ revenueData, totalRevenue }) => {
-  const colors = ['#FF6B35', '#FF8535', '#FFA059', '#FFBA7D', '#FFD5A1', '#FFE8C8'];
-  
+  const colors = [
+    "#FF6B35",
+    "#FF8535",
+    "#FFA059",
+    "#FFBA7D",
+    "#FFD5A1",
+    "#FFE8C8",
+  ];
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Analytics</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        Revenue Analytics
+      </h3>
       {revenueData.values &&
       revenueData.values.length > 0 &&
       revenueData.values.some((v) => v > 0) ? (
@@ -513,44 +659,53 @@ const RevenueSection = ({ revenueData, totalRevenue }) => {
             <div className="relative w-48 h-48">
               <svg viewBox="0 0 200 200" className="transform -rotate-90">
                 {(() => {
-                  const total = revenueData.values.reduce((sum, val) => sum + val, 0);
+                  const total = revenueData.values.reduce(
+                    (sum, val) => sum + val,
+                    0
+                  );
                   let currentAngle = 0;
-                  
+
                   return revenueData.values.map((value, index) => {
                     if (value === 0) return null;
-                    
+
                     const percentage = (value / total) * 100;
                     const angle = (percentage / 100) * 360;
                     const radius = 80;
                     const centerX = 100;
                     const centerY = 100;
-                    
+
                     const startAngle = currentAngle;
                     const endAngle = currentAngle + angle;
-                    
-                    const x1 = centerX + radius * Math.cos((Math.PI * startAngle) / 180);
-                    const y1 = centerY + radius * Math.sin((Math.PI * startAngle) / 180);
-                    const x2 = centerX + radius * Math.cos((Math.PI * endAngle) / 180);
-                    const y2 = centerY + radius * Math.sin((Math.PI * endAngle) / 180);
-                    
+
+                    const x1 =
+                      centerX + radius * Math.cos((Math.PI * startAngle) / 180);
+                    const y1 =
+                      centerY + radius * Math.sin((Math.PI * startAngle) / 180);
+                    const x2 =
+                      centerX + radius * Math.cos((Math.PI * endAngle) / 180);
+                    const y2 =
+                      centerY + radius * Math.sin((Math.PI * endAngle) / 180);
+
                     const largeArcFlag = angle > 180 ? 1 : 0;
-                    
+
                     const pathData = [
                       `M ${centerX} ${centerY}`,
                       `L ${x1} ${y1}`,
                       `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-                      'Z'
-                    ].join(' ');
-                    
+                      "Z",
+                    ].join(" ");
+
                     currentAngle += angle;
-                    
+
                     return (
                       <path
                         key={index}
                         d={pathData}
                         fill={colors[index % colors.length]}
                         className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                        title={`${revenueData.labels[index]}: ₦${value.toLocaleString()}`}
+                        title={`${
+                          revenueData.labels[index]
+                        }: ₦${value.toLocaleString()}`}
                       />
                     );
                   });
@@ -560,28 +715,39 @@ const RevenueSection = ({ revenueData, totalRevenue }) => {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <p className="text-xs text-gray-500">Total</p>
-                  <p className="text-lg font-bold text-gray-900">₦{(totalRevenue || 0).toLocaleString()}</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    ₦{(totalRevenue || 0).toLocaleString()}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             {revenueData.labels.map((label, index) => {
               if (revenueData.values[index] === 0) return null;
-              const percentage = ((revenueData.values[index] / revenueData.values.reduce((sum, val) => sum + val, 0)) * 100).toFixed(1);
-              
+              const percentage = (
+                (revenueData.values[index] /
+                  revenueData.values.reduce((sum, val) => sum + val, 0)) *
+                100
+              ).toFixed(1);
+
               return (
-                <div key={index} className="flex items-center justify-between text-sm">
+                <div
+                  key={index}
+                  className="flex items-center justify-between text-sm"
+                >
                   <div className="flex items-center">
-                    <div 
-                      className="w-3 h-3 rounded-full mr-2" 
+                    <div
+                      className="w-3 h-3 rounded-full mr-2"
                       style={{ backgroundColor: colors[index % colors.length] }}
                     />
                     <span className="text-gray-600">{label}</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-semibold text-gray-900">₦{revenueData.values[index].toLocaleString()}</span>
+                    <span className="font-semibold text-gray-900">
+                      ₦{revenueData.values[index].toLocaleString()}
+                    </span>
                     <span className="text-gray-500 ml-2">({percentage}%)</span>
                   </div>
                 </div>

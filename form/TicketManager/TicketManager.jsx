@@ -183,6 +183,11 @@ const TicketManager = ({
   const hasMultipleTicketData = ticketTypes && ticketTypes.length > 0 && ticketTypes.some(t => t.price || t.capacity);
   const hasSingleTicketData = watch && (watch("price") || watch("capacity"));
 
+  // Helper to handle toggle with proper cleanup
+  const handleTogglePricing = () => {
+    onTogglePricing(!useLegacyPricing);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -197,7 +202,7 @@ const TicketManager = ({
         </div>
         <button
           type="button"
-          onClick={onTogglePricing}
+          onClick={handleTogglePricing}
           disabled={savingAs}
           className="text-sm text-[#FF6B35] hover:underline disabled:opacity-50 font-medium"
         >
@@ -754,7 +759,7 @@ const TicketManager = ({
       {/* Event Type Specific Notes */}
       <div className="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
         <p className="text-sm text-gray-600">
-          <span className="font-medium">💡 Tip: </span>
+          <span className="font-medium"> Tip: </span>
           {eventType === 'virtual' && 'Virtual events require a streaming link that will be shared with attendees after purchase.'}
           {eventType === 'physical' && 'Physical events require venue details that will be shown to attendees.'}
           {eventType === 'hybrid' && 'Hybrid events support both virtual and physical attendance. You can set different access types for each ticket.'}

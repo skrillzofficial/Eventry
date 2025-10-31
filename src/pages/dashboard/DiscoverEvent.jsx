@@ -10,8 +10,9 @@ import {
   Clock,
   Ticket,
   TrendingUp,
+  Mic,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { eventAPI, apiCall } from "../../services/api";
@@ -28,7 +29,25 @@ const imageMap = {
   "/assets/vision 3.png": eventThree,
 };
 
+// Nigerian States List
+const NIGERIAN_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa",
+  "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo",
+  "Ekiti", "Enugu", "FCT (Abuja)", "Gombe", "Imo", "Jigawa",
+  "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara",
+  "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun",
+  "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
+];
+
+// Event Categories
+const EVENT_CATEGORIES = [
+  "Technology", "Business", "Marketing", "Arts", "Health",
+  "Education", "Music", "Food", "Sports", "Entertainment",
+  "Networking", "Lifestyle", "Other"
+];
+
 const DiscoverEvents = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,28 +55,83 @@ const DiscoverEvents = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     category: "",
-    city: "",
+    state: "",
     date: "",
     priceRange: "",
     sortBy: "date",
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [categories, setCategories] = useState([]);
-  const [cities, setCities] = useState([]);
+  const [voiceSearchActive, setVoiceSearchActive] = useState(false);
+
+  // Handle URL search parameters (including voice search)
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    const isVoiceSearch = searchParams.get('isVoiceSearch') === 'true';
+    const originalQuery = searchParams.get('originalQuery');
+    
+    if (urlSearch) {
+      const decodedSearch = decodeURIComponent(urlSearch);
+      setSearchTerm(decodedSearch);
+      
+      if (isVoiceSearch) {
+        setVoiceSearchActive(true);
+        // Auto-parse voice search for filters
+        parseVoiceSearchForFilters(decodedSearch);
+        
+        // Show notification
+        setTimeout(() => {
+          setVoiceSearchActive(false);
+        }, 3000);
+      }
+    }
+  }, [searchParams]);
+
+  // Parse voice search to auto-apply filters
+  const parseVoiceSearchForFilters = (query) => {
+    const lowerQuery = query.toLowerCase();
+    
+    // Auto-detect state
+    const detectedState = NIGERIAN_STATES.find(state => 
+      lowerQuery.includes(state.toLowerCase())
+    );
+    if (detectedState) {
+      setFilters(prev => ({ ...prev, state: detectedState }));
+    }
+    
+    // Auto-detect category
+    const detectedCategory = EVENT_CATEGORIES.find(cat => 
+      lowerQuery.includes(cat.toLowerCase())
+    );
+    if (detectedCategory) {
+      setFilters(prev => ({ ...prev, category: detectedCategory }));
+    }
+    
+    // Auto-detect price filter
+    if (lowerQuery.includes('free')) {
+      setFilters(prev => ({ ...prev, priceRange: 'free' }));
+    }
+    
+    // Auto-show filters if any were detected
+    if (detectedState || detectedCategory || lowerQuery.includes('free')) {
+      setShowFilters(true);
+    }
+  };
 
   useEffect(() => {
     loadEvents();
   }, []);
 
   useEffect(() => {
-    if (events.length > 0) {
-      loadCategoriesAndCities();
-    }
-  }, [events]);
-
-  useEffect(() => {
     filterEvents();
   }, [events, searchTerm, filters]);
+
+  // Re-parse voice filters when categories are loaded
+  useEffect(() => {
+    const isVoiceSearch = searchParams.get('isVoiceSearch') === 'true';
+    if (isVoiceSearch && searchTerm && events.length > 0) {
+      parseVoiceSearchForFilters(searchTerm);
+    }
+  }, [events]);
 
   //  Helper function to get price display for ticket types
   const getPriceDisplay = (event) => {
@@ -148,6 +222,7 @@ const DiscoverEvents = () => {
             venue: event.venue,
             address: event.address,
             city: event.city,
+            state: event.state,
             price: event.price || 0,
             capacity: event.capacity || 0,
             ticketsSold: event.ticketsSold || 0,
@@ -181,43 +256,7 @@ const DiscoverEvents = () => {
     }
   };
 
-  // Load categories & cities from events data
-  const loadCategoriesAndCities = () => {
-    try {
-      const uniqueCategories = [
-        ...new Set(events.map((event) => event.category).filter(Boolean)),
-      ];
-      const uniqueCities = [
-        ...new Set(events.map((event) => event.city).filter(Boolean)),
-      ];
-
-      setCategories(["All Categories", ...uniqueCategories]);
-      setCities(["All Cities", ...uniqueCities]);
-    } catch (error) {
-      console.error("Error loading categories/cities:", error);
-
-      // Fallback categories and cities
-      setCategories([
-        "All Categories",
-        "Technology",
-        "Business",
-        "Arts",
-        "Music",
-        "Food",
-        "Sports",
-      ]);
-      setCities([
-        "All Cities",
-        "Lagos",
-        "Abuja",
-        "Port Harcourt",
-        "Ibadan",
-        "Kano",
-      ]);
-    }
-  };
-
-  // Filter events with ticket type price support
+  // Filter events with enhanced search and state filtering
   const filterEvents = () => {
     const results = events.filter((event) => {
       const search = searchTerm.toLowerCase();
@@ -225,19 +264,19 @@ const DiscoverEvents = () => {
       const matchesSearch =
         event.title?.toLowerCase().includes(search) ||
         event.description?.toLowerCase().includes(search) ||
+        event.city?.toLowerCase().includes(search) ||
+        event.state?.toLowerCase().includes(search) ||
+        event.venue?.toLowerCase().includes(search) ||
         event.organizer.name?.toLowerCase().includes(search) ||
+        event.category?.toLowerCase().includes(search) ||
         (event.tags &&
           event.tags.some((tag) => tag.toLowerCase().includes(search)));
 
       const matchesCategory =
-        !filters.category ||
-        filters.category === "All Categories" ||
-        event.category === filters.category;
+        !filters.category || event.category === filters.category;
 
-      const matchesCity =
-        !filters.city ||
-        filters.city === "All Cities" ||
-        event.city === filters.city;
+      const matchesState =
+        !filters.state || event.state === filters.state;
 
       const matchesDate =
         !filters.date ||
@@ -258,7 +297,7 @@ const DiscoverEvents = () => {
       return (
         matchesSearch &&
         matchesCategory &&
-        matchesCity &&
+        matchesState &&
         matchesDate &&
         matchesPrice
       );
@@ -292,12 +331,14 @@ const DiscoverEvents = () => {
   const clearFilters = () => {
     setFilters({
       category: "",
-      city: "",
+      state: "",
       date: "",
       priceRange: "",
       sortBy: "date",
     });
     setSearchTerm("");
+    // Clear URL params
+    setSearchParams({});
   };
 
   // Format date for display
@@ -357,6 +398,21 @@ const DiscoverEvents = () => {
 
       {/* Search and Filter Header */}
       <div className="max-w-6xl mx-auto px-4 py-12">
+        {/* Voice Search Notification */}
+        {voiceSearchActive && (
+          <div className="mb-6 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white rounded-xl p-4 shadow-lg animate-slideDown">
+            <div className="flex items-center gap-3">
+              <Mic className="h-5 w-5" />
+              <div>
+                <p className="font-semibold">Voice search active</p>
+                <p className="text-sm text-white/90">
+                  Searching for: "{searchTerm}"
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -365,6 +421,11 @@ const DiscoverEvents = () => {
             <p className="text-gray-600 mt-2">
               {filteredEvents.length} event
               {filteredEvents.length !== 1 ? "s" : ""} found
+              {searchTerm && (
+                <span className="ml-2 text-[#FF6B35]">
+                  for "{searchTerm}"
+                </span>
+              )}
             </p>
           </div>
 
@@ -376,7 +437,13 @@ const DiscoverEvents = () => {
                 placeholder="Search events..."
                 className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  // Clear voice search params when manually typing
+                  if (searchParams.get('isVoiceSearch')) {
+                    setSearchParams({});
+                  }
+                }}
               />
             </div>
 
@@ -399,33 +466,36 @@ const DiscoverEvents = () => {
         {/* Filter Panel */}
         {showFilters && (
           <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Category Filter */}
               <select
                 className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.category}
                 onChange={(e) => handleFilterChange("category", e.target.value)}
               >
                 <option value="">All Categories</option>
-                {categories.filter(c => c !== "All Categories").map((cat, i) => (
-                  <option key={i} value={cat}>
+                {EVENT_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
                     {cat}
                   </option>
                 ))}
               </select>
 
+              {/* State Filter */}
               <select
                 className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
-                value={filters.city}
-                onChange={(e) => handleFilterChange("city", e.target.value)}
+                value={filters.state}
+                onChange={(e) => handleFilterChange("state", e.target.value)}
               >
-                <option value="">All Cities</option>
-                {cities.filter(c => c !== "All Cities").map((city, i) => (
-                  <option key={i} value={city}>
-                    {city}
+                <option value="">All States</option>
+                {NIGERIAN_STATES.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
                   </option>
                 ))}
               </select>
 
+              {/* Date Filter */}
               <input
                 type="date"
                 className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
@@ -433,6 +503,7 @@ const DiscoverEvents = () => {
                 onChange={(e) => handleFilterChange("date", e.target.value)}
               />
 
+              {/* Price Filter */}
               <select
                 className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.priceRange}
@@ -447,6 +518,7 @@ const DiscoverEvents = () => {
                 <option value="over15k">Above ₦15,000</option>
               </select>
 
+              {/* Sort Filter */}
               <select
                 className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
                 value={filters.sortBy}
@@ -503,6 +575,8 @@ const DiscoverEvents = () => {
                       src={event.image}
                       alt={event.title}
                       className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                      decoding="async"
                     />
                     {/*  Price badge with range support */}
                     <div className="absolute top-3 left-3">
@@ -546,7 +620,7 @@ const DiscoverEvents = () => {
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-[#FF6B35]" />
                         <span className="truncate">
-                          {event.venue}, {event.city}
+                          {event.city}{event.state && `, ${event.state}`}
                         </span>
                       </div>
 
@@ -587,7 +661,9 @@ const DiscoverEvents = () => {
               No Events Found
             </h3>
             <p className="text-gray-600 mb-4">
-              {events.length > 0
+              {searchTerm 
+                ? `No events match "${searchTerm}". Try different search terms or filters.`
+                : events.length > 0
                 ? "Try adjusting your filters to see more events."
                 : "No events available yet. Check back later!"}
             </p>
@@ -606,6 +682,23 @@ const DiscoverEvents = () => {
       <div className="bg-black">
         <Footer />
       </div>
+      
+      <style jsx>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

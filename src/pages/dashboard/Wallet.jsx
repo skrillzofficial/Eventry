@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-import { walletAPI, apiCall } from '../../services/api';
+import { transactionAPI, apiCall } from '../../services/api';
 
 const WalletComponent = () => {
   const [walletData, setWalletData] = useState(null);
@@ -58,28 +58,30 @@ const WalletComponent = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch all wallet data from backend
-      const [balanceResult, transactionsResult, withdrawalMethodsResult, statsResult] = await Promise.all([
-        apiCall(walletAPI.getWalletBalance),
-        apiCall(walletAPI.getTransactions, { limit: 10, page: 1 }),
-        apiCall(walletAPI.getPaymentMethods),
-        apiCall(walletAPI.getWalletStats)
-      ]);
+      // Fetch transactions and calculate wallet data
+      const transactionsResult = await apiCall(transactionAPI.getMyTransactions, { limit: 50 });
       
-      setWalletData({
-        balance: balanceResult.data.balance || 0,
-        available: balanceResult.data.available || 0,
-        pending: balanceResult.data.pending || 0,
-        currency: balanceResult.data.currency || 'NGN',
-        transactions: transactionsResult.data.transactions || [],
-        withdrawalMethods: withdrawalMethodsResult.data.methods || [],
-        stats: {
-          totalEarned: statsResult.data.totalEarned || 0,
-          totalWithdrawn: statsResult.data.totalWithdrawn || 0,
-          activeEvents: statsResult.data.activeEvents || 0,
-          pendingPayouts: statsResult.data.pendingPayouts || 0
-        }
-      });
+      if (transactionsResult.success) {
+        const transactions = transactionsResult.data?.transactions || transactionsResult.data || [];
+        const walletStats = calculateWalletStats(transactions);
+        
+        setWalletData({
+          balance: walletStats.balance,
+          available: walletStats.available,
+          pending: walletStats.pending,
+          currency: 'NGN',
+          transactions: transactions.slice(0, 10), // Show only recent 10
+          withdrawalMethods: getWithdrawalMethods(), // Local storage for demo
+          stats: {
+            totalEarned: walletStats.totalEarned,
+            totalWithdrawn: walletStats.totalWithdrawn,
+            activeEvents: walletStats.activeEvents,
+            pendingPayouts: walletStats.pending
+          }
+        });
+      } else {
+        throw new Error(transactionsResult.error || 'Failed to load transactions');
+      }
     } catch (err) {
       console.error('Error loading wallet:', err);
       setError('Failed to load wallet data. Please try again.');
@@ -140,6 +142,44 @@ const WalletComponent = () => {
     }
   };
 
+  const calculateWalletStats = (transactions) => {
+    let totalEarned = 0;
+    let totalWithdrawn = 0;
+    let pending = 0;
+    
+    transactions.forEach(transaction => {
+      const amount = transaction.amount || 0;
+      if (amount > 0) {
+        totalEarned += amount;
+      } else {
+        totalWithdrawn += Math.abs(amount);
+      }
+      
+      if (transaction.status === 'pending') {
+        pending += Math.abs(amount);
+      }
+    });
+    
+    return {
+      balance: totalEarned - totalWithdrawn,
+      available: totalEarned - totalWithdrawn - pending,
+      pending: pending,
+      totalEarned: totalEarned,
+      totalWithdrawn: totalWithdrawn,
+      activeEvents: 3 // This would need to come from events API
+    };
+  };
+
+  const getWithdrawalMethods = () => {
+    // For demo purposes, store in localStorage
+    const methods = localStorage.getItem('withdrawalMethods');
+    return methods ? JSON.parse(methods) : [];
+  };
+
+  const saveWithdrawalMethods = (methods) => {
+    localStorage.setItem('withdrawalMethods', JSON.stringify(methods));
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadWalletData();
@@ -160,25 +200,30 @@ const WalletComponent = () => {
     try {
       const methodData = newMethodType === 'bank' 
         ? {
+            id: Date.now(),
             type: 'bank',
-            bankName: newMethodData.bankName,
+            name: newMethodData.bankName,
             accountNumber: newMethodData.accountNumber,
-            accountName: newMethodData.accountName
+            accountName: newMethodData.accountName,
+            primary: false
           }
         : {
+            id: Date.now(),
             type: 'crypto',
+            name: `${newMethodData.walletType} Wallet`,
             walletAddress: newMethodData.walletAddress,
-            walletType: newMethodData.walletType
+            walletType: newMethodData.walletType,
+            primary: false
           };
 
-      const result = await apiCall(walletAPI.addPaymentMethod, methodData);
+      const currentMethods = getWithdrawalMethods();
+      const updatedMethods = [...currentMethods, methodData];
+      saveWithdrawalMethods(updatedMethods);
 
-      if (result.success) {
-        alert('Withdrawal method added successfully!');
-        setShowAddMethodModal(false);
-        resetMethodForm();
-        loadWalletData();
-      }
+      alert('Withdrawal method added successfully!');
+      setShowAddMethodModal(false);
+      resetMethodForm();
+      loadWalletData();
     } catch (err) {
       alert('Failed to add withdrawal method: ' + err.message);
     }
@@ -190,12 +235,12 @@ const WalletComponent = () => {
     }
 
     try {
-      const result = await apiCall(walletAPI.deletePaymentMethod, methodId);
-      
-      if (result.success) {
-        alert('Withdrawal method deleted successfully!');
-        loadWalletData();
-      }
+      const currentMethods = getWithdrawalMethods();
+      const updatedMethods = currentMethods.filter(method => method.id !== methodId);
+      saveWithdrawalMethods(updatedMethods);
+
+      alert('Withdrawal method deleted successfully!');
+      loadWalletData();
     } catch (err) {
       alert('Failed to delete withdrawal method: ' + err.message);
     }
@@ -203,12 +248,15 @@ const WalletComponent = () => {
 
   const handleSetPrimary = async (methodId) => {
     try {
-      const result = await apiCall(walletAPI.setPrimaryPaymentMethod, methodId);
-      
-      if (result.success) {
-        alert('Primary withdrawal method updated!');
-        loadWalletData();
-      }
+      const currentMethods = getWithdrawalMethods();
+      const updatedMethods = currentMethods.map(method => ({
+        ...method,
+        primary: method.id === methodId
+      }));
+      saveWithdrawalMethods(updatedMethods);
+
+      alert('Primary withdrawal method updated!');
+      loadWalletData();
     } catch (err) {
       alert('Failed to update primary method: ' + err.message);
     }
@@ -226,18 +274,14 @@ const WalletComponent = () => {
     }
 
     try {
-      const result = await apiCall(walletAPI.requestWithdrawal, {
-        amount: parseFloat(withdrawAmount),
-        paymentMethodId: selectedWithdrawalMethod
-      });
-
-      if (result.success) {
-        alert('Withdrawal request submitted successfully!');
-        setShowWithdrawModal(false);
-        setWithdrawAmount('');
-        setSelectedWithdrawalMethod('');
-        loadWalletData();
-      }
+      // For demo purposes, just show success message
+      alert('Withdrawal request submitted successfully! (Demo mode)');
+      setShowWithdrawModal(false);
+      setWithdrawAmount('');
+      setSelectedWithdrawalMethod('');
+      
+      // In a real app, you would call:
+      // const result = await apiCall(transactionAPI.requestRefund, ...);
     } catch (err) {
       alert('Withdrawal failed: ' + err.message);
     }
@@ -339,7 +383,7 @@ const WalletComponent = () => {
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
             {/* Balance Card */}
-            <div className="bg-gradient-to-br from-[#FF6B35] to-[#E55A2B] rounded-2xl p-6 text-white shadow-lg">
+            <div className="bg-[#FF6B35] rounded-2xl p-6 text-white shadow-lg">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-lg font-semibold mb-2">Total Balance</h2>
@@ -605,7 +649,7 @@ const WalletComponent = () => {
             </div>
 
             {/* Support Card */}
-            <div className="bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-2xl p-6 text-white shadow-lg">
+            <div className="bg-[#FF6B35] rounded-2xl p-6 text-white shadow-lg">
               <h3 className="font-semibold mb-2">Need Help?</h3>
               <p className="text-white/80 text-sm mb-4">
                 Our support team is here to help with any wallet issues.

@@ -33,6 +33,7 @@ import ForgotPassword from "./Auths/ForgotPassword";
 import ResetPassword from "./Auths/ResetPassword";
 import EditEvent from "./pages/dashboard/EditEvent";
 import Contact from "./pages/Contact";
+import EventPreview from "./modals/EventPreview";
 
 // Google OAuth Client ID
 const GOOGLE_CLIENT_ID =
@@ -80,6 +81,7 @@ const AppRoutes = () => {
 
           {/* Event Routes */}
           <Route path="/create-event" element={<CreateEvent />} />
+          <Route path="/events/preview" element={<EventPreview/>} />
           <Route path="/discover" element={<DiscoverEvents />} />
           <Route path="/event/:id" element={<EventPage />} />
 

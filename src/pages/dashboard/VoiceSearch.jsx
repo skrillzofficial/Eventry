@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { Mic, MicOff, Loader2 } from "lucide-react";
-import { voiceSearchAPI } from "../../services/api";
+import { eventAPI } from "../../services/api";
 
 const VoiceSearch = forwardRef(({ onVoiceResult, navbarBg = "light" }, ref) => {
   const [isListening, setIsListening] = useState(false);
@@ -86,8 +86,8 @@ const VoiceSearch = forwardRef(({ onVoiceResult, navbarBg = "light" }, ref) => {
     setIsProcessing(true);
 
     try {
-      // Send voice query to backend for parsing
-      const response = await voiceSearchAPI.parseVoiceQuery(voiceQuery);
+      // Send voice query to backend for parsing using eventAPI
+      const response = await eventAPI.parseVoiceSearch(voiceQuery);
       
       if (response.data.success) {
         const { parsedQuery, searchParams, confidence, suggestions } = response.data;

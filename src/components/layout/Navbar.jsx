@@ -143,19 +143,20 @@ const Navbar = () => {
     setShowLogoutModal(false);
   }, []);
 
+  // Updated handleSearch - always navigates to /discover for consistent search experience
   const handleSearch = useCallback((e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
 
-    const searchRoute = isAuthenticated
-      ? user?.role === "organizer" ? "/dashboard/organizer" : "/dashboard"
-      : "/discover";
+    // Always use /discover for search since it has comprehensive search functionality
+    const searchRoute = "/discover";
 
     navigate(`${searchRoute}?search=${encodeURIComponent(searchQuery)}`);
     setSearchQuery("");
     setIsMenuOpen(false);
-  }, [searchQuery, isAuthenticated, user?.role, navigate]);
+  }, [searchQuery, navigate]);
 
+  // Updated handleVoiceResult - always navigates to /discover for voice search
   const handleVoiceResult = useCallback((voiceData) => {
     const searchQuery = voiceData.parsedQuery || voiceData.originalQuery;
     setSearchQuery(searchQuery);
@@ -165,9 +166,8 @@ const Navbar = () => {
     }
 
     setTimeout(() => {
-      const searchRoute = isAuthenticated
-        ? user?.role === "organizer" ? "/dashboard/organizer" : "/dashboard"
-        : "/discover";
+      // Always navigate to /discover for voice search since it has full search functionality
+      const searchRoute = "/discover";
 
       const searchParams = new URLSearchParams({
         search: encodeURIComponent(searchQuery),
@@ -176,9 +176,12 @@ const Navbar = () => {
         confidence: voiceData.confidence || "0.5",
       });
 
+      // Add any additional search parameters from backend parsing
       if (voiceData.searchParams) {
         Object.entries(voiceData.searchParams).forEach(([key, value]) => {
-          if (value) searchParams.append(key, value);
+          if (value && key !== 'query') { // Avoid duplicate query param
+            searchParams.append(key, value);
+          }
         });
       }
 
@@ -186,7 +189,7 @@ const Navbar = () => {
       setSearchQuery("");
       setIsMenuOpen(false);
     }, 500);
-  }, [isAuthenticated, user?.role, navigate]);
+  }, [navigate]);
 
   // Memoized user menu items
   const userMenuItems = useMemo(() => 

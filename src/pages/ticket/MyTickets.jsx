@@ -18,7 +18,19 @@ import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { ticketAPI, apiCall } from "../../services/api";
 import QRCode from "qrcode";
-import { TicketPDFGenerator } from "../../services/ticketGenerator";
+
+// Simple fallback for PDF generation
+const TicketPDFGenerator = {
+  async downloadPDF(ticketData) {
+    // Fallback to text download
+    downloadTextTicket(ticketData);
+    return true;
+  },
+  
+  async downloadIndividualPDF(ticketData) {
+    return this.downloadPDF(ticketData);
+  }
+};
 
 const MyTickets = () => {
   const { user, isAuthenticated } = useAuth();
@@ -169,8 +181,6 @@ const MyTickets = () => {
   // New function to handle multiple ticket generation
   const generateMultipleTickets = async (ticketData) => {
     try {
-      const downloadPromises = [];
-      
       // Create individual tickets for each quantity
       for (let i = 1; i <= ticketData.quantity; i++) {
         const individualTicketData = {
@@ -185,9 +195,7 @@ const MyTickets = () => {
           displayPrice: ticketData.ticketPrice
         };
         
-        downloadPromises.push(
-          TicketPDFGenerator.downloadIndividualPDF(individualTicketData)
-        );
+        await TicketPDFGenerator.downloadIndividualPDF(individualTicketData);
         
         // Small delay between generations to avoid browser issues
         if (i < ticketData.quantity) {
@@ -195,7 +203,6 @@ const MyTickets = () => {
         }
       }
       
-      await Promise.all(downloadPromises);
       return true;
     } catch (error) {
       console.error("Multiple ticket generation failed:", error);
@@ -429,7 +436,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
             <button
               onClick={() => handleDownloadPDF(selectedTicket)}
               disabled={isGeneratingPDF}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#FF6B35] text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 font-medium"
             >
               {isGeneratingPDF ? (
                 <>
@@ -472,7 +479,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
 
       <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
@@ -480,7 +487,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#FF6B35] rounded-xl flex items-center justify-center">
                   <Ticket className="h-6 w-6 text-white" />
                 </div>
                 <h1 className="text-4xl font-bold text-gray-900">My Tickets</h1>
@@ -505,7 +512,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
 
         {tickets.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center shadow-xl border border-gray-100">
-            <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Ticket className="h-12 w-12 text-gray-400" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -517,7 +524,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
             </p>
             <Link
               to="/discover"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white font-semibold rounded-xl hover:shadow-lg transition-all transform hover:scale-105"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-[#FF6B35] text-white font-semibold rounded-xl hover:shadow-lg transition-all transform hover:scale-105"
             >
               Discover Events
               <ArrowRight className="h-5 w-5" />
@@ -579,10 +586,10 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                   key={ticketData.id}
                   className="bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-2xl transition-all transform hover:scale-[1.01] border border-gray-100"
                 >
-                  <div className="h-2 bg-gradient-to-r from-[#FF6B35] via-[#FF8535] to-[#FF6B35]" />
+                  <div className="h-2 bg-[#FF6B35]" />
 
                   <div className="md:flex">
-                    <div className="md:w-1/3 relative bg-gradient-to-br from-[#FF6B35] to-[#FF8535] p-8 flex flex-col justify-between">
+                    <div className="md:w-1/3 relative bg-[#FF6B35] p-8 flex flex-col justify-between">
                       <div>
                         <div className="flex gap-2 mb-6">
                           <span
@@ -701,7 +708,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                         <button
                           onClick={() => handleShowQRCode(ticket)}
                           disabled={isCancelled || !isPaid}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white rounded-xl hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FF6B35] text-white rounded-xl hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <QrCode className="h-4 w-4" />
                           <span className="hidden sm:inline">QR Code</span>
@@ -760,7 +767,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
         )}
 
         {tickets.length > 0 && (
-          <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
                 <AlertCircle className="h-5 w-5 text-white" />

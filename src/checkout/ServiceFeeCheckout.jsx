@@ -27,8 +27,9 @@ const ServiceFeeCheckout = ({
   });
 
   // Check if this is an approval-based event
-  const hasApprovalTickets = eventData?.ticketTypes?.some(ticket => 
-    (ticket.price === 0 || ticket.price === "0") && ticket.requiresApproval
+  const hasApprovalTickets = eventData?.ticketTypes?.some(
+    (ticket) =>
+      (ticket.price === 0 || ticket.price === "0") && ticket.requiresApproval
   );
 
   const handleInputChange = (e) => {
@@ -41,7 +42,14 @@ const ServiceFeeCheckout = ({
   const handlePayment = async () => {
     // Validate required fields
     if (!formData.fullName || !formData.email) {
-      alert("Please fill in all required fields");
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address");
       return;
     }
 
@@ -49,80 +57,222 @@ const ServiceFeeCheckout = ({
     setError(null);
 
     try {
-      const paymentData = {
-        eventId: eventData.id || eventData._id || `draft-${Date.now()}`,
+      console.log("🎯 Starting service fee payment process...");
+
+      // ✅ STEP 1: Prepare comprehensive event data for storage
+      const completeEventData = {
+        // Basic Info
+        title: eventData.title,
+        description: eventData.description,
+        category: eventData.category,
+        eventType: eventData.eventType,
+
+        // Date & Time
+        date: eventData.startDate || eventData.date,
+        startDate: eventData.startDate || eventData.date,
+        endDate: eventData.endDate,
+        time: eventData.time,
+        endTime: eventData.endTime,
+
+        // Location
+        venue: eventData.venue,
+        address: eventData.address,
+        city: eventData.city,
+        state: eventData.state,
+        country: eventData.country,
+        coordinates: eventData.coordinates,
+        virtualEventLink: eventData.virtualEventLink,
+
+        // Tickets & Capacity
+        capacity: eventData.capacity,
+        ticketTypes: eventData.ticketTypes,
+        hasApprovalTickets: hasApprovalTickets,
+        requirements: eventData.requirements,
+
+        // Media & Tags
+        images: eventData.images,
+        tags: eventData.tags,
+
+        // Payment Info
         serviceFee: serviceFee,
         attendanceRange: attendanceRange,
+        serviceFeePaymentStatus: "pending",
+      };
+
+      console.log("📦 Prepared event data:", completeEventData);
+
+      // ✅ STEP 2: Store pending data BEFORE payment initialization
+      const pendingData = {
+        eventData: completeEventData,
+        agreementData: agreementData,
         userInfo: {
           name: formData.fullName,
           email: formData.email,
           phone: formData.phone,
         },
-        eventData: {
-          title: eventData.title,
-          description: eventData.description,
-          date: eventData.date,
-          time: eventData.time,
-          venue: eventData.venue,
-          city: eventData.city,
-          category: eventData.category,
-          hasApprovalTickets: hasApprovalTickets,
-          // Include all other event data needed for publishing
-          ...eventData,
-        },
+        serviceFee: serviceFee,
+        attendanceRange: attendanceRange,
+        hasApprovalTickets: hasApprovalTickets,
+        timestamp: Date.now(),
       };
 
-      console.log("Initializing service fee payment:", paymentData);
+      console.log("💾 Storing pending agreement in sessionStorage...");
+      sessionStorage.setItem("pendingAgreement", JSON.stringify(pendingData));
+
+      // ✅ STEP 3: Generate draft event ID (backend recognizes "draft-" prefix)
+      const draftEventId = `draft-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log("🆔 Generated draft event ID:", draftEventId);
+
+      // Update pending data with draft event ID
+      pendingData.draftEventId = draftEventId;
+      sessionStorage.setItem("pendingAgreement", JSON.stringify(pendingData));
+
+      // ✅ STEP 4: Initialize payment with Paystack
+      const paymentData = {
+        eventId: draftEventId, // ← Backend recognizes "draft-" prefix
+        amount: serviceFee, // Send in Naira (backend converts to kobo)
+        email: formData.email,
+        metadata: {
+          paymentType: "service_fee",
+          serviceFee: serviceFee,
+          attendanceRange: attendanceRange,
+          eventTitle: eventData.title,
+          hasApprovalTickets: hasApprovalTickets,
+          eventData: completeEventData, // Send full event data to backend
+          agreementData: agreementData,
+          userInfo: {
+            name: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
+          },
+        },
+        callback_url: `${window.location.origin}/dashboard/organizer/events?payment=success`,
+      };
+
+      console.log("💳 Initializing service fee payment:", {
+        eventId: paymentData.eventId,
+        amount: paymentData.amount,
+        email: paymentData.email,
+        callback: paymentData.callback_url,
+      });
 
       const result = await apiCall(
         transactionAPI.initializeServiceFee,
         paymentData
       );
 
-      if (result.success && result.data?.authorizationUrl) {
-        // Store agreement data in session storage for after payment
-        sessionStorage.setItem(
-          "pendingAgreement",
+      console.log("✅ Payment initialization result:", result);
+      console.log("📦 Full result.data:", result.data);
+      console.log("🔍 Checking for authorization URL in:", {
+        authorizationUrl: result.data?.authorizationUrl,
+        authorization_url: result.data?.authorization_url,
+        paymentUrl: result.data?.paymentUrl,
+        payment_url: result.data?.payment_url,
+        transaction: result.data?.transaction,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || "Payment initialization failed");
+      }
+
+      // ✅ STEP 5: Get redirect URL (check multiple possible locations)
+      const redirectUrl =
+        result.data?.authorizationUrl ||
+        result.data?.authorization_url ||
+        result.data?.paymentUrl ||
+        result.data?.payment_url ||
+        result.data?.data?.authorizationUrl ||
+        result.data?.data?.authorization_url;
+
+      if (!redirectUrl) {
+        console.error("❌ No redirect URL in response:", result);
+        console.error("❌ Full result object:", JSON.stringify(result, null, 2));
+        throw new Error(
+          "Payment initialization failed - No redirect URL received"
+        );
+      }
+
+      console.log("✅ Found redirect URL:", redirectUrl);
+
+      // ✅ STEP 6: Store payment reference for tracking
+      const paymentReference = result.data?.reference;
+      if (paymentReference) {
+        localStorage.setItem(
+          "pendingServiceFeePayment",
           JSON.stringify({
-            agreementData,
-            eventData,
-            serviceFee,
-            attendanceRange,
-            hasApprovalTickets,
+            reference: paymentReference,
+            draftEventId: draftEventId, // Draft event ID
+            timestamp: Date.now(),
+            email: formData.email,
           })
         );
-
-        // Redirect to payment gateway
-        window.location.href = result.data.authorizationUrl;
-      } else {
-        throw new Error("Payment initialization failed");
+        console.log("💾 Stored payment reference:", paymentReference);
       }
+
+      console.log("🚀 Redirecting to Paystack:", redirectUrl);
+
+      // ✅ STEP 7: Redirect to Paystack
+      window.location.href = redirectUrl;
     } catch (err) {
-      console.error("Service fee payment error:", err);
-      setError(err.message || "Payment failed. Please try again.");
-    } finally {
+      console.error("💥 Service fee payment error:", err);
+
+      let errorMessage = "Payment failed. Please try again.";
+
+      if (err.response) {
+        console.error("Response error:", err.response.data);
+        errorMessage =
+          err.response.data?.message ||
+          err.response.data?.error ||
+          errorMessage;
+      } else if (err.request) {
+        console.error("Request error:", err.request);
+        errorMessage = "Network error. Please check your connection.";
+      } else {
+        console.error("General error:", err.message);
+        errorMessage = err.message || errorMessage;
+      }
+
+      setError(errorMessage);
       setLoading(false);
     }
   };
+
+  // Debug function (development only)
+  const checkAPIEndpoint = () => {
+    console.log("=== API DEBUG INFO ===");
+    console.log("transactionAPI object:", transactionAPI);
+    console.log("Available methods:", Object.keys(transactionAPI));
+    console.log("initializeServiceFee:", transactionAPI.initializeServiceFee);
+    console.log("Event Data:", eventData);
+    console.log("Service Fee:", serviceFee);
+    console.log("Agreement Data:", agreementData);
+  };
+
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      checkAPIEndpoint();
+    }
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
           <h2 className="text-2xl font-bold text-gray-900">
             Publish Free Event
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            disabled={loading}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
 
         <div className="p-6">
-          {/* Success Steps */}
+          {/* Progress Steps */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
@@ -157,7 +307,18 @@ const ServiceFeeCheckout = ({
           {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">{error}</p>
+              <p className="text-red-600 text-sm font-medium mb-2">{error}</p>
+              <p className="text-red-500 text-xs">
+                If this continues, please contact support or try again later.
+              </p>
+              {process.env.NODE_ENV === "development" && (
+                <button
+                  onClick={checkAPIEndpoint}
+                  className="mt-2 text-xs text-blue-600 underline hover:text-blue-800"
+                >
+                  Check API Connection (Dev Only)
+                </button>
+              )}
             </div>
           )}
 
@@ -171,8 +332,9 @@ const ServiceFeeCheckout = ({
                     Approval-Based Registration
                   </p>
                   <p className="text-sm text-orange-700">
-                    This event uses approval-based registration. Attendees will apply to attend 
-                    and you'll review their applications before approving and issuing tickets.
+                    This event uses approval-based registration. Attendees will
+                    apply to attend and you'll review their applications before
+                    approving and issuing tickets.
                   </p>
                 </div>
               </div>
@@ -212,14 +374,15 @@ const ServiceFeeCheckout = ({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name *
+                  Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  disabled={loading}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] disabled:bg-gray-100 disabled:cursor-not-allowed"
                   placeholder="Enter your full name"
                   required
                 />
@@ -227,14 +390,15 @@ const ServiceFeeCheckout = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address *
+                  Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  disabled={loading}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] disabled:bg-gray-100 disabled:cursor-not-allowed"
                   placeholder="your.email@example.com"
                   required
                 />
@@ -249,7 +413,8 @@ const ServiceFeeCheckout = ({
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  disabled={loading}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] disabled:bg-gray-100 disabled:cursor-not-allowed"
                   placeholder="+234 800 000 0000"
                 />
               </div>
@@ -313,7 +478,7 @@ const ServiceFeeCheckout = ({
             {loading ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Processing...
+                Processing Payment...
               </>
             ) : (
               <>
@@ -335,7 +500,8 @@ const ServiceFeeCheckout = ({
           {hasApprovalTickets && (
             <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
               <p className="text-xs text-orange-700 text-center">
-                After payment, you'll have access to the approval dashboard to review attendee applications.
+                After payment, you'll have access to the approval dashboard to
+                review attendee applications.
               </p>
             </div>
           )}
