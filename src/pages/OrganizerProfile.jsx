@@ -24,7 +24,8 @@ import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { eventAPI, apiCall } from "../services/api";
-import { createEventAfterPayment } from "../services/createEventAfterPayment";
+// ✅ FIXED: Import the correct function
+import createEventAfterPayment from "../services/createEventAfterPayment";
 import { toast } from "react-hot-toast";
 
 const OrganizerDashboard = () => {
@@ -48,21 +49,26 @@ const OrganizerDashboard = () => {
       const reference = params.get("reference");
 
       if (paymentStatus === "success" && reference) {
-        console.log("🎯 Payment callback detected:", { paymentStatus, reference });
-        console.log("📦 Full URL params:", Object.fromEntries(params.entries()));
+        console.log("🎯 Payment callback detected:", {
+          paymentStatus,
+          reference,
+        });
         setProcessingPayment(true);
 
         try {
-          console.log("🚀 Calling createEventAfterPayment with reference:", reference);
-          
-          // Call the utility function to create event after payment
+          console.log(
+            "🚀 Calling createEventAfterPayment with reference:",
+            reference
+          );
+
+          // ✅ FIXED: Call the correct function
           const result = await createEventAfterPayment(reference);
 
           console.log("✅ createEventAfterPayment result:", result);
 
           if (result.success) {
             console.log("🎉 Event created successfully:", result.event);
-            
+
             toast.success(result.message || "Event created successfully!", {
               duration: 5000,
               icon: "🎉",
@@ -76,7 +82,7 @@ const OrganizerDashboard = () => {
               // Redirect to the new event page
               const eventId = result.event?._id || result.event?.id;
               console.log("🔄 Redirecting to event:", eventId);
-              
+
               if (eventId) {
                 navigate(`/event/${eventId}`);
               } else {
@@ -87,29 +93,28 @@ const OrganizerDashboard = () => {
             }, 2000);
           } else {
             console.error("❌ Event creation failed:", result.error);
-            
+
             toast.error(result.error || "Failed to create event", {
               duration: 6000,
             });
-            
+
             // Clean URL even on error
             window.history.replaceState({}, "", "/dashboard/organizer/events");
             setProcessingPayment(false);
-            
+
             // Still try to load dashboard
             loadOrganizerData();
           }
         } catch (error) {
           console.error("💥 Error processing payment callback:", error);
-          console.error("Error stack:", error.stack);
-          
+
           toast.error("Error creating event. Please contact support.", {
             duration: 6000,
           });
-          
+
           window.history.replaceState({}, "", "/dashboard/organizer/events");
           setProcessingPayment(false);
-          
+
           // Still try to load dashboard
           loadOrganizerData();
         }
@@ -155,7 +160,9 @@ const OrganizerDashboard = () => {
           console.log("📋 Events status breakdown:");
           events.forEach((event, index) => {
             console.log(
-              `  ${index + 1}. "${event.title}" - Status: "${event.status}" - Date: ${event.date}`
+              `  ${index + 1}. "${event.title}" - Status: "${
+                event.status
+              }" - Date: ${event.date}`
             );
           });
         }
@@ -248,7 +255,9 @@ const OrganizerDashboard = () => {
       0
     );
     const conversionRate =
-      totalCapacity > 0 ? Math.round((totalAttendees / totalCapacity) * 100) : 0;
+      totalCapacity > 0
+        ? Math.round((totalAttendees / totalCapacity) * 100)
+        : 0;
 
     const capacityUsage =
       events.length > 0
@@ -619,9 +628,7 @@ const QuickActionsSection = () => (
         <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
           <Users className="h-6 w-6 text-[#FF6B35]" />
         </div>
-        <span className="text-sm font-medium text-gray-900">
-          Browse Events
-        </span>
+        <span className="text-sm font-medium text-gray-900">Browse Events</span>
       </Link>
       <Link
         to="/dashboard/wallet"

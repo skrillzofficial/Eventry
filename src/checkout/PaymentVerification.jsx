@@ -8,7 +8,7 @@ const PaymentVerification = () => {
   const [verificationStatus, setVerificationStatus] = useState('verifying');
   const [transaction, setTransaction] = useState(null);
   const [tickets, setTickets] = useState([]);
-  const [paymentType, setPaymentType] = useState('ticket'); // 'ticket' or 'free_booking'
+  const [paymentType, setPaymentType] = useState('ticket'); // 'ticket', 'free_booking', or 'service_fee'
 
   useEffect(() => {
     verifyPayment();
@@ -16,31 +16,67 @@ const PaymentVerification = () => {
 
   const verifyPayment = async () => {
     const reference = searchParams.get('reference');
-    const type = searchParams.get('type'); // 'free' or undefined (paid ticket)
+    const type = searchParams.get('type'); // 'free', 'service_fee', or undefined (paid ticket)
     
     if (!reference) {
       setVerificationStatus('error');
       return;
     }
 
-    // ✅ REDIRECT SERVICE FEE PAYMENTS TO ORGANIZER DASHBOARD
-    if (type === 'service_fee') {
-      console.log('🔀 Service fee payment detected, redirecting to organizer dashboard...');
-      navigate(`/dashboard/organizer/events?payment=success&reference=${reference}`, {
-        replace: true
-      });
-      return;
-    }
-
-    // Set payment type
+    // Set payment type based on URL parameter
     if (type === 'free') {
       setPaymentType('free_booking');
+    } else if (type === 'service_fee') {
+      setPaymentType('service_fee');
     } else {
       setPaymentType('ticket');
     }
 
     try {
-      if (type === 'free') {
+      if (type === 'service_fee') {
+        // ===== ORGANIZER SERVICE FEE PAYMENT VERIFICATION =====
+        console.log('🏢 Verifying service fee payment:', reference);
+        
+        const result = await apiCall(
+          () => transactionAPI.verifyServiceFee(reference)
+        );
+        
+        if (result.success) {
+          console.log('✅ Service fee payment verified:', result.data);
+          
+          const txn = result.data.transaction || result.data.data?.transaction || result.data;
+          const event = result.data.event || txn.eventId || {};
+          
+          setVerificationStatus('success');
+          setTransaction({
+            reference: txn.reference || reference,
+            totalAmount: txn.amount || txn.totalAmount || 0,
+            eventTitle: event.title || txn.eventTitle || 'New Event',
+            bookingDate: txn.createdAt || txn.completedAt || new Date().toISOString(),
+            organizerName: txn.userId?.firstName ? `${txn.userId.firstName} ${txn.userId.lastName}` : 'Organizer',
+            organizerEmail: txn.userId?.email || '',
+            isDraft: result.data.isDraft || false
+          });
+
+          // Redirect to organizer dashboard after 5 seconds
+          setTimeout(() => {
+            if (result.data.isDraft) {
+              // If it's still a draft, redirect to events list
+              navigate('/dashboard/organizer/events?payment=success&draft=true', { replace: true });
+            } else {
+              // If event is created, redirect to the event page
+              if (event._id) {
+                navigate(`/events/${event._id}`, { replace: true });
+              } else {
+                navigate('/dashboard/organizer/events?payment=success', { replace: true });
+              }
+            }
+          }, 5000);
+        } else {
+          console.error('❌ Service fee verification failed:', result);
+          setVerificationStatus('failed');
+        }
+      } else if (type === 'free') {
         // ===== FREE EVENT BOOKING VERIFICATION =====
         console.log('🎟️ Verifying free booking:', reference);
         
@@ -133,41 +169,59 @@ const PaymentVerification = () => {
   };
 
   const getStatusMessages = () => {
-    if (paymentType === 'free_booking') {
-      return {
-        verifying: {
-          title: 'Confirming Your Booking',
-          message: 'Please wait while we confirm your free event booking...'
-        },
-        success: {
-          title: 'Booking Confirmed! 🎉',
-          message: 'Your free event booking has been confirmed successfully.',
-          buttonText: 'View My Bookings',
-          redirectTo: '/my-bookings'
-        },
-        failed: {
-          title: 'Booking Failed',
-          message: 'Your booking could not be confirmed. Please try again or contact support.'
-        }
-      };
-    } else {
-      // Paid ticket payment
-      return {
-        verifying: {
-          title: 'Verifying Your Payment',
-          message: 'Please wait while we confirm your payment...'
-        },
-        success: {
-          title: 'Payment Successful! 🎉',
-          message: 'Your tickets have been booked successfully.',
-          buttonText: 'View My Tickets',
-          redirectTo: '/my-tickets'
-        },
-        failed: {
-          title: 'Payment Failed',
-          message: 'Your payment could not be processed. Please try again.'
-        }
-      };
+    switch (paymentType) {
+      case 'service_fee':
+        return {
+          verifying: {
+            title: 'Verifying Service Fee Payment',
+            message: 'Please wait while we confirm your service fee payment...'
+          },
+          success: {
+            title: 'Payment Successful! 🎉',
+            message: 'Your service fee has been processed and your event is being published.',
+            buttonText: 'View My Events',
+            redirectTo: '/dashboard/organizer/events'
+          },
+          failed: {
+            title: 'Payment Failed',
+            message: 'Your service fee payment could not be processed. Please try again.'
+          }
+        };
+      case 'free_booking':
+        return {
+          verifying: {
+            title: 'Confirming Your Booking',
+            message: 'Please wait while we confirm your free event booking...'
+          },
+          success: {
+            title: 'Booking Confirmed! 🎉',
+            message: 'Your free event booking has been confirmed successfully.',
+            buttonText: 'View My Bookings',
+            redirectTo: '/my-bookings'
+          },
+          failed: {
+            title: 'Booking Failed',
+            message: 'Your booking could not be confirmed. Please try again or contact support.'
+          }
+        };
+      default:
+        // Paid ticket payment
+        return {
+          verifying: {
+            title: 'Verifying Your Payment',
+            message: 'Please wait while we confirm your payment...'
+          },
+          success: {
+            title: 'Payment Successful! 🎉',
+            message: 'Your tickets have been booked successfully.',
+            buttonText: 'View My Tickets',
+            redirectTo: '/my-tickets'
+          },
+          failed: {
+            title: 'Payment Failed',
+            message: 'Your payment could not be processed. Please try again.'
+          }
+        };
     }
   };
 
@@ -211,12 +265,14 @@ const PaymentVerification = () => {
             {transaction && (
               <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {paymentType === 'free_booking' ? 'Booking Details' : 'Payment Details'}
+                  {paymentType === 'service_fee' ? 'Service Fee Payment Details' : 
+                   paymentType === 'free_booking' ? 'Booking Details' : 'Payment Details'}
                 </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span className="text-gray-600">
-                      {paymentType === 'free_booking' ? 'Booking ID:' : 'Transaction ID:'}
+                      {paymentType === 'service_fee' ? 'Transaction ID:' : 
+                       paymentType === 'free_booking' ? 'Booking ID:' : 'Transaction ID:'}
                     </span>
                     <span className="font-medium text-sm break-all">{transaction.reference}</span>
                   </div>
@@ -234,22 +290,39 @@ const PaymentVerification = () => {
                   
                   {transaction.eventTitle && (
                     <div className="flex justify-between border-b border-gray-200 pb-2">
-                      <span className="text-gray-600">Event:</span>
+                      <span className="text-gray-600">
+                        {paymentType === 'service_fee' ? 'Event:' : 'Event:'}
+                      </span>
                       <span className="font-medium text-right">{transaction.eventTitle}</span>
                     </div>
                   )}
                   
-                  {transaction.attendeeName && (
+                  {transaction.attendeeName && paymentType !== 'service_fee' && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">Attendee:</span>
                       <span className="font-medium">{transaction.attendeeName}</span>
+                    </div>
+                  )}
+                  
+                  {transaction.organizerName && paymentType === 'service_fee' && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Organizer:</span>
+                      <span className="font-medium">{transaction.organizerName}</span>
+                    </div>
+                  )}
+
+                  {transaction.isDraft && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                      <p className="text-sm text-blue-700">
+                        📝 Your event is being processed and will be published shortly.
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {tickets.length > 0 && (
+            {tickets.length > 0 && paymentType !== 'service_fee' && (
               <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Your {paymentType === 'free_booking' ? 'Booking' : 'Tickets'}
@@ -280,16 +353,19 @@ const PaymentVerification = () => {
                 {messages.success.buttonText}
               </button>
               
-              <button 
-                onClick={() => navigate('/discover', { replace: true })}
-                className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-              >
-                Browse More Events
-              </button>
+              {paymentType !== 'service_fee' && (
+                <button 
+                  onClick={() => navigate('/discover', { replace: true })}
+                  className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                >
+                  Browse More Events
+                </button>
+              )}
             </div>
 
             <p className="text-sm text-gray-500">
-              Redirecting to your {paymentType === 'free_booking' ? 'bookings' : 'tickets'} in 5 seconds...
+              Redirecting to your {paymentType === 'service_fee' ? 'events' : 
+                                paymentType === 'free_booking' ? 'bookings' : 'tickets'} in 5 seconds...
             </p>
           </div>
         );
@@ -309,7 +385,7 @@ const PaymentVerification = () => {
               {messages.failed.message}
             </p>
             
-            {paymentType === 'ticket' && (
+            {paymentType !== 'free_booking' && (
               <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800">
                   ⚠️ If money was deducted from your account, please contact support with your payment reference.
@@ -318,12 +394,21 @@ const PaymentVerification = () => {
             )}
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
-                onClick={() => navigate('/discover', { replace: true })}
-                className="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
-              >
-                Browse Events
-              </button>
+              {paymentType === 'service_fee' ? (
+                <button 
+                  onClick={() => navigate('/dashboard/organizer/events', { replace: true })}
+                  className="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+                >
+                  Back to Events
+                </button>
+              ) : (
+                <button 
+                  onClick={() => navigate('/discover', { replace: true })}
+                  className="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+                >
+                  Browse Events
+                </button>
+              )}
               <button 
                 onClick={() => navigate('/', { replace: true })}
                 className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
@@ -345,8 +430,9 @@ const PaymentVerification = () => {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Error</h2>
             <p className="text-gray-600 mb-6">
-              Something went wrong while verifying your {paymentType === 'free_booking' ? 'booking' : 'payment'}. 
-              {paymentType === 'ticket' && ' Please contact support if your payment was deducted.'}
+              Something went wrong while verifying your {paymentType === 'service_fee' ? 'service fee payment' : 
+                                                       paymentType === 'free_booking' ? 'booking' : 'payment'}. 
+              {paymentType !== 'free_booking' && ' Please contact support if your payment was deducted.'}
             </p>
             
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -354,7 +440,8 @@ const PaymentVerification = () => {
                 What to do next:
               </p>
               <ul className="text-sm text-red-700 text-left space-y-1">
-                <li>• Check your {paymentType === 'free_booking' ? 'bookings' : 'tickets'} to see if it was processed</li>
+                <li>• Check your {paymentType === 'service_fee' ? 'events' : 
+                                 paymentType === 'free_booking' ? 'bookings' : 'tickets'} to see if it was processed</li>
                 <li>• Contact support if you need assistance</li>
                 <li>• Save your reference number if available</li>
               </ul>
@@ -363,12 +450,14 @@ const PaymentVerification = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
                 onClick={() => navigate(
+                  paymentType === 'service_fee' ? '/dashboard/organizer/events' :
                   paymentType === 'free_booking' ? '/my-bookings' : '/my-tickets',
                   { replace: true }
                 )}
                 className="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
               >
-                {paymentType === 'free_booking' ? 'View My Bookings' : 'View My Tickets'}
+                {paymentType === 'service_fee' ? 'View My Events' :
+                 paymentType === 'free_booking' ? 'View My Bookings' : 'View My Tickets'}
               </button>
               <button 
                 onClick={() => navigate('/', { replace: true })}

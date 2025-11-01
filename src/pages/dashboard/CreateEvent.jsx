@@ -92,6 +92,13 @@ const CreateEvent = () => {
     getValues,
   } = useForm({
     mode: "onChange",
+    defaultValues: {
+      startDate: "",
+      time: "",
+      endTime: "",
+      state: "",
+      city: "",
+    }
   });
 
   // Constants
@@ -157,31 +164,26 @@ const CreateEvent = () => {
         uploadedImages: prevUploadedImages,
       } = location.state;
 
+      // Set form values
       Object.keys(eventData).forEach((key) => {
         if (eventData[key] !== undefined && eventData[key] !== null) {
           setValue(key, eventData[key]);
         }
       });
 
+      // Set component state
       if (eventData.eventType) setEventType(eventData.eventType);
-      if (eventData.virtualEventLink)
-        setVirtualEventLink(eventData.virtualEventLink);
+      if (eventData.virtualEventLink) setVirtualEventLink(eventData.virtualEventLink);
       if (eventData.state) setSelectedState(eventData.state);
       if (eventData.city) setSelectedCity(eventData.city);
-      if (eventData.isMultiDay !== undefined)
-        setIsMultiDay(eventData.isMultiDay);
-      if (eventData.socialBannerEnabled !== undefined)
-        setSocialBannerEnabled(eventData.socialBannerEnabled);
-      if (eventData.socialBannerFile)
-        setSocialBannerFile(eventData.socialBannerFile);
-      if (eventData.communityEnabled !== undefined)
-        setCommunityEnabled(eventData.communityEnabled);
+      if (eventData.isMultiDay !== undefined) setIsMultiDay(eventData.isMultiDay);
+      if (eventData.socialBannerEnabled !== undefined) setSocialBannerEnabled(eventData.socialBannerEnabled);
+      if (eventData.socialBannerFile) setSocialBannerFile(eventData.socialBannerFile);
+      if (eventData.communityEnabled !== undefined) setCommunityEnabled(eventData.communityEnabled);
       if (eventData.communityData) setCommunityData(eventData.communityData);
       if (eventData.ticketTypes) setTicketTypes(eventData.ticketTypes);
-      if (eventData.useLegacyPricing !== undefined)
-        setUseLegacyPricing(eventData.useLegacyPricing);
-      if (eventData.singleTicketBenefits)
-        setSingleTicketBenefits(eventData.singleTicketBenefits);
+      if (eventData.useLegacyPricing !== undefined) setUseLegacyPricing(eventData.useLegacyPricing);
+      if (eventData.singleTicketBenefits) setSingleTicketBenefits(eventData.singleTicketBenefits);
       if (eventData.tags) setTags(eventData.tags);
       if (eventData.requirements) setRequirements(eventData.requirements);
       if (prevImageFiles) setImageFiles(prevImageFiles);
@@ -189,11 +191,32 @@ const CreateEvent = () => {
     }
   }, [location.state, setValue]);
 
-  // Update form values when state/city changes
+  // Update form values when state/city changes - CRITICAL FIX
   useEffect(() => {
-    setValue("state", selectedState);
-    setValue("city", selectedCity);
+    if (selectedState) {
+      setValue("state", selectedState, { shouldValidate: true });
+    }
+    if (selectedCity) {
+      setValue("city", selectedCity, { shouldValidate: true });
+    }
   }, [selectedState, selectedCity, setValue]);
+
+  // Ensure date fields are properly set
+  useEffect(() => {
+    const startDate = watch("startDate");
+    const time = watch("time");
+    const endTime = watch("endTime");
+    
+    if (startDate) {
+      setValue("startDate", startDate, { shouldValidate: true });
+    }
+    if (time) {
+      setValue("time", time, { shouldValidate: true });
+    }
+    if (endTime) {
+      setValue("endTime", endTime, { shouldValidate: true });
+    }
+  }, [watch("startDate"), watch("time"), watch("endTime"), setValue]);
 
   // Social Banner handler
   const handleBannerChange = (file, enabled) => {
@@ -398,7 +421,7 @@ const CreateEvent = () => {
     setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  // Step validation
+  // Step validation - ENHANCED VALIDATION
   const validateStep = async (step) => {
     let isValid = true;
     const values = getValues();
@@ -408,7 +431,19 @@ const CreateEvent = () => {
         isValid = await trigger(["title", "description", "category"]);
         break;
       case 2:
+        // Enhanced date validation
         isValid = await trigger(["startDate", "time", "endTime"]);
+        
+        if (!values.startDate) {
+          isValid = false;
+        }
+        if (!values.time) {
+          isValid = false;
+        }
+        if (!values.endTime) {
+          isValid = false;
+        }
+        
         if (isMultiDay && values.endDate) {
           const start = new Date(values.startDate);
           const end = new Date(values.endDate);
@@ -418,9 +453,15 @@ const CreateEvent = () => {
         }
         break;
       case 3:
-        if (eventType !== "virtual") {
+        // Enhanced location validation
+        if (eventType === "physical" || eventType === "hybrid") {
           isValid = await trigger(["venue", "address", "state", "city"]);
           isValid = isValid && selectedState && selectedCity;
+          
+          // Double check form values
+          if (!values.state || !values.city) {
+            isValid = false;
+          }
         } else if (eventType === "virtual") {
           isValid = !!virtualEventLink;
         }
@@ -428,7 +469,7 @@ const CreateEvent = () => {
       case 4:
         if (!useLegacyPricing) {
           const validTickets = ticketTypes.filter(
-            (t) => t.price && t.capacity && parseFloat(t.price) >= 0
+            (t) => t.price !== "" && t.capacity !== "" && parseFloat(t.price) >= 0
           );
           isValid = validTickets.length > 0;
         } else {
@@ -436,10 +477,10 @@ const CreateEvent = () => {
         }
         break;
       case 5:
-        isValid = true;
+        isValid = true; // Optional step
         break;
       case 6:
-        isValid = true;
+        isValid = true; // Optional step
         break;
       default:
         isValid = true;
@@ -464,34 +505,83 @@ const CreateEvent = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Handle preview navigation
-  const handlePreview = () => {
-    const data = getValues();
+  // COMPREHENSIVE PREVIEW DATA PREPARATION
+  const preparePreviewData = () => {
+    const formData = getValues();
+    
+    // Create comprehensive event data object
     const eventData = {
-      ...data,
-      eventType,
-      virtualEventLink,
-      state: selectedState,
-      city: selectedCity,
-      isMultiDay,
-      socialBannerEnabled,
-      socialBannerFile,
-      communityEnabled,
-      communityData,
-      ticketTypes,
-      useLegacyPricing,
-      singleTicketBenefits,
-      tags,
-      requirements,
+      // Basic Info
+      title: formData.title || "",
+      category: formData.category || "",
+      description: formData.description || "",
+      longDescription: formData.longDescription || "",
+      
+      // Date & Time - ENSURING THESE ARE INCLUDED
+      startDate: formData.startDate || "",
+      endDate: formData.endDate || "",
+      time: formData.time || "",
+      endTime: formData.endTime || "",
+      isMultiDay: isMultiDay,
+      
+      // Location - ENSURING STATE AND CITY ARE INCLUDED
+      eventType: eventType,
+      virtualEventLink: virtualEventLink || "",
+      venue: formData.venue || "",
+      address: formData.address || "",
+      state: selectedState || formData.state || "",
+      city: selectedCity || formData.city || "",
+      
+      // Tickets
+      ticketTypes: ticketTypes,
+      useLegacyPricing: useLegacyPricing,
+      singleTicketBenefits: singleTicketBenefits,
+      price: formData.price || "",
+      capacity: formData.capacity || "",
+      
+      // Additional Info
+      tags: tags,
+      requirements: requirements,
+      
+      // Media & Social
+      socialBannerEnabled: socialBannerEnabled,
+      socialBannerFile: socialBannerFile,
+      communityEnabled: communityEnabled,
+      communityData: communityData,
     };
+
+    return eventData;
+  };
+
+  // Handle preview navigation - FIXED DATA PASSING
+  const handlePreview = async () => {
+    // Validate current step before proceeding to preview
+    const isValid = await validateStep(currentStep);
+    if (!isValid) {
+      alert("Please complete all required fields in the current step before previewing.");
+      return;
+    }
+
+    const eventData = preparePreviewData();
+    
+    // Debug log to verify data
+    console.log("Preview Data:", {
+      eventData,
+      hasStartDate: !!eventData.startDate,
+      hasState: !!eventData.state,
+      stateValue: eventData.state,
+      selectedState,
+      formState: getValues("state")
+    });
 
     navigate("/events/preview", {
       state: {
-        eventData,
-        formData: data,
-        imageFiles,
-        uploadedImages,
+        eventData: eventData,
+        formData: getValues(),
+        imageFiles: imageFiles,
+        uploadedImages: uploadedImages,
       },
+      replace: true
     });
   };
 
@@ -827,13 +917,20 @@ const CreateEvent = () => {
                       </label>
                       <input
                         type="date"
-                        {...register("endDate")}
+                        {...register("endDate", {
+                          required: isMultiDay ? "End date is required for multi-day events" : false,
+                        })}
                         min={
                           watch("startDate") ||
                           new Date().toISOString().split("T")[0]
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                       />
+                      {errors.endDate && (
+                        <p className="text-red-600 text-sm mt-1">
+                          {errors.endDate.message}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -881,7 +978,6 @@ const CreateEvent = () => {
 
           {currentStep === 3 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-
               <LocationSelector
                 selectedState={selectedState}
                 selectedCity={selectedCity}

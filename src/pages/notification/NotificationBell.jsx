@@ -1,6 +1,6 @@
 // components/NotificationBell.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Check, Trash2, Loader, AlertCircle } from 'lucide-react';
+import { Bell, Check, Trash2, Loader } from 'lucide-react';
 import { useNotification } from '../../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,7 +14,6 @@ const NotificationBell = () => {
   try {
     notificationContext = useNotification();
   } catch (error) {
-    console.warn('NotificationBell: NotificationProvider not found. Notifications will be disabled.');
     // Return a fallback UI when provider is not available
     return (
       <button
@@ -61,7 +60,7 @@ const NotificationBell = () => {
     try {
       await markAsRead(notificationId);
     } catch (error) {
-      console.error('Failed to mark as read:', error);
+      // Error handling without console log
     }
   };
 
@@ -69,7 +68,7 @@ const NotificationBell = () => {
     try {
       await markAllAsRead();
     } catch (error) {
-      console.error('Failed to mark all as read:', error);
+      // Error handling without console log
     }
   };
 
@@ -78,7 +77,7 @@ const NotificationBell = () => {
     try {
       await deleteNotification(notificationId);
     } catch (error) {
-      console.error('Failed to delete notification:', error);
+      // Error handling without console log
     }
   };
 

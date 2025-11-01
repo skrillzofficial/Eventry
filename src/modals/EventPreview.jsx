@@ -15,7 +15,6 @@ import {
   Image as ImageIcon,
   Monitor,
   Globe,
-  Edit,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
@@ -23,11 +22,17 @@ import Footer from "../components/layout/Footer";
 import PaymentAgreement from "../pages/dashboard/PaymentAgreement";
 import ServiceFeeCheckout from "../checkout/ServiceFeeCheckout";
 import { eventAPI, apiCall } from "../services/api";
+import {
+  storePendingEventData,
+  clearPendingEventData,
+} from "../services/createEventAfterPayment";
+import { toast } from "react-hot-toast";
 
 const EventPreview = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { eventData, formData, imageFiles, uploadedImages } = location.state || {};
+  const { eventData, formData, imageFiles, uploadedImages } =
+    location.state || {};
 
   const [savingAs, setSavingAs] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -100,34 +105,113 @@ const EventPreview = () => {
   const getEventTypeDisplay = () => {
     switch (eventType) {
       case "physical":
-        return { icon: MapPin, text: "In-Person Event", color: "text-blue-600" };
+        return {
+          icon: MapPin,
+          text: "In-Person Event",
+          color: "text-blue-600",
+        };
       case "virtual":
-        return { icon: Monitor, text: "Virtual Event", color: "text-purple-600" };
+        return {
+          icon: Monitor,
+          text: "Virtual Event",
+          color: "text-purple-600",
+        };
       case "hybrid":
         return { icon: Globe, text: "Hybrid Event", color: "text-green-600" };
       default:
-        return { icon: MapPin, text: "In-Person Event", color: "text-blue-600" };
+        return {
+          icon: MapPin,
+          text: "In-Person Event",
+          color: "text-blue-600",
+        };
     }
   };
 
   const eventTypeDisplay = getEventTypeDisplay();
   const EventTypeIcon = eventTypeDisplay.icon;
 
-  // Validation for publishing
+  // Check if event has paid tickets (requires service fee)
+  const hasPaidTickets = () => {
+    if (!useLegacyPricing && ticketTypes) {
+      return ticketTypes.some((ticket) => parseFloat(ticket.price) > 0);
+    }
+    return parseFloat(price) > 0;
+  };
+
+  // CRITICAL FIX: Enhanced validation with proper field names
   const validateForPublish = () => {
     const errors = [];
 
+    // Basic info validation
+    if (!title) errors.push("Event title is required");
     if (!description) errors.push("Description is required");
     if (!category) errors.push("Category is required");
-    if (!startDate) errors.push("Start date is required");
+
+    // Date and time validation - CRITICAL FIX
+    if (!startDate) {
+      errors.push("Event date is required");
+    } else {
+      // Validate date format
+      const date = new Date(startDate);
+      if (isNaN(date.getTime())) {
+        errors.push("Invalid start date format");
+      }
+    }
+
     if (!time) errors.push("Start time is required");
     if (!endTime) errors.push("End time is required");
 
-    // Location validation for physical/hybrid events
+    // Location validation for physical/hybrid events - CRITICAL FIX
     if (eventType !== "virtual") {
       if (!venue) errors.push("Venue is required");
       if (!address) errors.push("Address is required");
-      if (!state) errors.push("State is required");
+      if (!state) {
+        errors.push("State is required");
+      } else {
+        // Validate state is one of the allowed values
+        const validStates = [
+          "Abia",
+          "Adamawa",
+          "Akwa Ibom",
+          "Anambra",
+          "Bauchi",
+          "Bayelsa",
+          "Benue",
+          "Borno",
+          "Cross River",
+          "Delta",
+          "Ebonyi",
+          "Edo",
+          "Ekiti",
+          "Enugu",
+          "FCT (Abuja)",
+          "Gombe",
+          "Imo",
+          "Jigawa",
+          "Kaduna",
+          "Kano",
+          "Katsina",
+          "Kebbi",
+          "Kogi",
+          "Kwara",
+          "Lagos",
+          "Nasarawa",
+          "Niger",
+          "Ogun",
+          "Ondo",
+          "Osun",
+          "Oyo",
+          "Plateau",
+          "Rivers",
+          "Sokoto",
+          "Taraba",
+          "Yobe",
+          "Zamfara",
+        ];
+        if (!validStates.includes(state)) {
+          errors.push(`State must be one of: ${validStates.join(", ")}`);
+        }
+      }
       if (!city) errors.push("City is required");
     }
 
@@ -175,21 +259,51 @@ const EventPreview = () => {
       setError(`Cannot publish event: ${validationErrors.join(", ")}`);
       return;
     }
+
+    console.log("Publishing event with data:", {
+      title,
+      startDate,
+      state,
+      city,
+      eventType,
+      venue,
+      address,
+      hasPaidTickets: hasPaidTickets(),
+    });
+
     setPublishData(eventData);
     setShowPaymentAgreement(true);
   };
 
-  // Handle agreement confirmation
+  // In EventPreview.jsx - Update handleAgreementConfirm function
+
   const handleAgreementConfirm = async (
     agreementData,
     actionType = "publish_direct"
   ) => {
     try {
       if (actionType === "service_fee_payment") {
+        // ✅ CRITICAL FIX: Ensure agreement data has acceptedTerms = true
+        const enhancedAgreementData = {
+          ...agreementData,
+          acceptedTerms: true,
+          acceptedAt: new Date().toISOString(),
+        };
+
+        console.log("💾 Storing pending event data with agreement:", {
+          hasPublishData: !!publishData,
+          hasAgreementData: !!enhancedAgreementData,
+          agreementAcceptedTerms: enhancedAgreementData.acceptedTerms,
+          serviceFee: enhancedAgreementData.serviceFee,
+          attendanceRange: enhancedAgreementData.attendanceRange,
+        });
+
+        storePendingEventData(publishData);
+
         setShowPaymentAgreement(false);
         setServiceFeeData({
           eventData: publishData,
-          agreementData,
+          agreementData: enhancedAgreementData, // ✅ Use enhanced agreement data
           serviceFee: agreementData.serviceFee.min,
           attendanceRange: agreementData.attendanceRange,
         });
@@ -197,23 +311,33 @@ const EventPreview = () => {
         return;
       }
 
+      // Direct publishing (for free events that don't require service fee)
       setSavingAs("published");
 
       const formDataToSend = new FormData();
 
-      formDataToSend.append("title", title);
+      // Basic event info
+      formDataToSend.append("title", title || "");
       formDataToSend.append("status", "published");
-      formDataToSend.append("description", description);
-      formDataToSend.append("eventType", eventType);
+      formDataToSend.append("description", description || "");
+      formDataToSend.append("eventType", eventType || "physical");
 
-      if (longDescription) formDataToSend.append("longDescription", longDescription);
+      if (longDescription)
+        formDataToSend.append("longDescription", longDescription);
       if (category) formDataToSend.append("category", category);
-      if (startDate) formDataToSend.append("startDate", startDate);
+
+      // Date and time fields
+      if (startDate) {
+        formDataToSend.append("startDate", startDate);
+        formDataToSend.append("eventDate", startDate);
+      }
+
       if (isMultiDay && endDate) {
         formDataToSend.append("endDate", endDate);
       } else {
-        formDataToSend.append("endDate", startDate);
+        formDataToSend.append("endDate", startDate || "");
       }
+
       if (time) formDataToSend.append("time", time);
       if (endTime) formDataToSend.append("endTime", endTime);
 
@@ -246,47 +370,78 @@ const EventPreview = () => {
           }));
 
         if (validTicketTypes.length > 0) {
-          formDataToSend.append("ticketTypes", JSON.stringify(validTicketTypes));
+          formDataToSend.append(
+            "ticketTypes",
+            JSON.stringify(validTicketTypes)
+          );
+        } else {
+          throw new Error("At least one valid ticket type is required");
         }
       } else {
-        if (price) formDataToSend.append("price", price);
-        if (capacity) formDataToSend.append("capacity", capacity);
-        if (ticketDescription) formDataToSend.append("ticketDescription", ticketDescription);
+        if (price) formDataToSend.append("price", parseFloat(price));
+        if (capacity) formDataToSend.append("capacity", parseInt(capacity));
+        if (ticketDescription)
+          formDataToSend.append("ticketDescription", ticketDescription);
         if (singleTicketBenefits && singleTicketBenefits.length > 0) {
-          formDataToSend.append("ticketBenefits", JSON.stringify(singleTicketBenefits));
+          formDataToSend.append(
+            "ticketBenefits",
+            JSON.stringify(singleTicketBenefits)
+          );
         }
       }
 
-      if (tags && tags.length > 0) formDataToSend.append("tags", JSON.stringify(tags));
+      // Additional event data
+      if (tags && tags.length > 0)
+        formDataToSend.append("tags", JSON.stringify(tags));
       if (requirements && requirements.length > 0) {
         formDataToSend.append("requirements", JSON.stringify(requirements));
       }
 
+      // Images
       if (imageFiles && imageFiles.length > 0) {
         imageFiles.forEach((file) => {
           formDataToSend.append("images", file);
         });
       }
 
-      // Append social banner data
+      // Social banner
       if (socialBannerEnabled && socialBannerFile) {
         formDataToSend.append("socialBanner", socialBannerFile);
         formDataToSend.append("socialBannerEnabled", "true");
       }
 
-      // Append community data
+      // Community data
       if (communityEnabled && communityData) {
         formDataToSend.append("community", JSON.stringify(communityData));
         formDataToSend.append("communityEnabled", "true");
       }
 
-      formDataToSend.append("agreement", JSON.stringify(agreementData));
+      // ✅ CRITICAL: Agreement data for free events with acceptedTerms = true
+      const enhancedAgreementData = {
+        ...agreementData,
+        acceptedTerms: true,
+        acceptedAt: new Date().toISOString(),
+      };
+
+      formDataToSend.append("agreement", JSON.stringify(enhancedAgreementData));
+
+      console.log("Sending FormData for free event:", {
+        title: formDataToSend.get("title"),
+        startDate: formDataToSend.get("startDate"),
+        state: formDataToSend.get("state"),
+        city: formDataToSend.get("city"),
+        eventType: formDataToSend.get("eventType"),
+        hasAgreement: !!formDataToSend.get("agreement"),
+      });
 
       const result = await apiCall(eventAPI.createEvent, formDataToSend);
 
       if (result.success) {
         setSuccessMessage("Event published successfully!");
         setShowSuccess(true);
+
+        clearPendingEventData();
+
         setTimeout(() => {
           navigate("/dashboard/organizer");
         }, 2500);
@@ -305,7 +460,15 @@ const EventPreview = () => {
   const handleServiceFeeSuccess = (paymentResult) => {
     console.log("Service fee payment successful:", paymentResult);
     setShowServiceFeeCheckout(false);
-    handleAgreementConfirm(serviceFeeData.agreementData, "publish_direct");
+
+    // Show success message and redirect to dashboard
+    // The actual event creation will be handled by the payment callback in MyEvents/OrganizerDashboard
+    setSuccessMessage("Payment successful! Your event is being created...");
+    setShowSuccess(true);
+
+    setTimeout(() => {
+      navigate("/dashboard/organizer/events?payment=success");
+    }, 2000);
   };
 
   // Handle save as draft
@@ -314,19 +477,27 @@ const EventPreview = () => {
       setSavingAs("draft");
 
       const formDataToSend = new FormData();
-      formDataToSend.append("title", title);
+      formDataToSend.append("title", title || "");
       formDataToSend.append("status", "draft");
-      formDataToSend.append("eventType", eventType);
+      formDataToSend.append("eventType", eventType || "physical");
 
       if (description) formDataToSend.append("description", description);
-      if (longDescription) formDataToSend.append("longDescription", longDescription);
+      if (longDescription)
+        formDataToSend.append("longDescription", longDescription);
       if (category) formDataToSend.append("category", category);
-      if (startDate) formDataToSend.append("startDate", startDate);
+
+      // Include date fields even for drafts
+      if (startDate) {
+        formDataToSend.append("startDate", startDate);
+        formDataToSend.append("eventDate", startDate);
+      }
+
       if (isMultiDay && endDate) {
         formDataToSend.append("endDate", endDate);
-      } else {
+      } else if (startDate) {
         formDataToSend.append("endDate", startDate);
       }
+
       if (time) formDataToSend.append("time", time);
       if (endTime) formDataToSend.append("endTime", endTime);
 
@@ -358,18 +529,26 @@ const EventPreview = () => {
           }));
 
         if (validTicketTypes.length > 0) {
-          formDataToSend.append("ticketTypes", JSON.stringify(validTicketTypes));
+          formDataToSend.append(
+            "ticketTypes",
+            JSON.stringify(validTicketTypes)
+          );
         }
       } else {
-        if (price) formDataToSend.append("price", price);
-        if (capacity) formDataToSend.append("capacity", capacity);
-        if (ticketDescription) formDataToSend.append("ticketDescription", ticketDescription);
+        if (price) formDataToSend.append("price", parseFloat(price));
+        if (capacity) formDataToSend.append("capacity", parseInt(capacity));
+        if (ticketDescription)
+          formDataToSend.append("ticketDescription", ticketDescription);
         if (singleTicketBenefits && singleTicketBenefits.length > 0) {
-          formDataToSend.append("ticketBenefits", JSON.stringify(singleTicketBenefits));
+          formDataToSend.append(
+            "ticketBenefits",
+            JSON.stringify(singleTicketBenefits)
+          );
         }
       }
 
-      if (tags && tags.length > 0) formDataToSend.append("tags", JSON.stringify(tags));
+      if (tags && tags.length > 0)
+        formDataToSend.append("tags", JSON.stringify(tags));
       if (requirements && requirements.length > 0)
         formDataToSend.append("requirements", JSON.stringify(requirements));
 
@@ -398,6 +577,10 @@ const EventPreview = () => {
           "Event saved as draft! You can edit and publish it later from your dashboard."
         );
         setShowSuccess(true);
+
+        // Clean up any pending data
+        clearPendingEventData();
+
         setTimeout(() => {
           navigate("/dashboard/organizer");
         }, 2500);
@@ -459,7 +642,11 @@ const EventPreview = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate("/create-event", { state: { eventData, formData, imageFiles, uploadedImages } })}
+            onClick={() =>
+              navigate("/create-event", {
+                state: { eventData, formData, imageFiles, uploadedImages },
+              })
+            }
             className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] mb-4 transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -505,6 +692,25 @@ const EventPreview = () => {
           </div>
         )}
 
+        {/* Service Fee Notice */}
+        {hasPaidTickets() && canPublish && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-blue-800 mb-1">
+                  Service Fee Required
+                </h4>
+                <p className="text-blue-700 text-sm">
+                  This event has paid tickets and requires a service fee payment
+                  to publish. You'll be redirected to complete the payment after
+                  clicking "Publish Event".
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Preview Content */}
         <div className="space-y-6">
           {/* Hero Section with Images */}
@@ -512,7 +718,10 @@ const EventPreview = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
                 {uploadedImages.map((image, index) => (
-                  <div key={index} className="relative aspect-video rounded-lg overflow-hidden">
+                  <div
+                    key={index}
+                    className="relative aspect-video rounded-lg overflow-hidden"
+                  >
                     <img
                       src={image}
                       alt={`Event image ${index + 1}`}
@@ -534,22 +743,32 @@ const EventPreview = () => {
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <EventTypeIcon className={`h-5 w-5 ${eventTypeDisplay.color}`} />
-                  <span className={`text-sm font-medium ${eventTypeDisplay.color}`}>
+                  <EventTypeIcon
+                    className={`h-5 w-5 ${eventTypeDisplay.color}`}
+                  />
+                  <span
+                    className={`text-sm font-medium ${eventTypeDisplay.color}`}
+                  >
                     {eventTypeDisplay.text}
                   </span>
                   {category && (
-                    <span className="text-sm text-gray-500 ml-2">• {category}</span>
+                    <span className="text-sm text-gray-500 ml-2">
+                      • {category}
+                    </span>
                   )}
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">{title}</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  {title}
+                </h2>
                 <p className="text-gray-700 leading-relaxed">{description}</p>
               </div>
             </div>
 
             {longDescription && (
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-3">About This Event</h4>
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  About This Event
+                </h4>
                 <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                   {longDescription}
                 </p>
@@ -570,12 +789,16 @@ const EventPreview = () => {
                   <p className="text-sm text-gray-500">
                     {isMultiDay ? "Start Date" : "Date"}
                   </p>
-                  <p className="text-gray-900 font-medium">{formatDate(startDate)}</p>
+                  <p className="text-gray-900 font-medium">
+                    {startDate ? formatDate(startDate) : "Not set"}
+                  </p>
                 </div>
                 {isMultiDay && endDate && (
                   <div>
                     <p className="text-sm text-gray-500">End Date</p>
-                    <p className="text-gray-900 font-medium">{formatDate(endDate)}</p>
+                    <p className="text-gray-900 font-medium">
+                      {formatDate(endDate)}
+                    </p>
                   </div>
                 )}
                 <div className="flex items-center gap-4">
@@ -583,12 +806,14 @@ const EventPreview = () => {
                     <p className="text-sm text-gray-500">Start Time</p>
                     <p className="text-gray-900 font-medium flex items-center gap-1">
                       <Clock className="h-4 w-4 text-[#FF6B35]" />
-                      {formatTime(time)}
+                      {time ? formatTime(time) : "Not set"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">End Time</p>
-                    <p className="text-gray-900 font-medium">{formatTime(endTime)}</p>
+                    <p className="text-gray-900 font-medium">
+                      {endTime ? formatTime(endTime) : "Not set"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -602,13 +827,20 @@ const EventPreview = () => {
               </h3>
               {eventType !== "virtual" ? (
                 <div className="space-y-2">
-                  {venue && <p className="text-gray-900 font-medium">{venue}</p>}
+                  {venue && (
+                    <p className="text-gray-900 font-medium">{venue}</p>
+                  )}
                   {address && <p className="text-gray-700">{address}</p>}
                   {(city || state) && (
                     <p className="text-gray-600">
                       {city}
                       {city && state && ", "}
                       {state}
+                    </p>
+                  )}
+                  {(!city || !state) && (
+                    <p className="text-red-500 text-sm">
+                      Location details incomplete
                     </p>
                   )}
                 </div>
@@ -657,27 +889,38 @@ const EventPreview = () => {
                     className="border border-gray-200 rounded-lg p-4 hover:border-[#FF6B35] transition-colors"
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-gray-900">{ticket.name}</h4>
+                      <h4 className="font-semibold text-gray-900">
+                        {ticket.name}
+                      </h4>
                       <span className="text-[#FF6B35] font-bold">
-                        ₦{parseFloat(ticket.price).toLocaleString()}
+                        ₦{parseFloat(ticket.price || 0).toLocaleString()}
                       </span>
                     </div>
                     <div className="space-y-2">
                       <p className="text-sm text-gray-600">
                         <Users className="h-4 w-4 inline mr-1" />
-                        {ticket.capacity} available
+                        {ticket.capacity || "0"} available
                       </p>
                       {ticket.description && (
-                        <p className="text-sm text-gray-700">{ticket.description}</p>
+                        <p className="text-sm text-gray-700">
+                          {ticket.description}
+                        </p>
                       )}
                       {eventType === "hybrid" && ticket.accessType && (
                         <p className="text-sm text-gray-600">
-                          Access: {ticket.accessType === "both" ? "In-person & Virtual" : ticket.accessType === "physical" ? "In-person only" : "Virtual only"}
+                          Access:{" "}
+                          {ticket.accessType === "both"
+                            ? "In-person & Virtual"
+                            : ticket.accessType === "physical"
+                            ? "In-person only"
+                            : "Virtual only"}
                         </p>
                       )}
                       {ticket.benefits && ticket.benefits.length > 0 && (
                         <div className="pt-2 border-t border-gray-100">
-                          <p className="text-xs font-medium text-gray-700 mb-1">Benefits:</p>
+                          <p className="text-xs font-medium text-gray-700 mb-1">
+                            Benefits:
+                          </p>
                           <ul className="text-xs text-gray-600 space-y-1">
                             {ticket.benefits.map((benefit, idx) => (
                               <li key={idx}>• {benefit}</li>
@@ -692,7 +935,9 @@ const EventPreview = () => {
             ) : (
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-gray-900">General Admission</h4>
+                  <h4 className="font-semibold text-gray-900">
+                    General Admission
+                  </h4>
                   <span className="text-[#FF6B35] font-bold text-xl">
                     ₦{price ? parseFloat(price).toLocaleString() : "0"}
                   </span>
@@ -707,7 +952,9 @@ const EventPreview = () => {
                   )}
                   {singleTicketBenefits && singleTicketBenefits.length > 0 && (
                     <div className="pt-2 border-t border-gray-100">
-                      <p className="text-xs font-medium text-gray-700 mb-1">Benefits:</p>
+                      <p className="text-xs font-medium text-gray-700 mb-1">
+                        Benefits:
+                      </p>
                       <ul className="text-xs text-gray-600 space-y-1">
                         {singleTicketBenefits.map((benefit, idx) => (
                           <li key={idx}>• {benefit}</li>
@@ -749,7 +996,10 @@ const EventPreview = () => {
               </h3>
               <ul className="space-y-2">
                 {requirements.map((requirement, index) => (
-                  <li key={index} className="flex items-start gap-2 text-gray-700">
+                  <li
+                    key={index}
+                    className="flex items-start gap-2 text-gray-700"
+                  >
                     <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                     <span>{requirement}</span>
                   </li>
@@ -769,7 +1019,12 @@ const EventPreview = () => {
                 {communityData.whatsapp && (
                   <div className="flex items-center gap-2 text-gray-700">
                     <span className="font-medium">WhatsApp:</span>
-                    <a href={communityData.whatsapp} target="_blank" rel="noopener noreferrer" className="text-[#FF6B35] hover:underline">
+                    <a
+                      href={communityData.whatsapp}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#FF6B35] hover:underline"
+                    >
                       Join Group
                     </a>
                   </div>
@@ -777,7 +1032,12 @@ const EventPreview = () => {
                 {communityData.telegram && (
                   <div className="flex items-center gap-2 text-gray-700">
                     <span className="font-medium">Telegram:</span>
-                    <a href={communityData.telegram} target="_blank" rel="noopener noreferrer" className="text-[#FF6B35] hover:underline">
+                    <a
+                      href={communityData.telegram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#FF6B35] hover:underline"
+                    >
                       Join Group
                     </a>
                   </div>
@@ -785,7 +1045,12 @@ const EventPreview = () => {
                 {communityData.discord && (
                   <div className="flex items-center gap-2 text-gray-700">
                     <span className="font-medium">Discord:</span>
-                    <a href={communityData.discord} target="_blank" rel="noopener noreferrer" className="text-[#FF6B35] hover:underline">
+                    <a
+                      href={communityData.discord}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#FF6B35] hover:underline"
+                    >
                       Join Server
                     </a>
                   </div>
@@ -815,7 +1080,7 @@ const EventPreview = () => {
                   Ready to Proceed?
                 </h3>
                 <p className="text-gray-600 text-sm">
-                  {canPublish 
+                  {canPublish
                     ? "Everything looks good! You can publish your event now or save it as a draft."
                     : "Some required fields are missing. You can save as draft and complete them later, or go back to edit."}
                 </p>
@@ -823,7 +1088,16 @@ const EventPreview = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
-                  onClick={() => navigate("/create-event", { state: { eventData, formData, imageFiles, uploadedImages } })}
+                  onClick={() =>
+                    navigate("/create-event", {
+                      state: {
+                        eventData,
+                        formData,
+                        imageFiles,
+                        uploadedImages,
+                      },
+                    })
+                  }
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-center"
                 >
                   <ArrowLeft className="h-4 w-4 inline mr-2" />
@@ -872,7 +1146,11 @@ const EventPreview = () => {
               {!canPublish && (
                 <div className="bg-yellow-50 rounded-lg p-4 text-sm text-yellow-800">
                   <p className="font-semibold mb-1"> Note:</p>
-                  <p>The publish button is disabled because some required fields are missing. Please go back and complete all required fields, or save as draft to finish later.</p>
+                  <p>
+                    The publish button is disabled because some required fields
+                    are missing. Please go back and complete all required
+                    fields, or save as draft to finish later.
+                  </p>
                 </div>
               )}
 
@@ -880,13 +1158,16 @@ const EventPreview = () => {
                 <p className="font-semibold mb-2"> Quick Tip:</p>
                 <ul className="space-y-1 list-disc list-inside">
                   <li>
-                    <strong>Draft:</strong> Save incomplete events and finish them later. Drafts are only visible to you.
+                    <strong>Draft:</strong> Save incomplete events and finish
+                    them later. Drafts are only visible to you.
                   </li>
                   <li>
-                    <strong>Publish:</strong> Make your event live and visible to everyone immediately.
+                    <strong>Publish:</strong> Make your event live and visible
+                    to everyone immediately.
                   </li>
                   <li>
-                    You can edit or unpublish events anytime from your dashboard.
+                    You can edit or unpublish events anytime from your
+                    dashboard.
                   </li>
                 </ul>
               </div>

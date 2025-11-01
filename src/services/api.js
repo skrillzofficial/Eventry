@@ -1,7 +1,8 @@
 import axios from "axios";
 
 export const BACKEND_URL =
-  import.meta.env.VITE_API_URL || "https://ecommerce-backend-tb8u.onrender.com/api/v1";
+  import.meta.env.VITE_API_URL ||
+  "https://ecommerce-backend-tb8u.onrender.com/api/v1";
 
 // Create axios instance WITHOUT default Content-Type
 const apiClient = axios.create({
@@ -22,21 +23,21 @@ apiClient.interceptors.request.use(
     // CRITICAL: Let browser set Content-Type for FormData with boundary
     if (config.data instanceof FormData) {
       // Delete any Content-Type header to let browser handle it
-      if (config.headers['Content-Type']) {
-        delete config.headers['Content-Type'];
+      if (config.headers["Content-Type"]) {
+        delete config.headers["Content-Type"];
       }
-    } else if (!config.headers['Content-Type']) {
+    } else if (!config.headers["Content-Type"]) {
       // Only set JSON Content-Type for non-FormData requests
-      config.headers['Content-Type'] = 'application/json';
+      config.headers["Content-Type"] = "application/json";
     }
 
     // Debug logging (remove in production)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📤 API Request:', {
+    if (process.env.NODE_ENV === "development") {
+      console.log("📤 API Request:", {
         url: config.url,
         method: config.method,
         isFormData: config.data instanceof FormData,
-        contentType: config.headers['Content-Type'],
+        contentType: config.headers["Content-Type"],
       });
     }
 
@@ -51,8 +52,8 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     // Debug logging (remove in production)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📥 API Response:', {
+    if (process.env.NODE_ENV === "development") {
+      console.log("📥 API Response:", {
         url: response.config.url,
         status: response.status,
         success: response.data?.success,
@@ -90,7 +91,7 @@ export const authAPI = {
     }),
 
   getCurrentUser: () => apiClient.get("/me"),
-  
+
   logout: () => apiClient.post("/logout"),
 };
 
@@ -112,45 +113,64 @@ export const eventAPI = {
   getAllEvents: (params = {}) => apiClient.get("/events/all", { params }),
   getPastEvents: (params = {}) => apiClient.get("/events/past", { params }),
   getEventById: (id) => apiClient.get(`/events/${id}`),
-  searchEventsAdvanced: (params = {}) => apiClient.get("/events/search/advanced", { params }),
-  getTicketAvailability: (eventId) => apiClient.get(`/events/${eventId}/ticket-availability`),
+  searchEventsAdvanced: (params = {}) =>
+    apiClient.get("/events/search/advanced", { params }),
+  getTicketAvailability: (eventId) =>
+    apiClient.get(`/events/${eventId}/ticket-availability`),
 
   // ========== VOICE SEARCH ==========
-  parseVoiceSearch: (voiceQuery) => apiClient.post("/events/voice-search", { query: voiceQuery }),
-  getVoiceSuggestions: (voiceQuery) => apiClient.get(`/events/voice-search/suggestions?query=${encodeURIComponent(voiceQuery)}`),
+  parseVoiceSearch: (voiceQuery) =>
+    apiClient.post("/events/voice-search", { query: voiceQuery }),
+  getVoiceSuggestions: (voiceQuery) =>
+    apiClient.get(
+      `/events/voice-search/suggestions?query=${encodeURIComponent(voiceQuery)}`
+    ),
 
   // ========== PROTECTED ROUTES ==========
-  bookEventTicket: (eventId, bookingData) => apiClient.post(`/events/${eventId}/book`, bookingData),
+  bookEventTicket: (eventId, bookingData) =>
+    apiClient.post(`/events/${eventId}/book`, bookingData),
   toggleLikeEvent: (eventId) => apiClient.post(`/events/${eventId}/like`),
 
   // ========== ORGANIZER ROUTES ==========
-  getOrganizerEvents: (params = {}) => apiClient.get("/events/organizer/my-events", { params }),
+  getOrganizerEvents: (params = {}) =>
+    apiClient.get("/events/organizer/my-events", { params }),
   getOrganizerStatistics: () => apiClient.get("/events/organizer/statistics"),
-  getEventsNeedingApproval: (params = {}) => apiClient.get("/events/organizer/needing-approval", { params }),
-  createEvent: (eventData) => apiClient.post("/events/create", eventData, { timeout: 120000 }),
-  updateEvent: (eventId, eventData) => apiClient.patch(`/events/${eventId}`, eventData, { timeout: 120000 }),
-  deleteEventImage: (eventId, imageIndex) => apiClient.delete(`/events/${eventId}/images/${imageIndex}`),
+  getEventsNeedingApproval: (params = {}) =>
+    apiClient.get("/events/organizer/needing-approval", { params }),
+  createEvent: (eventData) =>
+    apiClient.post("/events/create", eventData, { timeout: 120000 }),
+  updateEvent: (eventId, eventData) =>
+    apiClient.patch(`/events/${eventId}`, eventData, { timeout: 120000 }),
+  deleteEventImage: (eventId, imageIndex) =>
+    apiClient.delete(`/events/${eventId}/images/${imageIndex}`),
   cancelEvent: (eventId) => apiClient.patch(`/events/${eventId}/cancel`),
   completeEvent: (eventId) => apiClient.put(`/events/${eventId}/complete`),
   deleteEvent: (eventId) => apiClient.delete(`/events/${eventId}`),
-  checkInAttendee: (eventId, ticketId, locationData = {}) => apiClient.post(`/events/${eventId}/check-in/${ticketId}`, locationData),
+  checkInAttendee: (eventId, ticketId, locationData = {}) =>
+    apiClient.post(`/events/${eventId}/check-in/${ticketId}`, locationData),
 
   // ========== APPROVAL ROUTES ==========
-  getEventApprovalStats: (eventId) => apiClient.get(`/events/${eventId}/approval-stats`),
-  updateApprovalSettings: (eventId, settings) => apiClient.patch(`/events/${eventId}/approval-settings`, settings),
+  getEventApprovalStats: (eventId) =>
+    apiClient.get(`/events/${eventId}/approval-stats`),
+  updateApprovalSettings: (eventId, settings) =>
+    apiClient.patch(`/events/${eventId}/approval-settings`, settings),
 
   // ========== BANNER ROUTES ==========
-  updateShareableBanner: (eventId, bannerData) => apiClient.patch(`/events/${eventId}/shareable-banner`, bannerData),
-  removeShareableBannerTemplate: (eventId) => apiClient.delete(`/events/${eventId}/shareable-banner/template`),
+  updateShareableBanner: (eventId, bannerData) =>
+    apiClient.patch(`/events/${eventId}/shareable-banner`, bannerData),
+  removeShareableBannerTemplate: (eventId) =>
+    apiClient.delete(`/events/${eventId}/shareable-banner/template`),
 };
 
 // ============================================
 // BOOKING API CALLS
 // ============================================
 export const bookingAPI = {
-  getMyBookings: (params = {}) => apiClient.get("/bookings/my-bookings", { params }),
+  getMyBookings: (params = {}) =>
+    apiClient.get("/bookings/my-bookings", { params }),
   getBooking: (bookingId) => apiClient.get(`/bookings/${bookingId}`),
-  initializeBookingPayment: (bookingId) => apiClient.post(`/bookings/${bookingId}/pay`),
+  initializeBookingPayment: (bookingId) =>
+    apiClient.post(`/bookings/${bookingId}/pay`),
   cancelBooking: (bookingId) => apiClient.delete(`/bookings/${bookingId}`),
 };
 
@@ -159,19 +179,27 @@ export const bookingAPI = {
 // ============================================
 export const ticketAPI = {
   // ========== USER TICKETS ==========
-  getUserTickets: (params = {}) => apiClient.get("/tickets/my-tickets", { params }),
+  getUserTickets: (params = {}) =>
+    apiClient.get("/tickets/my-tickets", { params }),
   getTicketById: (ticketId) => apiClient.get(`/tickets/${ticketId}`),
-  downloadTicket: (ticketId) => apiClient.get(`/tickets/${ticketId}/download`, { responseType: "blob" }),
-  resendTicketEmail: (ticketId) => apiClient.post(`/tickets/${ticketId}/resend-email`),
+  downloadTicket: (ticketId) =>
+    apiClient.get(`/tickets/${ticketId}/download`, { responseType: "blob" }),
+  resendTicketEmail: (ticketId) =>
+    apiClient.post(`/tickets/${ticketId}/resend-email`),
 
   // ========== BANNER ROUTES ==========
-  uploadUserPhoto: (ticketId, formData) => apiClient.post(`/tickets/${ticketId}/user-photo`, formData),
-  generateShareableBanner: (ticketId) => apiClient.post(`/tickets/${ticketId}/generate-banner`),
+  uploadUserPhoto: (ticketId, formData) =>
+    apiClient.post(`/tickets/${ticketId}/user-photo`, formData),
+  generateShareableBanner: (ticketId) =>
+    apiClient.post(`/tickets/${ticketId}/generate-banner`),
 
   // ========== ORGANIZER ROUTES ==========
-  getEventTickets: (eventId, params = {}) => apiClient.get(`/tickets/event/${eventId}`, { params }),
-  getTicketAnalytics: (eventId) => apiClient.get(`/tickets/analytics/event/${eventId}`),
-  validateTicket: (ticketId, validationData = {}) => apiClient.post(`/tickets/${ticketId}/validate`, validationData),
+  getEventTickets: (eventId, params = {}) =>
+    apiClient.get(`/tickets/event/${eventId}`, { params }),
+  getTicketAnalytics: (eventId) =>
+    apiClient.get(`/tickets/analytics/event/${eventId}`),
+  validateTicket: (ticketId, validationData = {}) =>
+    apiClient.post(`/tickets/${ticketId}/validate`, validationData),
 };
 
 // ============================================
@@ -179,31 +207,49 @@ export const ticketAPI = {
 // ============================================
 export const transactionAPI = {
   // ========== PUBLIC ROUTES ==========
-  verifyTransaction: (reference) => apiClient.get(`/transactions/verify/${reference}`),
-  verifyServiceFee: (reference) => apiClient.post(`/transactions/verify-service-fee/${reference}`),
+  verifyTransaction: (reference) =>
+    apiClient.get(`/transactions/verify/${reference}`),
+  verifyServiceFee: (reference) =>
+    apiClient.post(`/transactions/verify-service-fee/${reference}`),
+  completeDraftEvent: (reference, eventData) =>
+    apiClient.post(
+      `/transactions/${reference}/complete-draft-event`,
+      eventData
+    ),
 
   // ========== USER ROUTES ==========
-  initializeTransaction: (paymentData) => apiClient.post("/transactions/initialize", paymentData),
-  initializeServiceFee: (paymentData) => apiClient.post("/transactions/initialize-service-fee", paymentData),
-  getMyTransactions: (params = {}) => apiClient.get("/transactions/my-transactions", { params }),
-  getTransaction: (transactionId) => apiClient.get(`/transactions/${transactionId}`),
-  requestRefund: (transactionId, refundData) => apiClient.post(`/transactions/${transactionId}/refund`, refundData),
+  initializeTransaction: (paymentData) =>
+    apiClient.post("/transactions/initialize", paymentData),
+  initializeServiceFee: (paymentData) =>
+    apiClient.post("/transactions/initialize-service-fee", paymentData),
+  getMyTransactions: (params = {}) =>
+    apiClient.get("/transactions/my-transactions", { params }),
+  getTransaction: (transactionId) =>
+    apiClient.get(`/transactions/${transactionId}`),
+  requestRefund: (transactionId, refundData) =>
+    apiClient.post(`/transactions/${transactionId}/refund`, refundData),
 
   // ========== ORGANIZER ROUTES ==========
-  getEventTransactions: (eventId, params = {}) => apiClient.get(`/transactions/event/${eventId}`, { params }),
-  processRefund: (transactionId, refundData) => apiClient.put(`/transactions/${transactionId}/refund/process`, refundData),
-  getRevenueStats: (params = {}) => apiClient.get("/transactions/stats/revenue", { params }),
+  getEventTransactions: (eventId, params = {}) =>
+    apiClient.get(`/transactions/event/${eventId}`, { params }),
+  processRefund: (transactionId, refundData) =>
+    apiClient.put(`/transactions/${transactionId}/refund/process`, refundData),
+  getRevenueStats: (params = {}) =>
+    apiClient.get("/transactions/stats/revenue", { params }),
 };
 
 // ============================================
 // NOTIFICATION API CALLS
 // ============================================
 export const notificationAPI = {
-  getNotifications: (params = {}) => apiClient.get("/notifications", { params }),
+  getNotifications: (params = {}) =>
+    apiClient.get("/notifications", { params }),
   getUnreadCount: () => apiClient.get("/notifications/unread-count"),
-  markAsRead: (notificationId) => apiClient.patch(`/notifications/${notificationId}/read`),
+  markAsRead: (notificationId) =>
+    apiClient.patch(`/notifications/${notificationId}/read`),
   markAllAsRead: () => apiClient.patch("/notifications/read-all"),
-  deleteNotification: (notificationId) => apiClient.delete(`/notifications/${notificationId}`),
+  deleteNotification: (notificationId) =>
+    apiClient.delete(`/notifications/${notificationId}`),
 };
 
 // ============================================
@@ -211,15 +257,21 @@ export const notificationAPI = {
 // ============================================
 export const superadminAPI = {
   getAllUsers: (params = {}) => apiClient.get("/admin/users", { params }),
-  updateUserRole: (userId, roleData) => apiClient.patch(`/admin/users/${userId}/role`, roleData),
-  updateUserStatus: (userId, statusData) => apiClient.patch(`/admin/users/${userId}/status`, statusData),
-  suspendUser: (userId, suspendData) => apiClient.patch(`/admin/users/${userId}/suspend`, suspendData),
+  updateUserRole: (userId, roleData) =>
+    apiClient.patch(`/admin/users/${userId}/role`, roleData),
+  updateUserStatus: (userId, statusData) =>
+    apiClient.patch(`/admin/users/${userId}/status`, statusData),
+  suspendUser: (userId, suspendData) =>
+    apiClient.patch(`/admin/users/${userId}/suspend`, suspendData),
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}/delete`),
-  getAllEventsAdmin: (params = {}) => apiClient.get("/admin/events", { params }),
-  updateEventAdmin: (eventId, eventData) => apiClient.patch(`/admin/events/${eventId}`, eventData),
+  getAllEventsAdmin: (params = {}) =>
+    apiClient.get("/admin/events", { params }),
+  updateEventAdmin: (eventId, eventData) =>
+    apiClient.patch(`/admin/events/${eventId}`, eventData),
   deleteEventAdmin: (eventId) => apiClient.delete(`/admin/events/${eventId}`),
   getPlatformStats: () => apiClient.get("/admin/stats"),
-  getPlatformAnalytics: (params = {}) => apiClient.get("/admin/analytics", { params }),
+  getPlatformAnalytics: (params = {}) =>
+    apiClient.get("/admin/analytics", { params }),
 };
 
 // ============================================
@@ -228,10 +280,10 @@ export const superadminAPI = {
 export const apiCall = async (apiFunction, ...args) => {
   try {
     // Execute the API function with any arguments
-    const response = await (typeof apiFunction === 'function' 
-      ? apiFunction(...args) 
+    const response = await (typeof apiFunction === "function"
+      ? apiFunction(...args)
       : apiFunction);
-    
+
     return {
       success: true,
       data: response.data,
@@ -247,7 +299,7 @@ export const apiCall = async (apiFunction, ...args) => {
     if (error.code === "ECONNABORTED") {
       errorMessage = "Request timeout. Please check your connection.";
       errorCode = 408;
-    } 
+    }
     // Handle network errors
     else if (error.code === "ERR_NETWORK") {
       errorMessage = "Network error. Please check your internet connection.";
@@ -259,7 +311,7 @@ export const apiCall = async (apiFunction, ...args) => {
         error.response.data.message ||
         error.response.data.error ||
         errorMessage;
-    } 
+    }
     // Handle request errors
     else if (error.message) {
       errorMessage = error.message;

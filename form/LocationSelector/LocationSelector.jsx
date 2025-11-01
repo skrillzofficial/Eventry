@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { MapPin } from "lucide-react";
 
 const LocationSelector = ({
@@ -10,64 +10,45 @@ const LocationSelector = ({
   errors = {},
   register,
 }) => {
-  const [states, setStates] = useState([]);
-
-  // Fetch states on component mount
-  useEffect(() => {
-    const fetchStates = async () => {
-      try {
-        const response = await fetch(
-          "http://states-and-cities.com/api/v1/states"
-        );
-        const data = await response.json();
-        setStates(data.data || []);
-      } catch (error) {
-        console.error("Error fetching states:", error);
-        // Fallback to basic states list
-        setStates([
-          "Abia",
-          "Adamawa",
-          "Akwa Ibom",
-          "Anambra",
-          "Bauchi",
-          "Bayelsa",
-          "Benue",
-          "Borno",
-          "Cross River",
-          "Delta",
-          "Ebonyi",
-          "Edo",
-          "Ekiti",
-          "Enugu",
-          "FCT (Abuja)",
-          "Gombe",
-          "Imo",
-          "Jigawa",
-          "Kaduna",
-          "Kano",
-          "Katsina",
-          "Kebbi",
-          "Kogi",
-          "Kwara",
-          "Lagos",
-          "Nasarawa",
-          "Niger",
-          "Ogun",
-          "Ondo",
-          "Osun",
-          "Oyo",
-          "Plateau",
-          "Rivers",
-          "Sokoto",
-          "Taraba",
-          "Yobe",
-          "Zamfara",
-        ]);
-      }
-    };
-
-    fetchStates();
-  }, []);
+  const [states] = useState([
+    "Abia",
+    "Adamawa",
+    "Akwa Ibom",
+    "Anambra",
+    "Bauchi",
+    "Bayelsa",
+    "Benue",
+    "Borno",
+    "Cross River",
+    "Delta",
+    "Ebonyi",
+    "Edo",
+    "Ekiti",
+    "Enugu",
+    "FCT (Abuja)",
+    "Gombe",
+    "Imo",
+    "Jigawa",
+    "Kaduna",
+    "Kano",
+    "Katsina",
+    "Kebbi",
+    "Kogi",
+    "Kwara",
+    "Lagos",
+    "Nasarawa",
+    "Niger",
+    "Ogun",
+    "Ondo",
+    "Osun",
+    "Oyo",
+    "Plateau",
+    "Rivers",
+    "Sokoto",
+    "Taraba",
+    "Yobe",
+    "Zamfara",
+  ]);
 
   const handleStateChange = (state) => {
     onStateChange(state);

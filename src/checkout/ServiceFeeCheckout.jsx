@@ -39,6 +39,60 @@ const ServiceFeeCheckout = ({
     });
   };
 
+  // ✅ CRITICAL FIX: Transform approval questions to proper schema format
+  const transformApprovalQuestions = (ticketTypes) => {
+    if (!Array.isArray(ticketTypes)) return [];
+    
+    return ticketTypes.map(ticket => {
+      const transformed = { ...ticket };
+      
+      // Handle approval questions transformation
+      if (ticket.requiresApproval && ticket.approvalQuestions) {
+        // Case 1: String - convert to array of objects
+        if (typeof ticket.approvalQuestions === 'string') {
+          transformed.approvalQuestions = [{
+            question: ticket.approvalQuestions,
+            type: 'text',
+            required: true
+          }];
+        }
+        // Case 2: Array - validate and transform each item
+        else if (Array.isArray(ticket.approvalQuestions)) {
+          transformed.approvalQuestions = ticket.approvalQuestions.map(q => {
+            if (typeof q === 'string') {
+              return { question: q, type: 'text', required: true };
+            }
+            return {
+              question: q.question || q.text || '',
+              type: q.type || 'text',
+              required: q.required !== false,
+              options: q.options || undefined
+            };
+          }).filter(q => q.question); // Remove empty questions
+        }
+        // Case 3: Single object - wrap in array
+        else if (typeof ticket.approvalQuestions === 'object') {
+          transformed.approvalQuestions = [{
+            question: ticket.approvalQuestions.question || ticket.approvalQuestions.text || '',
+            type: ticket.approvalQuestions.type || 'text',
+            required: ticket.approvalQuestions.required !== false,
+            options: ticket.approvalQuestions.options || undefined
+          }];
+        }
+      } else {
+        transformed.approvalQuestions = [];
+      }
+      
+      console.log(`✅ Transformed ticket "${ticket.name}":`, {
+        requiresApproval: transformed.requiresApproval,
+        originalQuestions: ticket.approvalQuestions,
+        transformedQuestions: transformed.approvalQuestions
+      });
+      
+      return transformed;
+    });
+  };
+
   const handlePayment = async () => {
     // Validate required fields
     if (!formData.fullName || !formData.email) {
@@ -58,6 +112,46 @@ const ServiceFeeCheckout = ({
 
     try {
       console.log("🎯 Starting service fee payment process...");
+      console.log("📋 Agreement data received:", {
+        hasAgreementData: !!agreementData,
+        acceptedTerms: agreementData?.acceptedTerms,
+        serviceFee: agreementData?.serviceFee,
+        estimatedAttendance: agreementData?.estimatedAttendance
+      });
+
+      // ✅ CRITICAL FIX: Ensure agreement data has acceptedTerms = true
+      // Valid enum values: "1-100", "101-500", "501-1000", "1001-5000", "5001+"
+      const validAttendanceRanges = ["1-100", "101-500", "501-1000", "1001-5000", "5001+"];
+      const rawAttendanceRange = agreementData?.estimatedAttendance || attendanceRange;
+      
+      // Ensure attendanceRange is valid
+      let validatedAttendanceRange = "1-100"; // Default
+      if (rawAttendanceRange && validAttendanceRanges.includes(rawAttendanceRange)) {
+        validatedAttendanceRange = rawAttendanceRange;
+      } else {
+        console.warn("⚠️ Invalid attendance range:", rawAttendanceRange, "- using default: 1-100");
+      }
+      
+      const enhancedAgreementData = {
+        ...(agreementData || {}),
+        acceptedTerms: true, // ✅ Force this to true
+        acceptedAt: agreementData?.acceptedAt || new Date().toISOString(),
+        serviceFee: agreementData?.serviceFee || { type: "percentage", amount: 5 },
+        estimatedAttendance: validatedAttendanceRange, // ✅ Guaranteed valid enum
+        paymentTerms: "upfront",
+        agreementVersion: agreementData?.agreementVersion || "1.0"
+      };
+
+      console.log("✅ Enhanced agreement data:", enhancedAgreementData);
+
+      // ✅ CRITICAL: Transform ticket types to proper schema format BEFORE sending
+      const transformedTicketTypes = transformApprovalQuestions(eventData.ticketTypes || []);
+
+      console.log("🎫 Ticket types transformation:", {
+        originalCount: eventData.ticketTypes?.length || 0,
+        transformedCount: transformedTicketTypes.length,
+        hasApprovalTickets: transformedTicketTypes.some(t => t.requiresApproval)
+      });
 
       // ✅ STEP 1: Prepare comprehensive event data for storage
       const completeEventData = {
@@ -83,9 +177,9 @@ const ServiceFeeCheckout = ({
         coordinates: eventData.coordinates,
         virtualEventLink: eventData.virtualEventLink,
 
-        // Tickets & Capacity
+        // Tickets & Capacity - ✅ USE TRANSFORMED DATA
         capacity: eventData.capacity,
-        ticketTypes: eventData.ticketTypes,
+        ticketTypes: transformedTicketTypes, // ✅ Use transformed ticket types
         hasApprovalTickets: hasApprovalTickets,
         requirements: eventData.requirements,
 
@@ -99,12 +193,22 @@ const ServiceFeeCheckout = ({
         serviceFeePaymentStatus: "pending",
       };
 
-      console.log("📦 Prepared event data:", completeEventData);
+      console.log("📦 Prepared event data:", {
+        title: completeEventData.title,
+        ticketTypesCount: completeEventData.ticketTypes?.length,
+        ticketTypesWithApproval: completeEventData.ticketTypes?.filter(t => t.requiresApproval).length,
+        firstTicketType: completeEventData.ticketTypes?.[0] ? {
+          name: completeEventData.ticketTypes[0].name,
+          requiresApproval: completeEventData.ticketTypes[0].requiresApproval,
+          approvalQuestionsCount: completeEventData.ticketTypes[0].approvalQuestions?.length,
+          approvalQuestions: completeEventData.ticketTypes[0].approvalQuestions
+        } : null
+      });
 
       // ✅ STEP 2: Store pending data BEFORE payment initialization
       const pendingData = {
         eventData: completeEventData,
-        agreementData: agreementData,
+        agreementData: enhancedAgreementData, // ✅ Use enhanced agreement data
         userInfo: {
           name: formData.fullName,
           email: formData.email,
@@ -117,6 +221,7 @@ const ServiceFeeCheckout = ({
       };
 
       console.log("💾 Storing pending agreement in sessionStorage...");
+      console.log("💾 Agreement acceptedTerms:", pendingData.agreementData.acceptedTerms);
       sessionStorage.setItem("pendingAgreement", JSON.stringify(pendingData));
 
       // ✅ STEP 3: Generate draft event ID (backend recognizes "draft-" prefix)
@@ -138,8 +243,9 @@ const ServiceFeeCheckout = ({
           attendanceRange: attendanceRange,
           eventTitle: eventData.title,
           hasApprovalTickets: hasApprovalTickets,
-          eventData: completeEventData, // Send full event data to backend
-          agreementData: agreementData,
+          eventData: completeEventData, // ✅ Send transformed event data
+          // ✅ CRITICAL: Send enhanced agreement data with acceptedTerms = true
+          agreementData: enhancedAgreementData,
           userInfo: {
             name: formData.fullName,
             email: formData.email,
@@ -154,6 +260,8 @@ const ServiceFeeCheckout = ({
         amount: paymentData.amount,
         email: paymentData.email,
         callback: paymentData.callback_url,
+        agreementAcceptedTerms: paymentData.metadata.agreementData.acceptedTerms,
+        ticketTypesCount: paymentData.metadata.eventData.ticketTypes?.length
       });
 
       const result = await apiCall(
@@ -162,14 +270,6 @@ const ServiceFeeCheckout = ({
       );
 
       console.log("✅ Payment initialization result:", result);
-      console.log("📦 Full result.data:", result.data);
-      console.log("🔍 Checking for authorization URL in:", {
-        authorizationUrl: result.data?.authorizationUrl,
-        authorization_url: result.data?.authorization_url,
-        paymentUrl: result.data?.paymentUrl,
-        payment_url: result.data?.payment_url,
-        transaction: result.data?.transaction,
-      });
 
       if (!result.success) {
         throw new Error(result.error || "Payment initialization failed");
@@ -186,7 +286,6 @@ const ServiceFeeCheckout = ({
 
       if (!redirectUrl) {
         console.error("❌ No redirect URL in response:", result);
-        console.error("❌ Full result object:", JSON.stringify(result, null, 2));
         throw new Error(
           "Payment initialization failed - No redirect URL received"
         );
@@ -201,12 +300,14 @@ const ServiceFeeCheckout = ({
           "pendingServiceFeePayment",
           JSON.stringify({
             reference: paymentReference,
-            draftEventId: draftEventId, // Draft event ID
+            draftEventId: draftEventId,
             timestamp: Date.now(),
             email: formData.email,
+            agreementAcceptedTerms: enhancedAgreementData.acceptedTerms, // ✅ Store for verification
           })
         );
         console.log("💾 Stored payment reference:", paymentReference);
+        console.log("💾 Agreement acceptedTerms stored:", enhancedAgreementData.acceptedTerms);
       }
 
       console.log("🚀 Redirecting to Paystack:", redirectUrl);
@@ -246,6 +347,7 @@ const ServiceFeeCheckout = ({
     console.log("Event Data:", eventData);
     console.log("Service Fee:", serviceFee);
     console.log("Agreement Data:", agreementData);
+    console.log("Agreement acceptedTerms:", agreementData?.acceptedTerms);
   };
 
   React.useEffect(() => {

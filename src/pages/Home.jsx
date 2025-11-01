@@ -190,7 +190,7 @@ const Home = () => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
 
-  // Prepare past events for the slider (events that have already happened)
+  // Past events for the slider 
   const pastEvents = events
     .filter(event => new Date(event.date) < new Date())
     .map(event => ({
@@ -313,17 +313,17 @@ const Home = () => {
               </button>
             </div>
           ) : events.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
               {events.slice(0, 6).map((event) => (
                 <Link
                   to={`/event/${event.id}`}
                   key={event.id}
-                  className="relative group h-80 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow"
+                  className="relative group h-110 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow"
                 >
                   <img
                     src={event.image}
                     alt={event.title}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-90 object-center transform group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-4 py-6">
                     <span className="inline-block bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-semibold mb-2">
