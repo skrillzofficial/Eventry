@@ -98,7 +98,7 @@ const CreateEvent = () => {
       endTime: "",
       state: "",
       city: "",
-    }
+    },
   });
 
   // Constants
@@ -173,17 +173,24 @@ const CreateEvent = () => {
 
       // Set component state
       if (eventData.eventType) setEventType(eventData.eventType);
-      if (eventData.virtualEventLink) setVirtualEventLink(eventData.virtualEventLink);
+      if (eventData.virtualEventLink)
+        setVirtualEventLink(eventData.virtualEventLink);
       if (eventData.state) setSelectedState(eventData.state);
       if (eventData.city) setSelectedCity(eventData.city);
-      if (eventData.isMultiDay !== undefined) setIsMultiDay(eventData.isMultiDay);
-      if (eventData.socialBannerEnabled !== undefined) setSocialBannerEnabled(eventData.socialBannerEnabled);
-      if (eventData.socialBannerFile) setSocialBannerFile(eventData.socialBannerFile);
-      if (eventData.communityEnabled !== undefined) setCommunityEnabled(eventData.communityEnabled);
+      if (eventData.isMultiDay !== undefined)
+        setIsMultiDay(eventData.isMultiDay);
+      if (eventData.socialBannerEnabled !== undefined)
+        setSocialBannerEnabled(eventData.socialBannerEnabled);
+      if (eventData.socialBannerFile)
+        setSocialBannerFile(eventData.socialBannerFile);
+      if (eventData.communityEnabled !== undefined)
+        setCommunityEnabled(eventData.communityEnabled);
       if (eventData.communityData) setCommunityData(eventData.communityData);
       if (eventData.ticketTypes) setTicketTypes(eventData.ticketTypes);
-      if (eventData.useLegacyPricing !== undefined) setUseLegacyPricing(eventData.useLegacyPricing);
-      if (eventData.singleTicketBenefits) setSingleTicketBenefits(eventData.singleTicketBenefits);
+      if (eventData.useLegacyPricing !== undefined)
+        setUseLegacyPricing(eventData.useLegacyPricing);
+      if (eventData.singleTicketBenefits)
+        setSingleTicketBenefits(eventData.singleTicketBenefits);
       if (eventData.tags) setTags(eventData.tags);
       if (eventData.requirements) setRequirements(eventData.requirements);
       if (prevImageFiles) setImageFiles(prevImageFiles);
@@ -206,7 +213,7 @@ const CreateEvent = () => {
     const startDate = watch("startDate");
     const time = watch("time");
     const endTime = watch("endTime");
-    
+
     if (startDate) {
       setValue("startDate", startDate, { shouldValidate: true });
     }
@@ -433,7 +440,7 @@ const CreateEvent = () => {
       case 2:
         // Enhanced date validation
         isValid = await trigger(["startDate", "time", "endTime"]);
-        
+
         if (!values.startDate) {
           isValid = false;
         }
@@ -443,7 +450,7 @@ const CreateEvent = () => {
         if (!values.endTime) {
           isValid = false;
         }
-        
+
         if (isMultiDay && values.endDate) {
           const start = new Date(values.startDate);
           const end = new Date(values.endDate);
@@ -457,7 +464,7 @@ const CreateEvent = () => {
         if (eventType === "physical" || eventType === "hybrid") {
           isValid = await trigger(["venue", "address", "state", "city"]);
           isValid = isValid && selectedState && selectedCity;
-          
+
           // Double check form values
           if (!values.state || !values.city) {
             isValid = false;
@@ -469,7 +476,8 @@ const CreateEvent = () => {
       case 4:
         if (!useLegacyPricing) {
           const validTickets = ticketTypes.filter(
-            (t) => t.price !== "" && t.capacity !== "" && parseFloat(t.price) >= 0
+            (t) =>
+              t.price !== "" && t.capacity !== "" && parseFloat(t.price) >= 0
           );
           isValid = validTickets.length > 0;
         } else {
@@ -508,7 +516,26 @@ const CreateEvent = () => {
   // COMPREHENSIVE PREVIEW DATA PREPARATION
   const preparePreviewData = () => {
     const formData = getValues();
-    
+
+    // ✅ FIX: If using legacy pricing, ensure ticketTypes has the form data
+    let finalTicketTypes = ticketTypes;
+    if (useLegacyPricing) {
+      finalTicketTypes = [
+        {
+          name: "Regular",
+          price: formData.price || "",
+          capacity: formData.capacity || "",
+          description: formData.ticketDescription || "",
+          benefits: singleTicketBenefits || [],
+          accessType: eventType === "hybrid" ? "both" : undefined,
+          requiresApproval: ticketTypes[0]?.requiresApproval || false,
+          approvalQuestions: ticketTypes[0]?.approvalQuestions || [],
+          maxAttendees: ticketTypes[0]?.maxAttendees || "",
+          approvalDeadline: ticketTypes[0]?.approvalDeadline || "",
+        },
+      ];
+    }
+
     // Create comprehensive event data object
     const eventData = {
       // Basic Info
@@ -516,14 +543,14 @@ const CreateEvent = () => {
       category: formData.category || "",
       description: formData.description || "",
       longDescription: formData.longDescription || "",
-      
+
       // Date & Time - ENSURING THESE ARE INCLUDED
       startDate: formData.startDate || "",
       endDate: formData.endDate || "",
       time: formData.time || "",
       endTime: formData.endTime || "",
       isMultiDay: isMultiDay,
-      
+
       // Location - ENSURING STATE AND CITY ARE INCLUDED
       eventType: eventType,
       virtualEventLink: virtualEventLink || "",
@@ -531,18 +558,18 @@ const CreateEvent = () => {
       address: formData.address || "",
       state: selectedState || formData.state || "",
       city: selectedCity || formData.city || "",
-      
-      // Tickets
-      ticketTypes: ticketTypes,
+
+      // Tickets - ✅ USE CORRECTED TICKET TYPES
+      ticketTypes: finalTicketTypes,
       useLegacyPricing: useLegacyPricing,
       singleTicketBenefits: singleTicketBenefits,
       price: formData.price || "",
       capacity: formData.capacity || "",
-      
+
       // Additional Info
       tags: tags,
       requirements: requirements,
-      
+
       // Media & Social
       socialBannerEnabled: socialBannerEnabled,
       socialBannerFile: socialBannerFile,
@@ -558,12 +585,14 @@ const CreateEvent = () => {
     // Validate current step before proceeding to preview
     const isValid = await validateStep(currentStep);
     if (!isValid) {
-      alert("Please complete all required fields in the current step before previewing.");
+      alert(
+        "Please complete all required fields in the current step before previewing."
+      );
       return;
     }
 
     const eventData = preparePreviewData();
-    
+
     // Debug log to verify data
     console.log("Preview Data:", {
       eventData,
@@ -571,7 +600,7 @@ const CreateEvent = () => {
       hasState: !!eventData.state,
       stateValue: eventData.state,
       selectedState,
-      formState: getValues("state")
+      formState: getValues("state"),
     });
 
     navigate("/events/preview", {
@@ -581,7 +610,7 @@ const CreateEvent = () => {
         imageFiles: imageFiles,
         uploadedImages: uploadedImages,
       },
-      replace: true
+      replace: true,
     });
   };
 
@@ -918,7 +947,9 @@ const CreateEvent = () => {
                       <input
                         type="date"
                         {...register("endDate", {
-                          required: isMultiDay ? "End date is required for multi-day events" : false,
+                          required: isMultiDay
+                            ? "End date is required for multi-day events"
+                            : false,
                         })}
                         min={
                           watch("startDate") ||

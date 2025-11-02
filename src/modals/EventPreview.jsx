@@ -42,6 +42,7 @@ const EventPreview = () => {
   const [publishData, setPublishData] = useState(null);
   const [showServiceFeeCheckout, setShowServiceFeeCheckout] = useState(false);
   const [serviceFeeData, setServiceFeeData] = useState(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   // Redirect back if no data
   if (!eventData || !formData) {
@@ -78,6 +79,60 @@ const EventPreview = () => {
     communityEnabled,
     communityData,
   } = eventData;
+
+  // ✅ CLOUDINARY UPLOAD FUNCTION
+  const uploadImagesToCloudinary = async (files) => {
+    if (!files || files.length === 0) {
+      return [];
+    }
+
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error("Cloudinary configuration missing. Please check your environment variables.");
+    }
+
+    const uploadedUrls = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", uploadPreset);
+      formData.append("folder", "event-images");
+
+      try {
+        console.log(`Uploading image ${i + 1}/${files.length} to Cloudinary...`);
+
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || "Upload failed");
+        }
+
+        const data = await response.json();
+        uploadedUrls.push({
+          url: data.secure_url,
+          publicId: data.public_id,
+        });
+
+        console.log(`✅ Image ${i + 1} uploaded:`, data.secure_url);
+      } catch (error) {
+        console.error(`❌ Failed to upload image ${i + 1}:`, error);
+        throw new Error(`Failed to upload image ${i + 1}: ${error.message}`);
+      }
+    }
+
+    return uploadedUrls;
+  };
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -138,7 +193,7 @@ const EventPreview = () => {
     return parseFloat(price) > 0;
   };
 
-  // CRITICAL FIX: Enhanced validation with proper field names
+  // Validation function
   const validateForPublish = () => {
     const errors = [];
 
@@ -147,11 +202,10 @@ const EventPreview = () => {
     if (!description) errors.push("Description is required");
     if (!category) errors.push("Category is required");
 
-    // Date and time validation - CRITICAL FIX
+    // Date and time validation
     if (!startDate) {
       errors.push("Event date is required");
     } else {
-      // Validate date format
       const date = new Date(startDate);
       if (isNaN(date.getTime())) {
         errors.push("Invalid start date format");
@@ -161,52 +215,20 @@ const EventPreview = () => {
     if (!time) errors.push("Start time is required");
     if (!endTime) errors.push("End time is required");
 
-    // Location validation for physical/hybrid events - CRITICAL FIX
+    // Location validation for physical/hybrid events
     if (eventType !== "virtual") {
       if (!venue) errors.push("Venue is required");
       if (!address) errors.push("Address is required");
       if (!state) {
         errors.push("State is required");
       } else {
-        // Validate state is one of the allowed values
         const validStates = [
-          "Abia",
-          "Adamawa",
-          "Akwa Ibom",
-          "Anambra",
-          "Bauchi",
-          "Bayelsa",
-          "Benue",
-          "Borno",
-          "Cross River",
-          "Delta",
-          "Ebonyi",
-          "Edo",
-          "Ekiti",
-          "Enugu",
-          "FCT (Abuja)",
-          "Gombe",
-          "Imo",
-          "Jigawa",
-          "Kaduna",
-          "Kano",
-          "Katsina",
-          "Kebbi",
-          "Kogi",
-          "Kwara",
-          "Lagos",
-          "Nasarawa",
-          "Niger",
-          "Ogun",
-          "Ondo",
-          "Osun",
-          "Oyo",
-          "Plateau",
-          "Rivers",
-          "Sokoto",
-          "Taraba",
-          "Yobe",
-          "Zamfara",
+          "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa",
+          "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo",
+          "Ekiti", "Enugu", "FCT (Abuja)", "Gombe", "Imo", "Jigawa",
+          "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara",
+          "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun",
+          "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
         ];
         if (!validStates.includes(state)) {
           errors.push(`State must be one of: ${validStates.join(", ")}`);
@@ -275,35 +297,62 @@ const EventPreview = () => {
     setShowPaymentAgreement(true);
   };
 
-  // In EventPreview.jsx - Update handleAgreementConfirm function
-
+  // ✅ UPDATED: Handle agreement confirmation with Cloudinary upload
   const handleAgreementConfirm = async (
     agreementData,
     actionType = "publish_direct"
   ) => {
     try {
       if (actionType === "service_fee_payment") {
-        // ✅ CRITICAL FIX: Ensure agreement data has acceptedTerms = true
+        // ✅ STEP 1: Upload images to Cloudinary BEFORE payment
+        setUploadingImages(true);
+        toast.loading("Uploading images to cloud storage...", { id: "image-upload" });
+
+        let cloudinaryUrls = [];
+        
+        try {
+          if (imageFiles && imageFiles.length > 0) {
+            cloudinaryUrls = await uploadImagesToCloudinary(imageFiles);
+            toast.success(`${cloudinaryUrls.length} image(s) uploaded successfully!`, { id: "image-upload" });
+          }
+        } catch (uploadError) {
+          console.error("❌ Image upload failed:", uploadError);
+          toast.error(uploadError.message || "Failed to upload images", { id: "image-upload" });
+          setUploadingImages(false);
+          return; // Stop here if upload fails
+        }
+
+        setUploadingImages(false);
+
+        // ✅ STEP 2: Prepare event data with Cloudinary URLs
         const enhancedAgreementData = {
           ...agreementData,
           acceptedTerms: true,
           acceptedAt: new Date().toISOString(),
         };
 
+        // ✅ Create complete publish data with Cloudinary URLs
+        const completePublishData = {
+          ...publishData,
+          cloudinaryImages: cloudinaryUrls, // Add Cloudinary URLs
+        };
+
         console.log("💾 Storing pending event data with agreement:", {
-          hasPublishData: !!publishData,
+          hasPublishData: !!completePublishData,
           hasAgreementData: !!enhancedAgreementData,
+          cloudinaryImagesCount: cloudinaryUrls.length,
           agreementAcceptedTerms: enhancedAgreementData.acceptedTerms,
           serviceFee: enhancedAgreementData.serviceFee,
           attendanceRange: enhancedAgreementData.attendanceRange,
         });
 
-        storePendingEventData(publishData);
+        // ✅ Store data with Cloudinary URLs
+        storePendingEventData(completePublishData);
 
         setShowPaymentAgreement(false);
         setServiceFeeData({
-          eventData: publishData,
-          agreementData: enhancedAgreementData, // ✅ Use enhanced agreement data
+          eventData: completePublishData, // Pass data with Cloudinary URLs
+          agreementData: enhancedAgreementData,
           serviceFee: agreementData.serviceFee.min,
           attendanceRange: agreementData.attendanceRange,
         });
@@ -397,11 +446,18 @@ const EventPreview = () => {
         formDataToSend.append("requirements", JSON.stringify(requirements));
       }
 
-      // Images
+      // ✅ For free events, upload images to Cloudinary
       if (imageFiles && imageFiles.length > 0) {
-        imageFiles.forEach((file) => {
-          formDataToSend.append("images", file);
-        });
+        toast.loading("Uploading images...", { id: "image-upload" });
+        try {
+          const cloudinaryUrls = await uploadImagesToCloudinary(imageFiles);
+          formDataToSend.append("cloudinaryImages", JSON.stringify(cloudinaryUrls));
+          toast.success("Images uploaded!", { id: "image-upload" });
+        } catch (uploadError) {
+          console.error("Image upload failed:", uploadError);
+          toast.error("Failed to upload images", { id: "image-upload" });
+          throw uploadError;
+        }
       }
 
       // Social banner
@@ -416,7 +472,7 @@ const EventPreview = () => {
         formDataToSend.append("communityEnabled", "true");
       }
 
-      // ✅ CRITICAL: Agreement data for free events with acceptedTerms = true
+      // Agreement data with acceptedTerms = true
       const enhancedAgreementData = {
         ...agreementData,
         acceptedTerms: true,
@@ -461,8 +517,6 @@ const EventPreview = () => {
     console.log("Service fee payment successful:", paymentResult);
     setShowServiceFeeCheckout(false);
 
-    // Show success message and redirect to dashboard
-    // The actual event creation will be handled by the payment callback in MyEvents/OrganizerDashboard
     setSuccessMessage("Payment successful! Your event is being created...");
     setShowSuccess(true);
 
@@ -486,7 +540,6 @@ const EventPreview = () => {
         formDataToSend.append("longDescription", longDescription);
       if (category) formDataToSend.append("category", category);
 
-      // Include date fields even for drafts
       if (startDate) {
         formDataToSend.append("startDate", startDate);
         formDataToSend.append("eventDate", startDate);
@@ -501,7 +554,6 @@ const EventPreview = () => {
       if (time) formDataToSend.append("time", time);
       if (endTime) formDataToSend.append("endTime", endTime);
 
-      // Location data for physical/hybrid events
       if (eventType !== "virtual") {
         if (venue) formDataToSend.append("venue", venue);
         if (address) formDataToSend.append("address", address);
@@ -509,7 +561,6 @@ const EventPreview = () => {
         if (city) formDataToSend.append("city", city);
       }
 
-      // Virtual event data
       if (eventType === "virtual" || eventType === "hybrid") {
         if (virtualEventLink) {
           formDataToSend.append("virtualEventLink", virtualEventLink);
@@ -558,13 +609,11 @@ const EventPreview = () => {
         });
       }
 
-      // Append social banner for drafts too
       if (socialBannerEnabled && socialBannerFile) {
         formDataToSend.append("socialBanner", socialBannerFile);
         formDataToSend.append("socialBannerEnabled", "true");
       }
 
-      // Append community data for drafts
       if (communityEnabled && communityData) {
         formDataToSend.append("community", JSON.stringify(communityData));
         formDataToSend.append("communityEnabled", "true");
@@ -578,7 +627,6 @@ const EventPreview = () => {
         );
         setShowSuccess(true);
 
-        // Clean up any pending data
         clearPendingEventData();
 
         setTimeout(() => {
@@ -703,8 +751,7 @@ const EventPreview = () => {
                 </h4>
                 <p className="text-blue-700 text-sm">
                   This event has paid tickets and requires a service fee payment
-                  to publish. You'll be redirected to complete the payment after
-                  clicking "Publish Event".
+                  to publish. Images will be uploaded to cloud storage before payment.
                 </p>
               </div>
             </div>
@@ -1107,7 +1154,7 @@ const EventPreview = () => {
                 <button
                   type="button"
                   onClick={handleSaveAsDraft}
-                  disabled={savingAs}
+                  disabled={savingAs || uploadingImages}
                   className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 disabled:opacity-50 transition-colors flex items-center justify-center"
                 >
                   {savingAs === "draft" ? (
@@ -1126,10 +1173,15 @@ const EventPreview = () => {
                 <button
                   type="button"
                   onClick={handlePublishClick}
-                  disabled={savingAs || !canPublish}
+                  disabled={savingAs || !canPublish || uploadingImages}
                   className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:opacity-50 transition-colors flex items-center justify-center"
                 >
-                  {savingAs === "published" ? (
+                  {uploadingImages ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Uploading Images...
+                    </>
+                  ) : savingAs === "published" ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Publishing...
@@ -1145,7 +1197,7 @@ const EventPreview = () => {
 
               {!canPublish && (
                 <div className="bg-yellow-50 rounded-lg p-4 text-sm text-yellow-800">
-                  <p className="font-semibold mb-1"> Note:</p>
+                  <p className="font-semibold mb-1">📋 Note:</p>
                   <p>
                     The publish button is disabled because some required fields
                     are missing. Please go back and complete all required
@@ -1155,7 +1207,7 @@ const EventPreview = () => {
               )}
 
               <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
-                <p className="font-semibold mb-2"> Quick Tip:</p>
+                <p className="font-semibold mb-2">💡 Quick Tip:</p>
                 <ul className="space-y-1 list-disc list-inside">
                   <li>
                     <strong>Draft:</strong> Save incomplete events and finish

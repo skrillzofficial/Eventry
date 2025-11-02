@@ -8,23 +8,27 @@ import {
   Wallet,
   ArrowRight,
   Plus,
-  Eye,
   BarChart3,
   DollarSign,
   MapPin,
   Clock,
   CheckCircle,
   AlertCircle,
-  Download,
-  Share2,
   RefreshCw,
-  Loader,
+  Settings,
+  Bell,
+  Search,
+  Filter,
+  MoreVertical,
+  Edit,
+  Trash2,
+  Copy,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { eventAPI, apiCall } from "../services/api";
-// ✅ FIXED: Import the correct function
 import createEventAfterPayment from "../services/createEventAfterPayment";
 import { toast } from "react-hot-toast";
 
@@ -40,6 +44,9 @@ const OrganizerDashboard = () => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   // Handle payment callback on mount
   useEffect(() => {
@@ -61,7 +68,6 @@ const OrganizerDashboard = () => {
             reference
           );
 
-          // ✅ FIXED: Call the correct function
           const result = await createEventAfterPayment(reference);
 
           console.log("✅ createEventAfterPayment result:", result);
@@ -74,12 +80,9 @@ const OrganizerDashboard = () => {
               icon: "🎉",
             });
 
-            // Clean URL
             window.history.replaceState({}, "", "/dashboard/organizer/events");
 
-            // Wait a moment for user to see success message
             setTimeout(() => {
-              // Redirect to the new event page
               const eventId = result.event?._id || result.event?.id;
               console.log("🔄 Redirecting to event:", eventId);
 
@@ -98,11 +101,9 @@ const OrganizerDashboard = () => {
               duration: 6000,
             });
 
-            // Clean URL even on error
             window.history.replaceState({}, "", "/dashboard/organizer/events");
             setProcessingPayment(false);
 
-            // Still try to load dashboard
             loadOrganizerData();
           }
         } catch (error) {
@@ -115,7 +116,6 @@ const OrganizerDashboard = () => {
           window.history.replaceState({}, "", "/dashboard/organizer/events");
           setProcessingPayment(false);
 
-          // Still try to load dashboard
           loadOrganizerData();
         }
       }
@@ -137,7 +137,6 @@ const OrganizerDashboard = () => {
       return;
     }
 
-    // Only load data if not processing payment
     if (!processingPayment) {
       loadOrganizerData();
     }
@@ -393,12 +392,21 @@ Generated: ${new Date().toLocaleString()}
     URL.revokeObjectURL(url);
   };
 
+  const filteredEvents = allEvents.filter((event) => {
+    const matchesSearch = event.title
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesFilter =
+      filterStatus === "all" || event.status === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
+
   if (!isAuthenticated || !isOrganizer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-20">
-          <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
+          <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-200">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
               Access Denied
@@ -408,7 +416,7 @@ Generated: ${new Date().toLocaleString()}
             </p>
             <Link
               to="/discover"
-              className="inline-flex items-center bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition"
+              className="inline-flex items-center bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#E55A2B] transition"
             >
               Back to Discover
             </Link>
@@ -423,7 +431,7 @@ Generated: ${new Date().toLocaleString()}
 
   if (loading || processingPayment) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mb-4"></div>
@@ -446,10 +454,10 @@ Generated: ${new Date().toLocaleString()}
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-700 flex items-center">
@@ -459,115 +467,139 @@ Generated: ${new Date().toLocaleString()}
           </div>
         )}
 
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center flex-wrap gap-4">
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex justify-between items-start flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Organizer Dashboard
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Dashboard
                 </h1>
-                <div className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] rounded-full">
-                  <span className="text-xs font-medium text-white">
-                    Organizer
-                  </span>
-                </div>
-                <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="p-2 bg-white rounded-lg hover:bg-gray-100 transition shadow-sm"
-                  title="Refresh data"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 text-gray-700 ${
-                      refreshing ? "animate-spin" : ""
-                    }`}
-                  />
-                </button>
+                <span className="px-3 py-1 bg-[#FF6B35] text-white text-xs font-medium rounded-full">
+                  Organizer
+                </span>
               </div>
               <p className="text-gray-600">
-                Welcome back, {user?.name || user?.fullName || "Organizer"}!
-                Manage your events and track performance.
+                Welcome back, {user?.name || user?.fullName || "Organizer"}
               </p>
             </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                title="Refresh data"
+              >
+                <RefreshCw
+                  className={`w-5 h-5 text-gray-600 ${
+                    refreshing ? "animate-spin" : ""
+                  }`}
+                />
+              </button>
+              <Link
+                to="/create-event"
+                className="bg-[#FF6B35] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#E55A2B] transition flex items-center"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create Event
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Total Events</span>
+              <Calendar className="h-5 w-5 text-gray-400" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">
+              {stats.totalEvents || 0}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats.activeEvents || 0} active
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Total Attendees</span>
+              <Users className="h-5 w-5 text-gray-400" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">
+              {stats.totalAttendees || 0}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats.conversionRate || 0}% conversion
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Total Revenue</span>
+              <DollarSign className="h-5 w-5 text-gray-400" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">
+              ₦{(stats.totalRevenue || 0).toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Lifetime earnings</p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Wallet Balance</span>
+              <Wallet className="h-5 w-5 text-gray-400" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">
+              ₦{(stats.walletBalance || 0).toLocaleString()}
+            </p>
             <Link
-              to="/create-event"
-              className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#E55A2B] transition-all duration-200 hover:scale-105 flex items-center shadow-lg"
+              to="/dashboard/wallet"
+              className="text-xs text-[#FF6B35] hover:underline mt-1 inline-block"
             >
-              <Plus className="w-5 h-5 mr-2" />
-              Create New Event
+              Withdraw funds
             </Link>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Total Events"
-            value={stats.totalEvents || 0}
-            icon={Calendar}
-            change={
-              stats.publishedEvents > 0
-                ? `${stats.publishedEvents} published`
-                : null
-            }
-          />
-          <StatCard
-            title="Published Events"
-            value={stats.publishedEvents || 0}
-            icon={CheckCircle}
-            change={
-              stats.totalEvents > 0
-                ? `${Math.round(
-                    (stats.publishedEvents / stats.totalEvents) * 100
-                  )}% published`
-                : null
-            }
-          />
-          <StatCard
-            title="Active Events"
-            value={stats.activeEvents || 0}
-            icon={Eye}
-            change={
-              stats.publishedEvents > 0
-                ? `${Math.round(
-                    (stats.activeEvents / stats.publishedEvents) * 100
-                  )}% active`
-                : null
-            }
-          />
-          <StatCard
-            title="Total Revenue"
-            value={`₦${(stats.totalRevenue || 0).toLocaleString()}`}
-            icon={DollarSign}
-            change={
-              stats.walletBalance > 0
-                ? `₦${stats.walletBalance.toLocaleString()} available`
-                : null
-            }
-          />
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <QuickActionsSection />
-            <EventsManagementSection
-              events={recentEvents}
-              onShareEvent={shareEvent}
-              onDownloadReport={downloadEventReport}
-            />
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+          <div className="border-b border-gray-200 px-6">
+            <nav className="flex space-x-8">
+              <button
+                onClick={() => setActiveTab("overview")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                  activeTab === "overview"
+                    ? "border-[#FF6B35] text-[#FF6B35]"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setActiveTab("analytics")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                  activeTab === "analytics"
+                    ? "border-[#FF6B35] text-[#FF6B35]"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Analytics
+              </button>
+            </nav>
           </div>
 
-          <div className="space-y-6">
-            <BlockchainWalletSection
-              balance={stats.walletBalance}
-              totalEarned={stats.totalRevenue}
-            />
-            <RevenueSection
-              revenueData={revenueData}
-              totalRevenue={stats.totalRevenue}
-            />
+          <div className="p-6">
+            {activeTab === "overview" && (
+              <OverviewTab
+                events={recentEvents}
+                stats={stats}
+              />
+            )}
+            {activeTab === "analytics" && (
+              <AnalyticsTab revenueData={revenueData} stats={stats} />
+            )}
           </div>
         </div>
       </div>
@@ -579,366 +611,258 @@ Generated: ${new Date().toLocaleString()}
   );
 };
 
-const StatCard = ({ title, value, icon: Icon, change }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 hover:scale-105">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        {change && (
-          <p className="text-sm text-green-600 flex items-center mt-1">
-            <TrendingUp className="h-4 w-4 mr-1" />
-            {change}
-          </p>
+const OverviewTab = ({ events, stats }) => (
+  <div className="space-y-6">
+    {/* Quick Actions */}
+    <div>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Link
+          to="/create-event"
+          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
+        >
+          <Plus className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
+          <span className="text-sm font-medium text-gray-900">Create Event</span>
+        </Link>
+        <Link
+          to="/dashboard/organizer/events"
+          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
+        >
+          <Calendar className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
+          <span className="text-sm font-medium text-gray-900">My Events</span>
+        </Link>
+        <Link
+          to="/dashboard/wallet"
+          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
+        >
+          <Wallet className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
+          <span className="text-sm font-medium text-gray-900">Wallet</span>
+        </Link>
+        <Link
+          to="/discover"
+          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
+        >
+          <Users className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
+          <span className="text-sm font-medium text-gray-900">Browse Events</span>
+        </Link>
+      </div>
+    </div>
+
+    {/* Recent Events */}
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Recent Events</h3>
+        <Link
+          to="/my-events"
+          className="text-sm text-[#FF6B35] hover:text-[#E55A2B] flex items-center"
+        >
+          View all <ArrowRight className="h-4 w-4 ml-1" />
+        </Link>
+      </div>
+      <div className="space-y-3">
+        {events.length === 0 ? (
+          <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p className="text-gray-500 mb-4">No events created yet</p>
+            <Link
+              to="/create-event"
+              className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] font-medium"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Create your first event
+            </Link>
+          </div>
+        ) : (
+          events.map((event) => (
+            <EventRow
+              key={event.id}
+              event={event}
+            />
+          ))
         )}
       </div>
-      <div className="p-3 bg-[#FF6B35]/10 rounded-lg">
-        <Icon className="h-6 w-6 text-[#FF6B35]" />
-      </div>
     </div>
   </div>
 );
 
-const QuickActionsSection = () => (
-  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <Link
-        to="/create-event"
-        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
-      >
-        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
-          <Plus className="h-6 w-6 text-[#FF6B35]" />
-        </div>
-        <span className="text-sm font-medium text-gray-900">Create Event</span>
-      </Link>
-      <Link
-        to="/dashboard/organizer/events"
-        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
-      >
-        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
-          <Calendar className="h-6 w-6 text-[#FF6B35]" />
-        </div>
-        <span className="text-sm font-medium text-gray-900">My Events</span>
-      </Link>
-      <Link
-        to="/discover"
-        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
-      >
-        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
-          <Users className="h-6 w-6 text-[#FF6B35]" />
-        </div>
-        <span className="text-sm font-medium text-gray-900">Browse Events</span>
-      </Link>
-      <Link
-        to="/dashboard/wallet"
-        className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:scale-105 group"
-      >
-        <div className="p-3 bg-[#FF6B35]/10 rounded-lg mb-2 group-hover:scale-110 transition-transform">
-          <Wallet className="h-6 w-6 text-[#FF6B35]" />
-        </div>
-        <span className="text-sm font-medium text-gray-900">Wallet</span>
-      </Link>
-    </div>
-  </div>
-);
-
-const RevenueSection = ({ revenueData, totalRevenue }) => {
-  const colors = [
-    "#FF6B35",
-    "#FF8535",
-    "#FFA059",
-    "#FFBA7D",
-    "#FFD5A1",
-    "#FFE8C8",
-  ];
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+const AnalyticsTab = ({ revenueData, stats }) => (
+  <div className="space-y-6">
+    {/* Revenue Chart */}
+    <div>
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
-        Revenue Analytics
+        Revenue Over Time
       </h3>
       {revenueData.values &&
       revenueData.values.length > 0 &&
       revenueData.values.some((v) => v > 0) ? (
-        <>
-          <div className="flex items-center justify-center mb-4">
-            <div className="relative w-48 h-48">
-              <svg viewBox="0 0 200 200" className="transform -rotate-90">
-                {(() => {
-                  const total = revenueData.values.reduce(
-                    (sum, val) => sum + val,
-                    0
-                  );
-                  let currentAngle = 0;
+        <div className="space-y-3">
+          {revenueData.labels.map((label, index) => {
+            const value = revenueData.values[index];
+            const maxValue = Math.max(...revenueData.values);
+            const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
 
-                  return revenueData.values.map((value, index) => {
-                    if (value === 0) return null;
-
-                    const percentage = (value / total) * 100;
-                    const angle = (percentage / 100) * 360;
-                    const radius = 80;
-                    const centerX = 100;
-                    const centerY = 100;
-
-                    const startAngle = currentAngle;
-                    const endAngle = currentAngle + angle;
-
-                    const x1 =
-                      centerX + radius * Math.cos((Math.PI * startAngle) / 180);
-                    const y1 =
-                      centerY + radius * Math.sin((Math.PI * startAngle) / 180);
-                    const x2 =
-                      centerX + radius * Math.cos((Math.PI * endAngle) / 180);
-                    const y2 =
-                      centerY + radius * Math.sin((Math.PI * endAngle) / 180);
-
-                    const largeArcFlag = angle > 180 ? 1 : 0;
-
-                    const pathData = [
-                      `M ${centerX} ${centerY}`,
-                      `L ${x1} ${y1}`,
-                      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-                      "Z",
-                    ].join(" ");
-
-                    currentAngle += angle;
-
-                    return (
-                      <path
-                        key={index}
-                        d={pathData}
-                        fill={colors[index % colors.length]}
-                        className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                        title={`${
-                          revenueData.labels[index]
-                        }: ₦${value.toLocaleString()}`}
-                      />
-                    );
-                  });
-                })()}
-                <circle cx="100" cy="100" r="50" fill="white" />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Total</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    ₦{(totalRevenue || 0).toLocaleString()}
-                  </p>
+            return (
+              <div key={index}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-600">{label}</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    ₦{value.toLocaleString()}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-[#FF6B35] h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${percentage}%` }}
+                  />
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {revenueData.labels.map((label, index) => {
-              if (revenueData.values[index] === 0) return null;
-              const percentage = (
-                (revenueData.values[index] /
-                  revenueData.values.reduce((sum, val) => sum + val, 0)) *
-                100
-              ).toFixed(1);
-
-              return (
-                <div
-                  key={index}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <div className="flex items-center">
-                    <div
-                      className="w-3 h-3 rounded-full mr-2"
-                      style={{ backgroundColor: colors[index % colors.length] }}
-                    />
-                    <span className="text-gray-600">{label}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-semibold text-gray-900">
-                      ₦{revenueData.values[index].toLocaleString()}
-                    </span>
-                    <span className="text-gray-500 ml-2">({percentage}%)</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
+            );
+          })}
+        </div>
       ) : (
-        <div className="h-64 flex flex-col items-center justify-center text-gray-400">
-          <BarChart3 className="h-12 w-12 mb-4 opacity-50" />
-          <p>No revenue data available yet</p>
+        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <p className="text-gray-500 mb-2">No revenue data available</p>
           <Link
             to="/create-event"
-            className="text-[#FF6B35] text-sm mt-2 hover:underline"
+            className="text-[#FF6B35] hover:underline text-sm"
           >
             Create your first event
           </Link>
         </div>
       )}
     </div>
-  );
-};
 
-const EventsManagementSection = ({
-  events,
-  onShareEvent,
-  onDownloadReport,
-}) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900">Recent Events</h3>
-      <Link
-        to="/my-events"
-        className="text-sm text-[#FF6B35] hover:text-[#FF8535] flex items-center transition-all duration-200 hover:scale-105"
-      >
-        View all <ArrowRight className="h-4 w-4 ml-1" />
-      </Link>
-    </div>
-    <div className="space-y-4">
-      {events.map((event) => (
-        <EventCard
-          key={event.id}
-          event={event}
-          onShare={() => onShareEvent(event)}
-          onDownload={() => onDownloadReport(event)}
-        />
-      ))}
-      {events.length === 0 && (
-        <div className="text-center py-8 text-gray-400">
-          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="mb-2">No events created yet</p>
-          <Link
-            to="/create-event"
-            className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] text-sm font-medium"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Create your first event
-          </Link>
+    {/* Key Metrics */}
+    <div>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Metrics</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-600 mb-1">Average Ticket Price</p>
+          <p className="text-2xl font-bold text-gray-900">
+            ₦{(stats.averageTicketPrice || 0).toLocaleString()}
+          </p>
         </div>
-      )}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-600 mb-1">Capacity Usage</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {stats.capacityUsage || 0}%
+          </p>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-600 mb-1">Completed Events</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {stats.completedEvents || 0}
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 );
 
-const EventCard = ({ event, onShare, onDownload }) => {
-  const getStatusColor = () => {
+const EventRow = ({ event }) => {
+  const getStatusStyle = () => {
     switch (event.status) {
       case "active":
-        return "bg-green-100 text-green-700";
+        return "bg-green-100 text-green-700 border-green-200";
       case "completed":
-        return "bg-gray-100 text-gray-700";
+        return "bg-gray-100 text-gray-700 border-gray-200";
       case "cancelled":
-        return "bg-red-100 text-red-700";
+        return "bg-red-100 text-red-700 border-red-200";
       case "sold-out":
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-100 text-blue-700 border-blue-200";
       default:
-        return "bg-orange-100 text-orange-700";
-    }
-  };
-
-  const getStatusIcon = () => {
-    switch (event.status) {
-      case "active":
-        return <Eye className="h-4 w-4" />;
-      case "completed":
-        return <CheckCircle className="h-4 w-4" />;
-      case "cancelled":
-        return <AlertCircle className="h-4 w-4" />;
-      case "sold-out":
-        return <Ticket className="h-4 w-4" />;
-      default:
-        return <Clock className="h-4 w-4" />;
+        return "bg-orange-100 text-orange-700 border-orange-200";
     }
   };
 
   const capacityPercentage = (event.ticketsSold / event.capacity) * 100;
+  
+  // Check if event needs approval (draft status or pending)
+  const needsApproval = event.status === 'draft' || event.status === 'pending' || event.approvalStatus === 'pending';
 
   return (
-    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-[#FF6B35] transition-all duration-200 hover:shadow-md">
-      <div className="flex-1">
-        <div className="flex items-center space-x-3">
-          <div className={`p-2 rounded-full ${getStatusColor()}`}>
-            {getStatusIcon()}
-          </div>
-          <div>
+    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:border-[#FF6B35] transition">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-2">
             <Link to={`/event/${event.id}`}>
-              <h4 className="font-semibold text-gray-900 hover:text-[#FF6B35] transition-colors">
+              <h4 className="font-semibold text-gray-900 hover:text-[#FF6B35] transition truncate">
                 {event.title}
               </h4>
             </Link>
-            <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
-              <span className="flex items-center">
-                <MapPin className="h-3 w-3 mr-1 text-[#FF6B35]" />
-                {event.location}
-              </span>
-              <span>{new Date(event.date).toLocaleDateString()}</span>
+            <span
+              className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusStyle()}`}
+            >
+              {event.status}
+            </span>
+            {needsApproval && (
               <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  capacityPercentage >= 80
-                    ? "bg-green-100 text-green-700"
-                    : capacityPercentage >= 50
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-red-100 text-red-700"
-                }`}
+                className="px-2 py-1 rounded-md text-xs font-medium border bg-yellow-100 text-yellow-700 border-yellow-200 flex items-center gap-1"
+                title="Approval needed"
               >
-                {Math.round(capacityPercentage)}% full
+                <AlertTriangle className="h-3 w-3" />
+                Approval Needed
               </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600">
+            <span className="flex items-center">
+              <Clock className="h-4 w-4 mr-1.5 text-gray-400" />
+              {new Date(event.date).toLocaleDateString()}
+            </span>
+            <span className="flex items-center">
+              <MapPin className="h-4 w-4 mr-1.5 text-gray-400" />
+              {event.location}
+            </span>
+            <span className="flex items-center">
+              <Users className="h-4 w-4 mr-1.5 text-gray-400" />
+              {event.ticketsSold} / {event.capacity} tickets
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-gray-500">Capacity</span>
+              <span className="font-medium text-gray-700">
+                {Math.round(capacityPercentage)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all ${
+                  capacityPercentage >= 80
+                    ? "bg-green-500"
+                    : capacityPercentage >= 50
+                    ? "bg-yellow-500"
+                    : "bg-red-500"
+                }`}
+                style={{ width: `${Math.min(capacityPercentage, 100)}%` }}
+              />
             </div>
           </div>
         </div>
-      </div>
-      <div className="text-right">
-        <div className="flex items-center space-x-4">
-          <div className="text-sm">
-            <div className="font-semibold text-gray-900">
-              {event.ticketsSold} tickets
-            </div>
-            <div className="text-gray-600">
+
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-right">
+            <p className="text-lg font-bold text-gray-900">
               ₦{(event.revenue || 0).toLocaleString()}
-            </div>
+            </p>
+            <p className="text-xs text-gray-500">Revenue</p>
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={onShare}
-              className="p-2 text-gray-400 hover:text-[#FF6B35] transition-all duration-200 hover:scale-110"
-              title="Share event"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={onDownload}
-              className="p-2 text-gray-400 hover:text-[#FF6B35] transition-all duration-200 hover:scale-110"
-              title="Download report"
-            >
-              <Download className="h-4 w-4" />
-            </button>
-          </div>
+
+          <Link
+            to={`/event/${event.id}`}
+            className="px-4 py-2 text-sm font-medium text-[#FF6B35] hover:text-white hover:bg-[#FF6B35] border border-[#FF6B35] rounded-lg transition"
+          >
+            Manage
+          </Link>
         </div>
       </div>
     </div>
   );
 };
-
-const BlockchainWalletSection = ({ balance, totalEarned }) => (
-  <div className="bg-gradient-to-br from-[#FF6B35] to-[#E55A2B] rounded-xl shadow-lg p-6 text-white">
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="text-lg font-semibold">Wallet Balance</h3>
-      <Wallet className="h-6 w-6" />
-    </div>
-    <div className="mb-4">
-      <p className="text-3xl font-bold">₦{(balance || 0).toLocaleString()}</p>
-      <p className="text-white/80 text-sm">Available to withdraw</p>
-    </div>
-    <div className="space-y-2 mb-4">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-white/80">Total Earned</span>
-        <span>₦{(totalEarned || 0).toLocaleString()}</span>
-      </div>
-    </div>
-    <button className="w-full bg-white/20 hover:bg-white/30 text-white py-3 rounded-lg transition-all duration-200 hover:scale-105 font-medium flex items-center justify-center">
-      <Download className="h-4 w-4 mr-2" />
-      Withdraw Funds
-    </button>
-  </div>
-);
 
 export default OrganizerDashboard;

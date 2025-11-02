@@ -13,6 +13,9 @@ import {
   CheckCircle,
   XCircle,
   MoreVertical,
+  UserCheck,
+  Clock,
+  UserX,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/layout/Navbar";
@@ -34,6 +37,12 @@ const MyEvents = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  
+  // Approval system states
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [attendees, setAttendees] = useState([]);
+  const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [approvalFilter, setApprovalFilter] = useState("all");
 
   // Helper function to get price display from ticket types
   const getPriceDisplay = (event) => {
@@ -75,7 +84,6 @@ const MyEvents = () => {
 
   // Helper to calculate actual revenue from ticket types
   const calculateRevenue = (event) => {
-    // If event has ticketTypes with sold information
     if (event.ticketTypes && event.ticketTypes.length > 0) {
       return event.ticketTypes.reduce((total, ticket) => {
         const sold = ticket.sold || 0;
@@ -84,7 +92,6 @@ const MyEvents = () => {
       }, 0);
     }
     
-    // Fallback to legacy calculation
     const attendees = event.totalAttendees || 
                      (Array.isArray(event.attendees) ? event.attendees.length : 0) || 
                      event.ticketsSold || 
@@ -93,7 +100,7 @@ const MyEvents = () => {
     return attendees * price;
   };
 
-  // Payment callback handler - MUST BE FIRST
+  // Payment callback handler
   useEffect(() => {
     const handlePaymentCallback = async () => {
       const params = new URLSearchParams(location.search);
@@ -101,58 +108,34 @@ const MyEvents = () => {
       const reference = params.get("reference") || params.get("trxref");
 
       if (paymentStatus === "success" && reference) {
-        console.log("🎯 Payment callback detected on MyEvents:", { paymentStatus, reference });
         setProcessingPayment(true);
-
         try {
-          console.log("🚀 Calling createEventAfterPayment...");
-          
           const result = await createEventAfterPayment(reference);
-
-          console.log("✅ createEventAfterPayment result:", result);
-
           if (result.success) {
             toast.success(result.message || "Event created and published successfully!", {
               duration: 5000,
               icon: "🎉",
             });
-
-            // Clean URL
             window.history.replaceState({}, "", "/dashboard/organizer/events");
-
-            // Wait 2 seconds for user to see success message
             setTimeout(() => {
               const eventId = result.event?._id || result.event?.id;
-              console.log("🔄 Redirecting to event:", eventId);
-              
               if (eventId) {
                 navigate(`/event/${eventId}`);
               } else {
-                console.warn("⚠️ No event ID, refreshing page");
                 setProcessingPayment(false);
                 loadMyEvents();
                 loadOrganizerStats();
               }
             }, 2000);
           } else {
-            console.error("❌ Event creation failed:", result.error);
-            
-            toast.error(result.error || "Failed to create event", {
-              duration: 6000,
-            });
-            
+            toast.error(result.error || "Failed to create event", { duration: 6000 });
             window.history.replaceState({}, "", "/dashboard/organizer/events");
             setProcessingPayment(false);
             loadMyEvents();
             loadOrganizerStats();
           }
         } catch (error) {
-          console.error("💥 Payment processing error:", error);
-          
-          toast.error("Error creating event. Please contact support.", {
-            duration: 6000,
-          });
-          
+          toast.error("Error creating event. Please contact support.", { duration: 6000 });
           window.history.replaceState({}, "", "/dashboard/organizer/events");
           setProcessingPayment(false);
           loadMyEvents();
@@ -166,7 +149,7 @@ const MyEvents = () => {
     }
   }, [location.search, isAuthenticated, user, navigate]);
 
-  // Load events - Skip if processing payment
+  // Load events
   useEffect(() => {
     if (isAuthenticated && user?.role === "organizer" && !processingPayment) {
       loadMyEvents();
@@ -179,7 +162,6 @@ const MyEvents = () => {
     setError(null);
     try {
       const result = await apiCall(eventAPI.getOrganizerEvents);
-      
       if (result.success) {
         const eventsData = result.data.events || result.data || [];
         setEvents(eventsData);
@@ -205,10 +187,88 @@ const MyEvents = () => {
     }
   };
 
+  // Load attendees for approval management
+  const loadEventAttendees = async (eventId) => {
+    setLoadingAttendees(true);
+    try {
+      const result = await apiCall(eventAPI.getEventAttendees, eventId);
+      if (result.success) {
+        setAttendees(result.data.attendees || result.data || []);
+        setSelectedEvent(events.find(e => e._id === eventId || e.id === eventId));
+      } else {
+        throw new Error(result.error || "Failed to load attendees");
+      }
+    } catch (err) {
+      console.error("Error loading attendees:", err);
+      toast.error(err?.message || "Failed to load attendees");
+    } finally {
+      setLoadingAttendees(false);
+    }
+  };
+
+  // Handle attendee approval
+  const handleApproveAttendee = async (attendeeId) => {
+    try {
+      const result = await apiCall(eventAPI.approveAttendee, selectedEvent._id, { attendeeId });
+      if (result.success) {
+        setAttendees(attendees.map(attendee => 
+          attendee._id === attendeeId ? { ...attendee, status: 'approved' } : attendee
+        ));
+        toast.success("Attendee approved successfully");
+      } else {
+        throw new Error(result.error || "Failed to approve attendee");
+      }
+    } catch (err) {
+      console.error("Error approving attendee:", err);
+      toast.error(err?.message || "Failed to approve attendee");
+    }
+  };
+
+  // Handle attendee rejection
+  const handleRejectAttendee = async (attendeeId) => {
+    try {
+      const result = await apiCall(eventAPI.rejectAttendee, selectedEvent._id, { attendeeId });
+      if (result.success) {
+        setAttendees(attendees.map(attendee => 
+          attendee._id === attendeeId ? { ...attendee, status: 'rejected' } : attendee
+        ));
+        toast.success("Attendee rejected successfully");
+      } else {
+        throw new Error(result.error || "Failed to reject attendee");
+      }
+    } catch (err) {
+      console.error("Error rejecting attendee:", err);
+      toast.error(err?.message || "Failed to reject attendee");
+    }
+  };
+
+  // Bulk actions
+  const handleBulkApprove = async () => {
+    const pendingAttendees = attendees.filter(a => a.status === 'pending');
+    if (pendingAttendees.length === 0) {
+      toast.error("No pending attendees to approve");
+      return;
+    }
+
+    try {
+      const result = await apiCall(eventAPI.bulkApproveAttendees, selectedEvent._id);
+      if (result.success) {
+        setAttendees(attendees.map(attendee => 
+          attendee.status === 'pending' ? { ...attendee, status: 'approved' } : attendee
+        ));
+        toast.success(`Approved ${pendingAttendees.length} attendees`);
+      } else {
+        throw new Error(result.error || "Failed to approve attendees");
+      }
+    } catch (err) {
+      console.error("Error bulk approving:", err);
+      toast.error(err?.message || "Failed to approve attendees");
+    }
+  };
+
   const handleDeleteEvent = async (eventId) => {
     try {
       const result = await apiCall(eventAPI.deleteEvent, eventId);
-      
       if (result.success) {
         setEvents(events.filter(event => event._id !== eventId && event.id !== eventId));
         setDeleteConfirm(null);
@@ -229,7 +289,6 @@ const MyEvents = () => {
 
     try {
       const result = await apiCall(eventAPI.cancelEvent, eventId);
-      
       if (result.success) {
         setEvents(events.map(event => 
           (event._id === eventId || event.id === eventId) ? { ...event, status: "cancelled" } : event
@@ -244,6 +303,7 @@ const MyEvents = () => {
     }
   };
 
+  // Filter events
   const filteredEvents = events.filter(event => {
     const matchesSearch = event.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          event.category?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -251,11 +311,29 @@ const MyEvents = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // Filter attendees for approval modal
+  const filteredAttendees = attendees.filter(attendee => {
+    if (approvalFilter === "all") return true;
+    return attendee.status === approvalFilter;
+  });
+
   const eventsByStatus = {
     all: events.length,
     published: events.filter(e => e.status === "published").length,
     draft: events.filter(e => e.status === "draft").length,
     cancelled: events.filter(e => e.status === "cancelled").length,
+  };
+
+  // Get pending approvals count for an event
+  const getPendingApprovalsCount = (event) => {
+    if (!event.attendees) return 0;
+    return event.attendees.filter(a => a.status === 'pending').length;
+  };
+
+  // Check if event requires approval
+  const requiresApproval = (event) => {
+    const priceInfo = getPriceDisplay(event);
+    return priceInfo.min === 0 && priceInfo.max === 0 && event.requiresApproval;
   };
 
   if (!isAuthenticated || user?.role !== "organizer") {
@@ -329,24 +407,30 @@ const MyEvents = () => {
     );
   };
 
+  const ApprovalBadge = ({ event }) => {
+    const pendingCount = getPendingApprovalsCount(event);
+    if (!requiresApproval(event) || pendingCount === 0) return null;
+
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+        <Clock className="h-3 w-3 mr-1" />
+        {pendingCount} pending
+      </span>
+    );
+  };
+
   const EventCard = ({ event }) => {
     const eventId = event._id || event.id;
     const eventDate = new Date(event.date);
-    
-    // Get price info using helper function
     const priceInfo = getPriceDisplay(event);
-    
-    // Calculate actual revenue
     const revenue = calculateRevenue(event);
-    
-    // Attendees calculation
     const attendeesCount = event.totalAttendees || 
                           (Array.isArray(event.attendees) ? event.attendees.length : 0) || 
                           event.ticketsSold || 
                           0;
-    
     const capacity = event.capacity || 0;
     const fillPercentage = capacity > 0 ? (attendeesCount / capacity) * 100 : 0;
+    const hasPendingApprovals = requiresApproval(event) && getPendingApprovalsCount(event) > 0;
 
     return (
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
@@ -365,6 +449,7 @@ const MyEvents = () => {
                     {event.ticketTypes?.length} Ticket Types
                   </span>
                 )}
+                <ApprovalBadge event={event} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {event.title}
@@ -430,28 +515,6 @@ const MyEvents = () => {
             </div>
           </div>
 
-          {/* Ticket Types Breakdown (if multiple) */}
-          {event.ticketTypes && event.ticketTypes.length > 1 && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs font-medium text-gray-700 mb-2">Ticket Types:</p>
-              <div className="space-y-1">
-                {event.ticketTypes.map((ticket, idx) => (
-                  <div key={idx} className="flex justify-between text-xs text-gray-600">
-                    <span>{ticket.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500">
-                        {ticket.sold || 0} sold
-                      </span>
-                      <span className="font-medium">
-                        {ticket.price === 0 ? "Free" : `₦${ticket.price.toLocaleString()}`}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Actions */}
           <div className="flex gap-2 flex-wrap">
             <Link
@@ -461,6 +524,16 @@ const MyEvents = () => {
               <Eye className="h-4 w-4" />
               View
             </Link>
+            
+            {hasPendingApprovals && (
+              <button
+                onClick={() => loadEventAttendees(eventId)}
+                className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-2 px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600"
+              >
+                <UserCheck className="h-4 w-4" />
+                Approve
+              </button>
+            )}
             
             <Link
               to={`/organizer/events/edit/${eventId}`}
@@ -655,6 +728,144 @@ const MyEvents = () => {
           </div>
         )}
       </div>
+
+      {/* Approval Management Modal */}
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Manage Attendee Approvals
+                  </h3>
+                  <p className="text-gray-600 mt-1">{selectedEvent.title}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedEvent(null);
+                    setAttendees([]);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <XCircle className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Approval Filters */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {[
+                  { key: "all", label: "All", icon: Users },
+                  { key: "pending", label: "Pending", icon: Clock },
+                  { key: "approved", label: "Approved", icon: CheckCircle },
+                  { key: "rejected", label: "Rejected", icon: UserX },
+                ].map((filter) => {
+                  const Icon = filter.icon;
+                  const count = attendees.filter(a => 
+                    filter.key === "all" ? true : a.status === filter.key
+                  ).length;
+                  
+                  return (
+                    <button
+                      key={filter.key}
+                      onClick={() => setApprovalFilter(filter.key)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        approvalFilter === filter.key
+                          ? "bg-[#FF6B35] text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {filter.label} ({count})
+                    </button>
+                  );
+                })}
+                
+                {attendees.filter(a => a.status === 'pending').length > 0 && (
+                  <button
+                    onClick={handleBulkApprove}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 ml-auto"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    Approve All Pending
+                  </button>
+                )}
+              </div>
+
+              {/* Attendees List */}
+              {loadingAttendees ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#FF6B35] border-t-transparent"></div>
+                </div>
+              ) : filteredAttendees.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No attendees found</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {filteredAttendees.map((attendee) => (
+                    <div
+                      key={attendee._id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {attendee.user?.name || attendee.user?.email || 'Unknown User'}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {attendee.user?.email}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Applied: {new Date(attendee.appliedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          attendee.status === 'approved' 
+                            ? 'bg-green-100 text-green-800'
+                            : attendee.status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {attendee.status}
+                        </span>
+
+                        {attendee.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleApproveAttendee(attendee._id)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                              title="Approve"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleRejectAttendee(attendee._id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Reject"
+                            >
+                              <UserX className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
