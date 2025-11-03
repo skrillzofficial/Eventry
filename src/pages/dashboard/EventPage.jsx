@@ -65,19 +65,17 @@ export default function EventPage() {
   const [error, setError] = useState(null);
   const [tabLoading, setTabLoading] = useState(false);
 
-  // Map refs only
+  // Map refs
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
 
-  // Load event data
   useEffect(() => {
     if (id) {
       loadEvent();
     }
 
     return () => {
-      // Cleanup map only
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -212,7 +210,7 @@ export default function EventPage() {
               ev.status !== "cancelled"
             );
           })
-          .slice(0, 4)
+          .slice(0, 3)
           .map((ev) => {
             const img =
               ev.images && ev.images[0] ? ev.images[0] : fallbackImage;
@@ -257,9 +255,9 @@ export default function EventPage() {
         `Check your email for confirmation details.`
     );
 
-    // Reload event data to show updated capacity
     loadEvent();
   };
+
   const toggleFavorite = () => {
     if (!isAuthenticated) {
       console.log("Sign in to save favorites");
@@ -304,13 +302,11 @@ export default function EventPage() {
     return ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`;
   };
 
-  // Simple function to open directions in Google Maps
   const openDirections = () => {
     if (!event) return;
 
     let lat, lng;
 
-    // Get coordinates from event data
     if (event.location?.coordinates) {
       lat = event.location.coordinates.lat;
       lng = event.location.coordinates.lng;
@@ -318,7 +314,6 @@ export default function EventPage() {
       lat = event.coordinates.latitude;
       lng = event.coordinates.longitude;
     } else {
-      // If no coordinates, use address for directions
       const address = encodeURIComponent(
         `${event.venue}, ${event.address}, ${event.city}`
       );
@@ -327,17 +322,14 @@ export default function EventPage() {
       return;
     }
 
-    // Use coordinates for directions
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     window.open(url, "_blank");
   };
 
-  // Simple map initialization
   const initializeMap = () => {
     if (!event || !mapRef.current) return;
 
     try {
-      // Get coordinates from event
       let lat, lng;
 
       if (event.location?.coordinates) {
@@ -347,22 +339,18 @@ export default function EventPage() {
         lat = event.coordinates.latitude;
         lng = event.coordinates.longitude;
       } else {
-        // Default to Lagos coordinates if no location data
         lat = 6.5244;
         lng = 3.3792;
       }
 
-      // Initialize map
       mapInstanceRef.current = L.map(mapRef.current).setView([lat, lng], 15);
 
-      // Add tile layer
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(mapInstanceRef.current);
 
-      // Add marker
       markerRef.current = L.marker([lat, lng])
         .addTo(mapInstanceRef.current)
         .bindPopup(
@@ -374,16 +362,13 @@ export default function EventPage() {
     }
   };
 
-  // Initialize map when location tab is active
   useEffect(() => {
     if (activeTab === "location" && event && mapRef.current) {
-      // Clean up existing map
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
 
-      // Small delay to ensure DOM is ready
       setTimeout(initializeMap, 100);
     }
   }, [activeTab, event]);
@@ -394,105 +379,90 @@ export default function EventPage() {
     const isUpcoming = eventDate >= new Date();
 
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-        <div className="flex justify-between items-start flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm font-medium">
-                {ev.category}
-              </span>
+      <div className="bg-white rounded-xl p-6 mb-6">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <span className="bg-[#FF6B35] text-white px-4 py-1.5 rounded-full text-sm font-medium">
+            {ev.category}
+          </span>
 
-              {ev.featured && (
-                <div className="flex items-center gap-1 px-2 py-1 bg-[#FFF6F2] border border-[#FFE6D8] rounded-full text-sm text-[#FF6B35]">
-                  <Sparkles className="w-4 h-4" />
-                  Featured
-                </div>
-              )}
-
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  isUpcoming
-                    ? "bg-green-50 text-green-600"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {isUpcoming ? "Upcoming" : "Past event"}
-              </span>
+          {ev.featured && (
+            <div className="flex items-center gap-1 px-3 py-1.5 bg-[#FFF6F2] border border-[#FFE6D8] rounded-full text-sm text-[#FF6B35]">
+              <Sparkles className="w-4 h-4" />
+              Featured
             </div>
+          )}
 
-            <h1 className="text-2xl lg:text-3xl font-semibold text-gray-900 mb-3">
-              {ev.title}
-            </h1>
+          <span
+            className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+              isUpcoming
+                ? "bg-green-50 text-green-600"
+                : "bg-gray-100 text-gray-600"
+            }`}
+          >
+            {isUpcoming ? "Upcoming" : "Past event"}
+          </span>
+        </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-[#FF6B35]" />
-                <span>
-                  {eventDate.toLocaleDateString("en-NG", {
-                    weekday: "short",
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
+        <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+          {ev.title}
+        </h1>
 
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-[#FF6B35]" />
-                <span>
-                  {ev.time}
-                  {ev.endTime ? ` - ${ev.endTime}` : ""}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-[#FF6B35]" />
-                <span>
-                  {ev.venue}, {ev.city}
-                </span>
-              </div>
-            </div>
+        <div className="flex flex-wrap items-center gap-6 text-gray-600 mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-[#FF6B35]" />
+            <span>
+              {eventDate.toLocaleDateString("en-NG", {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
           </div>
 
-          <div className="w-full lg:w-56 flex-shrink-0">
-            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center shadow-sm">
-              <div className="text-lg text-gray-700 font-semibold">
-                {getPriceDisplay(ev)}
-              </div>
-              <div className="text-sm text-gray-500 mb-4">
-                {ev.ticketTypes && ev.ticketTypes.length > 1
-                  ? "Price range"
-                  : "per ticket"}
-              </div>
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-[#FF6B35]" />
+            <span>
+              {ev.time}
+              {ev.endTime ? ` - ${ev.endTime}` : ""}
+            </span>
+          </div>
 
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <button
-                  onClick={toggleFavorite}
-                  className="p-2 rounded-md border border-gray-200 hover:bg-gray-50"
-                  title={!isAuthenticated ? "Sign in to save favorites" : ""}
-                >
-                  <Heart
-                    className={
-                      isFavorite
-                        ? "h-4 w-4 text-red-500"
-                        : "h-4 w-4 text-gray-600"
-                    }
-                  />
-                </button>
-                <button
-                  onClick={() => shareEvent("twitter")}
-                  className="p-2 rounded-md border border-gray-200 hover:bg-gray-50"
-                >
-                  <Share2 className="h-4 w-4 text-gray-600" />
-                </button>
-              </div>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-[#FF6B35]" />
+            <span>
+              {ev.venue}, {ev.city}
+            </span>
+          </div>
+        </div>
 
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                <Star className="h-4 w-4 text-yellow-400" />
-                <span className="font-medium text-gray-800">{ev.rating}</span>
-                <span className="text-gray-500">({ev.reviews} reviews)</span>
-              </div>
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+            <span className="font-semibold text-gray-900">{ev.rating}</span>
+            <span className="text-gray-500">({ev.reviews} reviews)</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFavorite}
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              title={!isAuthenticated ? "Sign in to save favorites" : ""}
+            >
+              <Heart
+                className={
+                  isFavorite
+                    ? "h-5 w-5 text-red-500 fill-red-500"
+                    : "h-5 w-5 text-gray-600"
+                }
+              />
+            </button>
+            <button
+              onClick={() => shareEvent("twitter")}
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <Share2 className="h-5 w-5 text-gray-600" />
+            </button>
           </div>
         </div>
       </div>
@@ -500,8 +470,8 @@ export default function EventPage() {
   };
 
   const EventGallery = ({ ev }) => (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-      <div className="w-full h-72 bg-gray-100">
+    <div className="bg-white rounded-xl overflow-hidden mb-6">
+      <div className="w-full h-96 bg-gray-100">
         <img
           src={ev.images[0] || fallbackImage}
           alt={ev.title}
@@ -510,13 +480,13 @@ export default function EventPage() {
       </div>
 
       {ev.images.length > 1 && (
-        <div className="grid grid-cols-3 gap-1 p-2 bg-white">
-          {ev.images.slice(1).map((img, i) => (
+        <div className="grid grid-cols-4 gap-2 p-4">
+          {ev.images.slice(1, 5).map((img, i) => (
             <img
               key={i}
               src={img}
               alt={`${ev.title} ${i + 2}`}
-              className="h-24 w-full object-cover rounded-md cursor-pointer"
+              className="h-24 w-full object-cover rounded-lg cursor-pointer hover:opacity-75 transition-opacity"
             />
           ))}
         </div>
@@ -527,25 +497,25 @@ export default function EventPage() {
   const LocationTab = ({ ev }) => {
     return (
       <>
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-lg font-semibold text-gray-900">Location</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-900">Location</h3>
           <button
             onClick={openDirections}
-            className="flex items-center gap-2 px-3 py-2 bg-[#FF6B35] text-white rounded-lg text-sm font-medium hover:bg-[#FF8535] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] transition-colors"
           >
             <Navigation className="h-4 w-4" />
             Get Directions
           </button>
         </div>
 
-        <div className="bg-gray-50 border border-gray-100 rounded p-4">
-          <div className="flex items-start gap-3 mb-4">
-            <MapPin className="h-5 w-5 text-[#FF6B35] mt-1" />
+        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <MapPin className="h-6 w-6 text-[#FF6B35] mt-1 flex-shrink-0" />
             <div>
-              <div className="font-semibold text-gray-900">
+              <div className="font-semibold text-gray-900 text-lg">
                 {ev.venue || "Venue not specified"}
               </div>
-              <div className="text-gray-600">
+              <div className="text-gray-600 mt-1">
                 {ev.address || "Address not available"}
               </div>
               <div className="text-gray-600">
@@ -553,14 +523,13 @@ export default function EventPage() {
               </div>
             </div>
           </div>
-
-          {/* Simple Map Container */}
-          <div
-            ref={mapRef}
-            className="h-64 w-full bg-white border border-gray-100 rounded"
-            style={{ zIndex: 1, minHeight: "256px" }}
-          />
         </div>
+
+        <div
+          ref={mapRef}
+          className="h-80 w-full bg-white rounded-lg overflow-hidden"
+          style={{ zIndex: 1 }}
+        />
       </>
     );
   };
@@ -570,7 +539,6 @@ export default function EventPage() {
       e.preventDefault();
       setTabLoading(true);
 
-      // Use requestAnimationFrame to ensure state updates properly
       requestAnimationFrame(() => {
         setActiveTab(tabName);
         setTimeout(() => {
@@ -580,29 +548,29 @@ export default function EventPage() {
     };
 
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
-        <div className="border-b border-gray-100">
-          <nav className="flex px-4">
+      <div className="bg-white rounded-xl overflow-hidden mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="flex px-6">
             {["details", "organizer", "location", "reviews"].map((t) => (
               <button
                 key={t}
                 onClick={(e) => handleTabChange(e, t)}
                 type="button"
-                className={`py-3 px-2 text-sm font-medium ${
+                className={`py-4 px-6 text-sm font-medium transition-colors ${
                   activeTab === t
-                    ? "text-gray-900 border-b-2 border-[#FF6B35]"
-                    : "text-gray-600"
+                    ? "text-[#FF6B35] border-b-2 border-[#FF6B35]"
+                    : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                {t[0].toUpperCase() + t.slice(1)}
+                {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </nav>
         </div>
 
-        <div className="p-6 min-h-[300px] relative">
+        <div className="p-6 min-h-[400px] relative">
           {tabLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10 rounded-b-2xl">
+            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin h-10 w-10 border-4 border-[#FF6B35] border-t-transparent rounded-full"></div>
                 <div className="text-sm text-gray-600 font-medium">
@@ -621,10 +589,10 @@ export default function EventPage() {
           >
             {activeTab === "details" && (
               <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">
                   About this event
                 </h3>
-                <div className="prose max-w-none text-gray-700">
+                <div className="prose max-w-none text-gray-700 leading-relaxed">
                   <p className="whitespace-pre-wrap">
                     {ev.longDescription ||
                       ev.description ||
@@ -632,27 +600,25 @@ export default function EventPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
-                    </h4>
-                    <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                      {ev.requirements.map((r, i) => (
-                        <li key={i}>{r}</li>
-                      ))}
-                    </ul>
-                  </div>
+                <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-[#FF6B35]" /> Requirements
+                  </h4>
+                  <ul className="list-disc pl-5 text-gray-700 space-y-2">
+                    {ev.requirements.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
                 </div>
 
                 {ev.tags.length > 0 && (
                   <div className="mt-6">
-                    <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
+                    <h4 className="font-semibold text-gray-900 mb-3">Tags</h4>
                     <div className="flex flex-wrap gap-2">
                       {ev.tags.map((t, idx) => (
                         <span
                           key={idx}
-                          className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-full border border-gray-200"
+                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full border border-gray-200 text-sm"
                         >
                           {t}
                         </span>
@@ -665,39 +631,39 @@ export default function EventPage() {
 
             {activeTab === "organizer" && (
               <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">
                   Organizer
                 </h3>
                 <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-full bg-[#FF6B35] flex items-center justify-center text-white font-semibold text-lg">
+                  <div className="w-16 h-16 rounded-full bg-[#FF6B35] flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
                     {ev.organizer.name?.charAt(0) || "O"}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-gray-900">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-bold text-gray-900 text-lg">
                         {ev.organizer.name}
                       </h4>
                       {ev.organizer.verified && (
-                        <Shield className="h-4 w-4 text-green-600" />
+                        <Shield className="h-5 w-5 text-green-600" />
                       )}
                     </div>
-                    <p className="text-gray-600 mt-1">
+                    <p className="text-gray-600 mb-4">
                       {ev.organizer.description || "Event organizer"}
                     </p>
 
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      <div className="p-3 bg-gray-50 border border-gray-100 rounded">
-                        <div className="text-sm text-gray-500">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-500 mb-1">
                           Events hosted
                         </div>
-                        <div className="font-semibold text-gray-900">
+                        <div className="font-bold text-gray-900 text-lg">
                           {ev.organizer.eventsHosted || "Multiple"}
                         </div>
                       </div>
-                      <div className="p-3 bg-gray-50 border border-gray-100 rounded">
-                        <div className="text-sm text-gray-500">Rating</div>
-                        <div className="font-semibold text-gray-900">
-                          {ev.organizer.rating || ev.rating || "4.5"}
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-500 mb-1">Rating</div>
+                        <div className="font-bold text-gray-900 text-lg">
+                          {ev.organizer.rating || ev.rating || "4.5"} ⭐
                         </div>
                       </div>
                     </div>
@@ -710,45 +676,53 @@ export default function EventPage() {
 
             {activeTab === "reviews" && (
               <>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Reviews
-                  </h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">Reviews</h3>
                   <div className="text-right">
-                    <div className="text-xl font-semibold">{ev.rating}</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {ev.rating}
+                    </div>
                     <div className="text-sm text-gray-600">
                       {ev.reviews} reviews
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3">
+                <div className="space-y-3 mb-6">
                   {[5, 4, 3, 2, 1].map((s) => (
-                    <div key={s} className="flex items-center gap-3">
-                      <div className="w-8 text-sm text-gray-600">{s}</div>
-                      <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div key={s} className="flex items-center gap-4">
+                      <div className="w-12 text-sm text-gray-600 font-medium">
+                        {s} ⭐
+                      </div>
+                      <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
                         <div
-                          className="bg-[#FF6B35] h-2"
+                          className="bg-[#FF6B35] h-3 transition-all"
                           style={{ width: `${(s / 5) * 100}%` }}
                         />
                       </div>
-                      <div className="w-12 text-sm text-gray-600 text-right">
+                      <div className="w-16 text-sm text-gray-600 text-right">
                         {Math.round((s / 5) * 100)}%
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-4">
-                  <div className="p-4 bg-gray-50 border border-gray-100 rounded">
-                    <div className="font-semibold text-gray-900">
-                      Chinedu O.
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-[#FF6B35] flex items-center justify-center text-white font-semibold">
+                      C
                     </div>
-                    <div className="text-sm text-gray-600">
-                      "One of the best events I've attended. Great organization
-                      and networking opportunities!"
+                    <div>
+                      <div className="font-semibold text-gray-900">
+                        Chinedu O.
+                      </div>
+                      <div className="text-xs text-gray-500">2 weeks ago</div>
                     </div>
                   </div>
+                  <p className="text-gray-700">
+                    "One of the best events I've attended. Great organization
+                    and networking opportunities!"
+                  </p>
                 </div>
               </>
             )}
@@ -761,24 +735,26 @@ export default function EventPage() {
   const RelatedEvents = ({ list }) => {
     if (!list || list.length === 0) return null;
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-white rounded-xl p-6">
+        <h4 className="text-xl font-bold text-gray-900 mb-4">
           Related events
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-3">
           {list.map((r) => (
             <Link
               key={r.id}
               to={`/event/${r.id}`}
-              className="flex items-center gap-3 border border-gray-100 rounded p-3 hover:shadow-sm transition"
+              className="flex items-center gap-4 border border-gray-200 rounded-lg p-3 hover:shadow-md hover:border-[#FF6B35] transition-all"
             >
               <img
                 src={r.image}
                 alt={r.title}
-                className="w-16 h-16 object-cover rounded"
+                className="w-20 h-20 object-cover rounded-lg"
               />
-              <div>
-                <div className="font-medium text-gray-900">{r.title}</div>
+              <div className="flex-1">
+                <div className="font-semibold text-gray-900 mb-1">
+                  {r.title}
+                </div>
                 <div className="text-sm text-gray-600">
                   {r.category} •{" "}
                   {r.price === 0 ? "Free" : `₦${r.price?.toLocaleString()}`}
@@ -814,11 +790,22 @@ export default function EventPage() {
     const total = price * ticketQuantity;
 
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-        <div className="space-y-4">
+      <div className="bg-white rounded-xl p-6 sticky top-24">
+        <div className="space-y-5">
+          <div className="text-center pb-4 border-b border-gray-200">
+            <div className="text-3xl font-bold text-[#FF6B35] mb-1">
+              {getPriceDisplay(ev)}
+            </div>
+            <div className="text-sm text-gray-500">
+              {ev.ticketTypes && ev.ticketTypes.length > 1
+                ? "Price range"
+                : "per ticket"}
+            </div>
+          </div>
+
           {hasTicketTypes && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Select Ticket Type
               </label>
               <div className="space-y-2">
@@ -829,7 +816,7 @@ export default function EventPage() {
                       setSelectedTicketType(ticketType);
                       setTicketQuantity(1);
                     }}
-                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
                       selectedTicketType?.name === ticketType.name
                         ? "border-[#FF6B35] bg-[#FFF6F2]"
                         : "border-gray-200 hover:border-gray-300"
@@ -841,19 +828,13 @@ export default function EventPage() {
                           {ticketType.name}
                         </div>
                         {ticketType.description && (
-                          <div className="text-xs text-gray-600 mt-0.5">
+                          <div className="text-xs text-gray-600 mt-1">
                             {ticketType.description}
                           </div>
                         )}
-                        {ticketType.benefits &&
-                          ticketType.benefits.length > 0 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              • {ticketType.benefits.join(" • ")}
-                            </div>
-                          )}
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-[#FF6B35]">
+                        <div className="font-bold text-[#FF6B35]">
                           {ticketType.price === 0
                             ? "Free"
                             : `₦${ticketType.price.toLocaleString()}`}
@@ -869,33 +850,35 @@ export default function EventPage() {
             </div>
           )}
 
-          <label className="block text-sm text-gray-700">
-            Number of tickets
-          </label>
-          <div className="flex items-center border border-gray-100 rounded">
-            <button
-              onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-              disabled={available === 0}
-              className="px-4 py-2 text-gray-700 disabled:opacity-50"
-            >
-              -
-            </button>
-            <div className="flex-1 text-center text-gray-900 font-medium">
-              {ticketQuantity}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Number of tickets
+            </label>
+            <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
+                disabled={available === 0}
+                className="px-6 py-3 text-gray-700 font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                -
+              </button>
+              <div className="flex-1 text-center text-gray-900 font-bold text-lg">
+                {ticketQuantity}
+              </div>
+              <button
+                onClick={() =>
+                  setTicketQuantity(Math.min(available, ticketQuantity + 1))
+                }
+                disabled={available === 0 || ticketQuantity >= available}
+                className="px-6 py-3 text-gray-700 font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                +
+              </button>
             </div>
-            <button
-              onClick={() =>
-                setTicketQuantity(Math.min(available, ticketQuantity + 1))
-              }
-              disabled={available === 0 || ticketQuantity >= available}
-              className="px-4 py-2 text-gray-700 disabled:opacity-50"
-            >
-              +
-            </button>
           </div>
 
           {available === 0 && (
-            <div className="text-sm text-red-600 bg-red-50 p-2 rounded text-center">
+            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg text-center font-medium">
               {hasTicketTypes && selectedTicketType
                 ? `${selectedTicketType.name} tickets sold out!`
                 : "Sold out!"}
@@ -903,79 +886,76 @@ export default function EventPage() {
           )}
 
           {available > 0 && available <= 10 && (
-            <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded text-center">
-              Only {available} tickets left!
+            <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg text-center font-medium">
+              ⚠️ Only {available} tickets left!
             </div>
           )}
 
-          <div className="text-sm text-gray-600">
-            <div className="flex justify-between">
-              <span>Price</span>
-              <span>{price === 0 ? "Free" : `₦${price.toLocaleString()}`}</span>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between text-gray-700">
+              <span>Price per ticket</span>
+              <span className="font-semibold">
+                {price === 0 ? "Free" : `₦${price.toLocaleString()}`}
+              </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-gray-700">
               <span>Quantity</span>
-              <span>{ticketQuantity}</span>
+              <span className="font-semibold">{ticketQuantity}</span>
             </div>
-            {hasTicketTypes && selectedTicketType && (
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>Ticket Type</span>
-                <span>{selectedTicketType.name}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-semibold text-gray-900 mt-2 pt-2 border-t">
+            <div className="flex justify-between font-bold text-gray-900 text-lg pt-2 border-t border-gray-200">
               <span>Total</span>
-              <span>{price === 0 ? "Free" : `₦${total.toLocaleString()}`}</span>
+              <span className="text-[#FF6B35]">
+                {price === 0 ? "Free" : `₦${total.toLocaleString()}`}
+              </span>
             </div>
           </div>
 
           {authLoading ? (
-            <div className="py-3 bg-gray-50 rounded text-center">
-              Checking auth...
+            <div className="py-4 bg-gray-100 rounded-lg text-center text-gray-600 font-medium">
+              Checking authentication...
             </div>
           ) : isAuthenticated ? (
             <button
               onClick={handleGetTickets}
               disabled={available === 0}
-              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-bold text-lg hover:bg-[#FF8535] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              <Ticket className="inline-block h-4 w-4 mr-2" />
-              {available === 0 ? "Sold Out" : "Get tickets now"}
+              <Ticket className="h-5 w-5" />
+              {available === 0 ? "Sold Out" : "Get Tickets Now"}
             </button>
           ) : (
             <div className="space-y-3">
-              <div className="text-sm text-gray-600 bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-start gap-2">
+              <div className="text-sm text-gray-700 bg-yellow-50 border border-yellow-200 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-medium text-yellow-900 mb-1">
+                  <div className="font-semibold text-yellow-900 mb-1">
                     Sign in required
                   </div>
                   <div className="text-xs text-yellow-700">
-                    Create an account or sign in to purchase tickets for this
-                    event
+                    Create an account or sign in to purchase tickets
                   </div>
                 </div>
               </div>
               <Link
                 to="/login"
                 state={{ returnTo: `/event/${id}` }}
-                className="block w-full bg-[#FF6B35] text-white py-3 rounded-lg font-semibold text-center hover:bg-[#FF8535] transition-colors"
+                className="block w-full bg-[#FF6B35] text-white py-4 rounded-lg font-bold text-center hover:bg-[#FF8535] transition-colors"
               >
-                Sign in to purchase
+                Sign In to Purchase
               </Link>
               <Link
                 to="/register"
                 state={{ returnTo: `/event/${id}` }}
-                className="block w-full bg-white text-[#FF6B35] py-3 rounded-lg font-semibold text-center border-2 border-[#FF6B35] hover:bg-[#FFF6F2] transition-colors"
+                className="block w-full bg-white text-[#FF6B35] py-4 rounded-lg font-bold text-center border-2 border-[#FF6B35] hover:bg-[#FFF6F2] transition-colors"
               >
-                Create account
+                Create Account
               </Link>
             </div>
           )}
 
-          <div className="text-xs text-gray-500 text-center mt-2">
+          <div className="text-xs text-gray-500 text-center pt-2">
             {isAuthenticated
-              ? "Secure payment • Instant confirmation"
+              ? "🔒 Secure payment • Instant confirmation"
               : "Browse events • Sign in to book"}
           </div>
         </div>
@@ -983,14 +963,14 @@ export default function EventPage() {
     );
   };
 
-  // Show loading only while fetching event data
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-5xl mx-auto px-4 py-24">
-          <div className="flex justify-center">
+        <div className="max-w-6xl mx-auto px-4 py-24">
+          <div className="flex flex-col items-center justify-center gap-4">
             <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
+            <div className="text-gray-600 font-medium">Loading event...</div>
           </div>
         </div>
         <div className="bg-black">
@@ -1002,24 +982,24 @@ export default function EventPage() {
 
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-20">
-          <div className="bg-white border border-red-100 rounded-2xl p-8 shadow-sm text-center">
-            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="h-8 w-8 text-red-500" />
+          <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <TrendingUp className="h-10 w-10 text-red-500" />
             </div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">
               Event Not Found
             </h2>
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-600 mb-6 text-lg">
               {error || "The event you're looking for doesn't exist."}
             </p>
             <Link
               to="/discover"
-              className="inline-flex items-center text-[#FF6B35] font-semibold"
+              className="inline-flex items-center gap-2 bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-5 w-5" />
               Return to Discover
             </Link>
           </div>
@@ -1032,15 +1012,15 @@ export default function EventPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-800">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <Link
           to="/discover"
-          className="inline-flex items-center text-[#FF6B35] mb-6 hover:text-[#FF8535] transition-colors"
+          className="inline-flex items-center gap-2 text-[#FF6B35] mb-6 hover:text-[#FF8535] transition-colors font-medium"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Discover
+          <ArrowLeft className="h-5 w-5" /> Back to Discover
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1051,143 +1031,8 @@ export default function EventPage() {
             <RelatedEvents list={related} />
           </div>
 
-          <div className="space-y-6">
+          <div>
             <TicketCard ev={event} />
-
-            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-              <h4 className="font-semibold text-gray-900 mb-3">
-                Event statistics
-              </h4>
-              <div className="text-sm text-gray-700 space-y-2">
-                {event.ticketTypes && event.ticketTypes.length > 0 ? (
-                  <>
-                    <div className="space-y-2 mb-3">
-                      {event.ticketTypes.map((tt, idx) => (
-                        <div
-                          key={idx}
-                          className="pb-2 border-b border-gray-100 last:border-0"
-                        >
-                          <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
-                            <span>{tt.name}</span>
-                            <span>₦{tt.price.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span>Capacity: {tt.capacity}</span>
-                            <span>Available: {tt.availableTickets}</span>
-                          </div>
-                          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
-                            <div
-                              className="h-1.5 bg-[#FF6B35]"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  ((tt.capacity - tt.availableTickets) /
-                                    tt.capacity) *
-                                    100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="pt-2 border-t border-gray-200">
-                      <div className="flex justify-between font-medium">
-                        <span>Total Capacity</span>
-                        <span>{event.capacity.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Attendees</span>
-                        <span>{(event.attendees || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Available</span>
-                        <span>
-                          {event.ticketTypes
-                            .reduce((sum, tt) => sum + tt.availableTickets, 0)
-                            .toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between">
-                      <span>Capacity</span>
-                      <span>{(event.capacity || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Attendees</span>
-                      <span>{(event.attendees || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Available</span>
-                      <span>
-                        {Math.max(
-                          0,
-                          (event.capacity || 0) - (event.attendees || 0)
-                        ).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="pt-2">
-                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-2 bg-[#FF6B35]"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              ((event.attendees || 0) / (event.capacity || 1)) *
-                                100
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-600 mt-1">
-                        <span>
-                          {Math.round(
-                            ((event.attendees || 0) / (event.capacity || 1)) *
-                              100
-                          )}
-                          % booked
-                        </span>
-                        <span>
-                          {Math.max(
-                            0,
-                            (event.capacity || 0) - (event.attendees || 0)
-                          )}{" "}
-                          left
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {!authLoading && (
-                  <div className="pt-2 border-t border-gray-200 mt-2">
-                    <div className="text-sm text-gray-700">
-                      Your status:{" "}
-                      <span
-                        className={
-                          isAuthenticated
-                            ? "text-green-600 font-medium"
-                            : "text-gray-600 font-medium"
-                        }
-                      >
-                        {isAuthenticated
-                          ? "Ready to book"
-                          : "Browsing as guest"}
-                      </span>
-                    </div>
-                    {!isAuthenticated && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Sign in to purchase tickets
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       </div>
