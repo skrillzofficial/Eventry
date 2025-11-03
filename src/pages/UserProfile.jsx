@@ -3,13 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Calendar,
   Ticket,
-  Wallet,
   ArrowRight,
   MapPin,
   AlertCircle,
-  Clock,
   Settings,
-  Heart,
   Search,
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
@@ -21,7 +18,6 @@ const UserProfile = () => {
   const [user, setUser] = useState(null);
   const [myBookings, setMyBookings] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
-  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -55,7 +51,6 @@ const UserProfile = () => {
       await Promise.all([
         loadBookings(),
         loadUpcomingEvents(),
-        loadWalletBalance(),
       ]);
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -191,36 +186,6 @@ const UserProfile = () => {
     }
   };
 
-  const loadWalletBalance = async () => {
-    try {
-      const transactionsResult = await apiCall(transactionAPI.getMyTransactions);
-      
-      if (transactionsResult.success) {
-        // Try multiple possible data structures
-        const transactions = transactionsResult.data?.data || 
-                            transactionsResult.data?.transactions || 
-                            transactionsResult.data || [];
-        
-        // Calculate balance from successful transactions
-        const successfulTransactions = transactions.filter(
-          t => t.status === "success" || t.status === "completed"
-        );
-        
-        const totalSpent = successfulTransactions.reduce(
-          (sum, t) => sum + (t.amount || 0),
-          0
-        );
-        
-        // For now, use a mock balance (replace with actual wallet balance from API)
-        const balance = Math.floor(Math.random() * 5000) + 1000;
-        setWalletBalance(balance);
-      }
-    } catch (error) {
-      console.error("Error loading wallet:", error);
-      setWalletBalance(0);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -284,8 +249,8 @@ const UserProfile = () => {
           </p>
         </div>
 
-        {/* Main Navigation Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        {/* Main Navigation Cards - Now 2 columns instead of 3 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 max-w-2xl">
           {/* My Tickets */}
           <Link
             to="/my-tickets"
@@ -307,24 +272,6 @@ const UserProfile = () => {
               <span className="font-medium text-[#FF6B35]">
                 {upcomingBookings.length} upcoming
               </span>
-            </div>
-          </Link>
-
-          {/* Wallet */}
-          <Link
-            to="/dashboard/wallet"
-            className="bg-gradient-to-br from-[#FF6B35] to-[#FF8535] rounded-2xl shadow-sm p-8 hover:shadow-lg transition-all group text-white"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-4 bg-white/20 rounded-xl group-hover:bg-white/30 transition-colors backdrop-blur-sm">
-                <Wallet className="h-8 w-8 text-white" />
-              </div>
-              <ArrowRight className="h-5 w-5 text-white/80 group-hover:text-white group-hover:translate-x-1 transition-all" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">My Wallet</h3>
-            <p className="text-white/90 mb-4">Secure digital payments</p>
-            <div className="text-2xl font-bold">
-              ₦{walletBalance.toLocaleString()}
             </div>
           </Link>
 

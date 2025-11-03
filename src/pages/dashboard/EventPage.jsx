@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   MapPin,
@@ -40,7 +40,7 @@ const fallbackImage = eventOne;
 
 export default function EventPage() {
   const { id } = useParams();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [event, setEvent] = useState(null);
   const [related, setRelated] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +51,9 @@ export default function EventPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [error, setError] = useState(null);
   const [tabLoading, setTabLoading] = useState(false);
+
+  // Check if user is an organizer
+  const isOrganizer = user?.role === "organizer" || user?.userType === "organizer";
 
   useEffect(() => {
     if (id) {
@@ -89,6 +92,8 @@ export default function EventPage() {
           ...eventData,
           id: eventData._id || eventData.id,
           images: mappedImages,
+          requiresApproval: eventData.requiresApproval || false,
+          approvalCriteria: eventData.approvalCriteria || null,
 
           organizer: {
             name:
@@ -147,9 +152,6 @@ export default function EventPage() {
             eventData.ticketTypes.length > 0
               ? eventData.ticketTypes
               : null,
-
-          requiresApproval: eventData.requiresApproval || false,
-          approvalCriteria: eventData.approvalCriteria || null,
         };
 
         setEvent(eventWithImages);
@@ -259,6 +261,12 @@ export default function EventPage() {
       alert("Please sign in to purchase tickets");
       return;
     }
+    
+    if (isOrganizer) {
+      alert("Organizers cannot purchase tickets. Please use an attendee account to book tickets.");
+      return;
+    }
+    
     setShowCheckout(true);
   };
 
@@ -426,6 +434,23 @@ export default function EventPage() {
   );
 
   const LocationTab = ({ ev }) => {
+    const getMapUrl = () => {
+      let lat, lng;
+
+      if (ev.location?.coordinates) {
+        lat = ev.location.coordinates.lat;
+        lng = ev.location.coordinates.lng;
+      } else if (ev.coordinates) {
+        lat = ev.coordinates.latitude;
+        lng = ev.coordinates.longitude;
+      } else {
+        lat = 6.5244;
+        lng = 3.3792;
+      }
+
+      return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`;
+    };
+
     return (
       <>
         <div className="flex justify-between items-center mb-4">
@@ -456,17 +481,18 @@ export default function EventPage() {
           </div>
         </div>
 
-        <div className="h-80 w-full bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-          <div className="text-center text-gray-500">
-            <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-            <p>Location map</p>
-            <button
-              onClick={openDirections}
-              className="mt-2 text-[#FF6B35] font-medium hover:text-[#FF8535]"
-            >
-              Open in Google Maps
-            </button>
-          </div>
+        <div className="h-80 w-full bg-white rounded-lg overflow-hidden border border-gray-200">
+          <iframe
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            scrolling="no"
+            marginHeight="0"
+            marginWidth="0"
+            src={getMapUrl()}
+            style={{ border: 0 }}
+            title="Event Location Map"
+          ></iframe>
         </div>
       </>
     );
@@ -735,6 +761,9 @@ export default function EventPage() {
     };
 
     const getHelperText = () => {
+      if (isOrganizer) {
+        return "⚠️ Organizers cannot purchase tickets";
+      }
       if (requiresApproval) {
         return "⏳ Requires organizer approval • You'll be notified via email";
       }
@@ -758,8 +787,7 @@ export default function EventPage() {
             </div>
           </div>
 
-          {/* Approval Notice */}
-          {requiresApproval && (
+          {requiresApproval && !isOrganizer && (
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -768,7 +796,7 @@ export default function EventPage() {
                     Approval Required
                   </div>
                   <div className="text-sm text-blue-700">
-                    {ev.approvalCriteria || 
+                    {ev.approvalCriteria ||
                       "The organizer will review your request before issuing tickets. You'll be notified via email once approved."}
                   </div>
                 </div>
@@ -776,7 +804,23 @@ export default function EventPage() {
             </div>
           )}
 
-          {hasTicketTypes && (
+          {isOrganizer && (
+            <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-orange-900 mb-1">
+                    Organizer Account
+                  </div>
+                  <div className="text-sm text-orange-700">
+                    You cannot purchase tickets with an organizer account. Please use an attendee account to book tickets.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hasTicketTypes && !isOrganizer && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Select Ticket Type
@@ -823,34 +867,36 @@ export default function EventPage() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Number of tickets
-            </label>
-            <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-                disabled={available === 0}
-                className="px-6 py-3 text-gray-700 font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
-              >
-                -
-              </button>
-              <div className="flex-1 text-center text-gray-900 font-bold text-lg">
-                {ticketQuantity}
+          {!isOrganizer && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Number of tickets
+              </label>
+              <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
+                  disabled={available === 0}
+                  className="px-6 py-3 text-gray-700 font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  -
+                </button>
+                <div className="flex-1 text-center text-gray-900 font-bold text-lg">
+                  {ticketQuantity}
+                </div>
+                <button
+                  onClick={() =>
+                    setTicketQuantity(Math.min(available, ticketQuantity + 1))
+                  }
+                  disabled={available === 0 || ticketQuantity >= available}
+                  className="px-6 py-3 text-gray-700 font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  +
+                </button>
               </div>
-              <button
-                onClick={() =>
-                  setTicketQuantity(Math.min(available, ticketQuantity + 1))
-                }
-                disabled={available === 0 || ticketQuantity >= available}
-                className="px-6 py-3 text-gray-700 font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
-              >
-                +
-              </button>
             </div>
-          </div>
+          )}
 
-          {available === 0 && (
+          {available === 0 && !isOrganizer && (
             <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg text-center font-medium">
               {hasTicketTypes && selectedTicketType
                 ? `${selectedTicketType.name} tickets sold out!`
@@ -858,34 +904,42 @@ export default function EventPage() {
             </div>
           )}
 
-          {available > 0 && available <= 10 && (
+          {available > 0 && available <= 10 && !isOrganizer && (
             <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg text-center font-medium">
               ⚠️ Only {available} tickets left!
             </div>
           )}
 
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-            <div className="flex justify-between text-gray-700">
-              <span>Price per ticket</span>
-              <span className="font-semibold">
-                {price === 0 ? "Free" : `₦${price.toLocaleString()}`}
-              </span>
+          {!isOrganizer && (
+            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-gray-700">
+                <span>Price per ticket</span>
+                <span className="font-semibold">
+                  {price === 0 ? "Free" : `₦${price.toLocaleString()}`}
+                </span>
+              </div>
+              <div className="flex justify-between text-gray-700">
+                <span>Quantity</span>
+                <span className="font-semibold">{ticketQuantity}</span>
+              </div>
+              <div className="flex justify-between font-bold text-gray-900 text-lg pt-2 border-t border-gray-200">
+                <span>Total</span>
+                <span className="text-[#FF6B35]">
+                  {price === 0 ? "Free" : `₦${total.toLocaleString()}`}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between text-gray-700">
-              <span>Quantity</span>
-              <span className="font-semibold">{ticketQuantity}</span>
-            </div>
-            <div className="flex justify-between font-bold text-gray-900 text-lg pt-2 border-t border-gray-200">
-              <span>Total</span>
-              <span className="text-[#FF6B35]">
-                {price === 0 ? "Free" : `₦${total.toLocaleString()}`}
-              </span>
-            </div>
-          </div>
+          )}
 
           {authLoading ? (
             <div className="py-4 bg-gray-100 rounded-lg text-center text-gray-600 font-medium">
               Checking authentication...
+            </div>
+          ) : isOrganizer ? (
+            <div className="space-y-3">
+              <div className="py-4 bg-gray-100 rounded-lg text-center text-gray-700 font-medium">
+                Switch to an attendee account to purchase tickets
+              </div>
             </div>
           ) : isAuthenticated ? (
             <button
@@ -938,7 +992,7 @@ export default function EventPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="container mx-auto w-11/12 py-24">
+        <div className="max-w-6xl mx-auto px-4 py-24">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
             <div className="text-gray-600 font-medium">Loading event...</div>
@@ -955,7 +1009,7 @@ export default function EventPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="container mx-auto w-11/12 py-20">
+        <div className="max-w-4xl mx-auto px-4 py-20">
           <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <TrendingUp className="h-10 w-10 text-red-500" />
@@ -986,7 +1040,7 @@ export default function EventPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="container mx-auto w-11/12 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <Link
           to="/discover"
           className="inline-flex items-center gap-2 text-[#FF6B35] mb-6 hover:text-[#FF8535] transition-colors font-medium"
@@ -1008,7 +1062,7 @@ export default function EventPage() {
         </div>
       </div>
 
-      {showCheckout && isAuthenticated && (
+      {showCheckout && isAuthenticated && !isOrganizer && (
         <CheckoutFlow
           event={{
             ...event,

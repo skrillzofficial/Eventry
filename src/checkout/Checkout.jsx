@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, CreditCard, Lock, Ticket, Shield, Clock } from "lucide-react";
+import { X, CreditCard, Lock, Ticket, Shield, Clock, AlertCircle } from "lucide-react";
 import apiClient from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isOrganizer, setIsOrganizer] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -16,7 +19,39 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
   useEffect(() => {
     console.log("CheckoutFlow received event:", event);
     console.log("CheckoutFlow received quantity:", ticketQuantity);
-  }, [event, ticketQuantity]);
+    
+    // Check if current user is the organizer
+    checkIfOrganizer();
+  }, [event, ticketQuantity, user]);
+
+  const checkIfOrganizer = () => {
+    if (!user || !event) {
+      setIsOrganizer(false);
+      return;
+    }
+
+    // Check if current user is the organizer of this event
+    const currentUserId = user._id || user.id;
+    const organizerId = event.organizer?._id || event.organizer?.id;
+    
+    // Also check if user email matches organizer email as fallback
+    const userEmail = user.email;
+    const organizerEmail = event.organizer?.email;
+
+    const isEventOrganizer = 
+      currentUserId === organizerId || 
+      userEmail === organizerEmail ||
+      (event.organizerInfo && (
+        userEmail === event.organizerInfo.email ||
+        currentUserId === event.organizerInfo._id
+      ));
+
+    setIsOrganizer(isEventOrganizer);
+    
+    if (isEventOrganizer) {
+      setError("You are the organizer of this event and cannot purchase tickets.");
+    }
+  };
 
   // Check if this is an approval-based free event
   const isApprovalEvent = () => {
@@ -61,6 +96,88 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     );
   }
 
+  // Show organizer blocked view
+  if (isOrganizer) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+          {/* Header */}
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <h2 className="text-2xl font-bold text-gray-900">Event Organizer</h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-6">
+            {/* Organizer Block Message */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-blue-900 mb-1">
+                    Organizer Access
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    You are the organizer of this event and cannot purchase tickets for it.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Details */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-2">{event.title}</h3>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>
+                  {new Date(event.date).toLocaleDateString("en-NG", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })} at {event.time}
+                </p>
+                <p>
+                  {event.venue}, {event.city}
+                </p>
+              </div>
+            </div>
+
+            {/* Management Options */}
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  onClose();
+                  navigate("/dashboard/organizer");
+                }}
+                className="w-full bg-[#FF6B35] text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-[#FF8535] transition-colors flex items-center justify-center"
+              >
+                <Shield className="h-5 w-5 mr-2" />
+                Go to Organizer Dashboard
+              </button>
+              
+              <button
+                onClick={onClose}
+                className="w-full bg-white text-gray-700 py-4 px-6 rounded-lg font-semibold text-lg border-2 border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-500">
+                Manage your event from the organizer dashboard
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
@@ -83,6 +200,12 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     // Validate required fields
     if (!formData.fullName || !formData.email) {
       alert("Please fill in all required fields");
+      return;
+    }
+
+    // Double-check organizer status (safety check)
+    if (isOrganizer) {
+      alert("Organizers cannot purchase tickets for their own events.");
       return;
     }
 
@@ -235,7 +358,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
 
         <div className="p-6">
           {/* Error Message */}
-          {error && (
+          {error && !isOrganizer && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">{error}</p>
             </div>
@@ -414,7 +537,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
           {/* Action Button */}
           <button
             onClick={handlePayment}
-            disabled={loading}
+            disabled={loading || isOrganizer}
             className="w-full bg-[#FF6B35] text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-[#FF8535] focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
           >
             {loading ? (
