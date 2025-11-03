@@ -86,7 +86,7 @@ const Contact = () => {
       </div>
 
       {/* Contact Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-gray-50 flex-1">
         <div className="w-11/12 mx-auto container">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Contact Info */}
@@ -163,44 +163,46 @@ const Contact = () => {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                      <label
-                        htmlFor="name"
-                        className="block text-sm font-semibold text-gray-700 mb-2"
-                      >
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        disabled={loading}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        placeholder="Enter your full name"
-                      />
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label
+                          htmlFor="name"
+                          className="block text-sm font-semibold text-gray-700 mb-2"
+                        >
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          id="name"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleChange}
+                          required
+                          disabled={loading}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="Enter your full name"
+                        />
+                      </div>
 
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-sm font-semibold text-gray-700 mb-2"
-                      >
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        required
-                        disabled={loading}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        placeholder="Enter your email"
-                      />
+                      <div>
+                        <label
+                          htmlFor="email"
+                          className="block text-sm font-semibold text-gray-700 mb-2"
+                        >
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          id="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          required
+                          disabled={loading}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="Enter your email"
+                        />
+                      </div>
                     </div>
 
                     <div>

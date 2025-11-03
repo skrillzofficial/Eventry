@@ -57,7 +57,8 @@ const Team = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      {/* Applied w-11/12 mx-auto container here */}
+      <div className="w-11/12 mx-auto container py-12">
         {/* Header Section */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-[#FF6B35] text-white px-6 py-2 rounded-full text-sm font-medium mb-6">
@@ -128,7 +129,7 @@ const Team = () => {
 // Team Member Card Component with techy design
 const TeamMemberCard = ({ member }) => {
   return (
-    <div className="group relative bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col w-70 h-full">
+    <div className="group relative bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col w-full max-w-md h-full">
       {/* Tech-inspired accent */}
       <div className="absolute top-0 left-0 w-full h-1 bg-[#FF6B35]" />
       
@@ -137,7 +138,7 @@ const TeamMemberCard = ({ member }) => {
         <img
           src={member.image}
           alt={member.name}
-          className="w-70 h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
           onError={(e) => {
             e.target.style.display = 'none';
             e.target.nextSibling.style.display = 'flex';
