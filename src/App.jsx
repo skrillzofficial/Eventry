@@ -34,6 +34,7 @@ import ResetPassword from "./Auths/ResetPassword";
 import EditEvent from "./pages/dashboard/EditEvent";
 import Contact from "./pages/Contact";
 import EventPreview from "./modals/EventPreview";
+import ApprovalsDashboard from "./pages/dashboard/ApprovalsDashboard";
 
 // Google OAuth Client ID
 const GOOGLE_CLIENT_ID =
@@ -56,6 +57,7 @@ const AppRoutes = () => {
           <Route path="/dashboard/profile" element={<Profile />} />
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/dashboard/wallet" element={<WalletComponent />} />
+          <Route path="/dashboard/approvals" element={<ApprovalsDashboard/>} />
 
           {/* Notifications Route */}
           <Route path="/notifications" element={<NotificationsPage />} />

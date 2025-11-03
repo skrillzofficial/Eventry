@@ -340,7 +340,7 @@ const MyEvents = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 py-20">
+        <div className="container mx-auto w-11/12 py-20">
           <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <XCircle className="h-8 w-8 text-red-500" />
@@ -571,7 +571,7 @@ const MyEvents = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col items-center justify-center h-96">
+        <div className="container mx-auto w-11/12 py-8 flex flex-col items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mb-4"></div>
           <p className="text-gray-900 font-medium">
             {processingPayment
@@ -593,7 +593,7 @@ const MyEvents = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="container mx-auto w-11/12 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-6">

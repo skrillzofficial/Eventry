@@ -9,6 +9,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useNotification } from "../../context/NotificationContext";
+import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
 
 const NotificationsPage = () => {
   const {
@@ -172,8 +174,10 @@ const NotificationsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      
+      <div className="container mx-auto w-11/12 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -374,6 +378,8 @@ const NotificationsPage = () => {
           </div>
         )}
       </div>
+
+      <Footer />
     </div>
   );
 };

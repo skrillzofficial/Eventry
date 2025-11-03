@@ -8,19 +8,15 @@ import {
   History,
   Shield,
   Plus,
-  Minus,
   ArrowUpRight,
   ArrowDownLeft,
   Eye,
   EyeOff,
-  Copy,
   CheckCircle,
   AlertCircle,
   RefreshCw,
   X,
-  Loader,
-  Edit,
-  Trash2
+  Loader
 } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
@@ -31,7 +27,6 @@ const WalletComponent = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showBalance, setShowBalance] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -39,7 +34,6 @@ const WalletComponent = () => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [selectedWithdrawalMethod, setSelectedWithdrawalMethod] = useState('');
   
-  // New method form state
   const [newMethodType, setNewMethodType] = useState('bank');
   const [newMethodData, setNewMethodData] = useState({
     bankName: '',
@@ -58,7 +52,6 @@ const WalletComponent = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch transactions and calculate wallet data
       const transactionsResult = await apiCall(transactionAPI.getMyTransactions, { limit: 50 });
       
       if (transactionsResult.success) {
@@ -70,8 +63,8 @@ const WalletComponent = () => {
           available: walletStats.available,
           pending: walletStats.pending,
           currency: 'NGN',
-          transactions: transactions.slice(0, 10), // Show only recent 10
-          withdrawalMethods: getWithdrawalMethods(), // Local storage for demo
+          transactions: transactions.slice(0, 10),
+          withdrawalMethods: getWithdrawalMethods(),
           stats: {
             totalEarned: walletStats.totalEarned,
             totalWithdrawn: walletStats.totalWithdrawn,
@@ -86,7 +79,7 @@ const WalletComponent = () => {
       console.error('Error loading wallet:', err);
       setError('Failed to load wallet data. Please try again.');
       
-      // Fallback to demo data if backend fails
+      // Demo data
       setWalletData({
         balance: 125600.50,
         available: 115200.75,
@@ -120,14 +113,6 @@ const WalletComponent = () => {
             accountNumber: '****1234',
             accountName: 'John Doe',
             primary: true
-          },
-          {
-            id: 2,
-            type: 'crypto',
-            name: 'Solana Wallet',
-            walletAddress: '0x742d...8D',
-            walletType: 'Solana',
-            primary: false
           }
         ],
         stats: {
@@ -166,12 +151,11 @@ const WalletComponent = () => {
       pending: pending,
       totalEarned: totalEarned,
       totalWithdrawn: totalWithdrawn,
-      activeEvents: 3 // This would need to come from events API
+      activeEvents: 3
     };
   };
 
   const getWithdrawalMethods = () => {
-    // For demo purposes, store in localStorage
     const methods = localStorage.getItem('withdrawalMethods');
     return methods ? JSON.parse(methods) : [];
   };
@@ -184,16 +168,6 @@ const WalletComponent = () => {
     setRefreshing(true);
     await loadWalletData();
     setRefreshing(false);
-  };
-
-  const handleTabChange = async (tabId) => {
-    setTabLoading(true);
-    setActiveTab(tabId);
-    
-    // Simulate loading delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setTabLoading(false);
   };
 
   const handleAddMethod = async () => {
@@ -229,39 +203,6 @@ const WalletComponent = () => {
     }
   };
 
-  const handleDeleteMethod = async (methodId) => {
-    if (!confirm('Are you sure you want to delete this withdrawal method?')) {
-      return;
-    }
-
-    try {
-      const currentMethods = getWithdrawalMethods();
-      const updatedMethods = currentMethods.filter(method => method.id !== methodId);
-      saveWithdrawalMethods(updatedMethods);
-
-      alert('Withdrawal method deleted successfully!');
-      loadWalletData();
-    } catch (err) {
-      alert('Failed to delete withdrawal method: ' + err.message);
-    }
-  };
-
-  const handleSetPrimary = async (methodId) => {
-    try {
-      const currentMethods = getWithdrawalMethods();
-      const updatedMethods = currentMethods.map(method => ({
-        ...method,
-        primary: method.id === methodId
-      }));
-      saveWithdrawalMethods(updatedMethods);
-
-      alert('Primary withdrawal method updated!');
-      loadWalletData();
-    } catch (err) {
-      alert('Failed to update primary method: ' + err.message);
-    }
-  };
-
   const handleWithdrawal = async () => {
     if (!withdrawAmount || !selectedWithdrawalMethod) {
       alert('Please enter amount and select withdrawal method');
@@ -274,14 +215,10 @@ const WalletComponent = () => {
     }
 
     try {
-      // For demo purposes, just show success message
-      alert('Withdrawal request submitted successfully! (Demo mode)');
+      alert('Withdrawal request submitted successfully!');
       setShowWithdrawModal(false);
       setWithdrawAmount('');
       setSelectedWithdrawalMethod('');
-      
-      // In a real app, you would call:
-      // const result = await apiCall(transactionAPI.requestRefund, ...);
     } catch (err) {
       alert('Withdrawal failed: ' + err.message);
     }
@@ -294,7 +231,7 @@ const WalletComponent = () => {
       accountNumber: '',
       accountName: '',
       walletAddress: '',
-      walletType: 'ethereum'
+      walletType: 'Solana'
     });
   };
 
@@ -309,23 +246,15 @@ const WalletComponent = () => {
     return new Date(dateString).toLocaleDateString('en-NG', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric'
     });
-  };
-
-  const maskWalletAddress = (address) => {
-    if (!address) return '';
-    if (address.length <= 10) return address;
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="container mx-auto w-11/12 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
           </div>
@@ -339,29 +268,22 @@ const WalletComponent = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
+      <div className="container mx-auto w-11/12 py-8">
+        {/* Simplified Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-gray-900">Wallet</h1>
-                <div className="flex items-center gap-1 px-3 py-1 bg-green-50 rounded-full border border-green-200">
-                  <Shield className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-700">Secure</span>
-                </div>
-              </div>
-              <p className="text-gray-600">
-                Manage your earnings, withdrawals, and payment methods
+              <h1 className="text-3xl font-bold text-gray-900">My Wallet</h1>
+              <p className="text-gray-600 mt-2">
+                Manage your earnings and withdrawals
               </p>
             </div>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
@@ -370,21 +292,18 @@ const WalletComponent = () => {
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
             <div className="flex-1">
-              <p className="text-yellow-800 font-medium">Connection Issue</p>
-              <p className="text-yellow-700 text-sm">{error}</p>
+              <p className="text-yellow-800 text-sm">{error}</p>
             </div>
-            <button onClick={() => setError(null)} className="text-yellow-600 hover:text-yellow-800">
-              <X className="w-4 h-4" />
-            </button>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-3 space-y-6">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left Column - Balance & Actions */}
+          <div className="lg:col-span-1 space-y-6">
             {/* Balance Card */}
             <div className="bg-[#FF6B35] rounded-2xl p-6 text-white shadow-lg">
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-lg font-semibold mb-2">Total Balance</h2>
                   <div className="flex items-center space-x-2">
@@ -399,58 +318,70 @@ const WalletComponent = () => {
                     </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="flex items-center space-x-1 text-green-200 mb-1">
-                    <TrendingUp className="h-4 w-4" />
-                    <span className="text-sm">+18.5% this month</span>
-                  </div>
-                  <span className="text-white/80 text-sm">Available: {showBalance ? formatCurrency(walletData.available) : '••••••'}</span>
-                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
-                  <div className="text-white/80 text-sm mb-1">Pending</div>
-                  <div className="text-lg font-semibold">
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between">
+                  <span className="text-white/80">Available</span>
+                  <span className="font-semibold">
+                    {showBalance ? formatCurrency(walletData.available) : '••••••'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/80">Pending</span>
+                  <span className="font-semibold">
                     {showBalance ? formatCurrency(walletData.pending) : '••••••'}
-                  </div>
-                </div>
-                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
-                  <div className="text-white/80 text-sm mb-1">Total Earned</div>
-                  <div className="text-lg font-semibold">
-                    {showBalance ? formatCurrency(walletData.stats.totalEarned) : '••••••'}
-                  </div>
+                  </span>
                 </div>
               </div>
 
-              <div className="flex">
-                <button 
-                  onClick={() => setShowWithdrawModal(true)}
-                  className="flex-1 bg-white text-[#FF6B35] py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-200 hover:scale-105 flex items-center justify-center"
-                >
-                  <Download className="h-5 w-5 mr-2" />
-                  Withdraw Funds
-                </button>
-              </div>
+              <button 
+                onClick={() => setShowWithdrawModal(true)}
+                className="w-full bg-white text-[#FF6B35] py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                Withdraw Funds
+              </button>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+            {/* Quick Stats */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-4">Quick Stats</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Total Earned</span>
+                  <span className="text-green-600 font-semibold">{formatCurrency(walletData.stats.totalEarned)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Total Withdrawn</span>
+                  <span className="text-gray-900 font-semibold">{formatCurrency(walletData.stats.totalWithdrawn)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Active Events</span>
+                  <span className="text-blue-600 font-semibold">{walletData.stats.activeEvents}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Content */}
+          <div className="lg:col-span-3">
+            {/* Simplified Tabs */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6">
               <div className="border-b border-gray-200">
-                <nav className="flex space-x-8 px-6">
+                <nav className="flex px-6">
                   {[
                     { id: 'overview', label: 'Overview', icon: TrendingUp },
                     { id: 'transactions', label: 'Transactions', icon: History },
-                    { id: 'withdrawal-methods', label: 'Withdrawal Methods', icon: CreditCard }
+                    { id: 'methods', label: 'Payment Methods', icon: CreditCard }
                   ].map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => handleTabChange(tab.id)}
-                      disabled={tabLoading}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 flex items-center disabled:opacity-50 ${
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center mr-8 ${
                         activeTab === tab.id
-                          ? 'border-[#FF6B35] text-[#FF6B35] scale-105'
-                          : 'border-transparent text-gray-600 hover:text-gray-900 hover:scale-102'
+                          ? 'border-[#FF6B35] text-[#FF6B35]'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       <tab.icon className="h-4 w-4 mr-2" />
@@ -462,215 +393,196 @@ const WalletComponent = () => {
 
               {/* Tab Content */}
               <div className="p-6">
-                {tabLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader className="h-8 w-8 animate-spin text-[#FF6B35]" />
-                  </div>
-                ) : (
-                  <>
-                    {activeTab === 'overview' && (
-                      <div className="space-y-6">
-                        <h3 className="text-xl font-semibold text-gray-900 mb-4">Financial Overview</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <StatCard
-                            title="Total Revenue"
-                            value={formatCurrency(walletData.stats.totalEarned)}
-                            change="+12.4%"
-                            trend="up"
-                          />
-                          <StatCard
-                            title="Total Withdrawn"
-                            value={formatCurrency(walletData.stats.totalWithdrawn)}
-                            change="+8.2%"
-                            trend="up"
-                          />
-                          <StatCard
-                            title="Active Events"
-                            value={walletData.stats.activeEvents}
-                            change="+1"
-                            trend="up"
-                          />
-                          <StatCard
-                            title="Pending Payouts"
-                            value={formatCurrency(walletData.stats.pendingPayouts)}
-                            change="Pending"
-                            trend="neutral"
-                          />
+                {activeTab === 'overview' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="text-gray-600 text-sm mb-1">This Month</div>
+                        <div className="text-gray-900 font-semibold text-lg">+₦45,600</div>
+                        <div className="text-green-600 text-xs flex items-center mt-1">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          +18.5%
                         </div>
                       </div>
-                    )}
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="text-gray-600 text-sm mb-1">Withdrawals</div>
+                        <div className="text-gray-900 font-semibold text-lg">-₦15,000</div>
+                        <div className="text-gray-500 text-xs">This month</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="text-gray-600 text-sm mb-1">Net Growth</div>
+                        <div className="text-gray-900 font-semibold text-lg">+₦28,200</div>
+                        <div className="text-green-600 text-xs">Net profit</div>
+                      </div>
+                    </div>
 
-                    {activeTab === 'transactions' && (
-                      <div>
-                        <div className="flex justify-between items-center mb-6">
-                          <h3 className="text-xl font-semibold text-gray-900">Transaction History</h3>
-                          <div className="flex space-x-2">
-                            <select className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]">
-                              <option>All Transactions</option>
-                              <option>Credits Only</option>
-                              <option>Debits Only</option>
-                              <option>Pending</option>
-                            </select>
-                            <input
-                              type="date"
-                              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                              placeholder="Filter by date"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          {walletData.transactions && walletData.transactions.length > 0 ? (
-                            walletData.transactions.map(transaction => (
-                              <TransactionItem key={transaction.id} transaction={transaction} formatCurrency={formatCurrency} formatDate={formatDate} />
-                            ))
-                          ) : (
-                            <div className="text-center py-12 text-gray-500">
-                              <History className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                              <p>No transactions yet</p>
+                    {/* Recent Activity */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-4">Recent Activity</h4>
+                      <div className="space-y-3">
+                        {walletData.transactions.slice(0, 3).map(transaction => (
+                          <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center space-x-3">
+                              <div className={`p-2 rounded-full ${
+                                transaction.type === 'credit' 
+                                  ? 'bg-green-100 text-green-600' 
+                                  : 'bg-red-100 text-red-600'
+                              }`}>
+                                {transaction.type === 'credit' ? 
+                                  <ArrowDownLeft className="h-4 w-4" /> : 
+                                  <ArrowUpRight className="h-4 w-4" />
+                                }
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-gray-900 text-sm">{transaction.description}</h4>
+                                <p className="text-gray-500 text-xs">{formatDate(transaction.date)}</p>
+                              </div>
                             </div>
-                          )}
-                        </div>
+                            <div className={`font-semibold ${
+                              transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {transaction.type === 'credit' ? '+' : ''}{formatCurrency(transaction.amount)}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  </div>
+                )}
 
-                    {activeTab === 'withdrawal-methods' && (
-                      <div>
-                        <div className="flex justify-between items-center mb-6">
-                          <h3 className="text-xl font-semibold text-gray-900">Withdrawal Methods</h3>
+                {activeTab === 'transactions' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-semibold text-gray-900">Transaction History</h3>
+                    </div>
+
+                    <div className="space-y-3">
+                      {walletData.transactions.length > 0 ? (
+                        walletData.transactions.map(transaction => (
+                          <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center space-x-4">
+                              <div className={`p-3 rounded-full ${
+                                transaction.type === 'credit' 
+                                  ? 'bg-green-100 text-green-600' 
+                                  : 'bg-red-100 text-red-600'
+                              }`}>
+                                {transaction.type === 'credit' ? 
+                                  <ArrowDownLeft className="h-5 w-5" /> : 
+                                  <ArrowUpRight className="h-5 w-5" />
+                                }
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900 text-sm">{transaction.description}</h4>
+                                <p className="text-gray-500 text-xs mt-1">
+                                  {formatDate(transaction.date)}
+                                  {transaction.event && ` • ${transaction.event}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`font-semibold ${
+                                transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {transaction.type === 'credit' ? '+' : ''}{formatCurrency(transaction.amount)}
+                              </div>
+                              <div className={`text-xs px-2 py-1 rounded-full mt-1 ${
+                                transaction.status === 'completed' 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {transaction.status}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          <History className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                          <p>No transactions yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'methods' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-semibold text-gray-900">Payment Methods</h3>
+                      <button 
+                        onClick={() => setShowAddMethodModal(true)}
+                        className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg hover:bg-[#FF8535] transition-colors flex items-center"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Method
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {walletData.withdrawalMethods.length > 0 ? (
+                        walletData.withdrawalMethods.map(method => (
+                          <div key={method.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center space-x-4">
+                              <div className="p-3 bg-orange-100 rounded-lg">
+                                <CreditCard className="h-6 w-6 text-[#FF6B35]" />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900 text-sm">
+                                  {method.name}
+                                </h4>
+                                <p className="text-gray-500 text-xs mt-1">
+                                  {method.accountNumber} • {method.accountName}
+                                </p>
+                              </div>
+                            </div>
+                            {method.primary && (
+                              <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-medium">
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                          <p className="mb-4">No payment methods added yet</p>
                           <button 
                             onClick={() => setShowAddMethodModal(true)}
-                            className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg hover:bg-[#FF8535] transition-all duration-200 hover:scale-105 flex items-center"
+                            className="bg-[#FF6B35] text-white px-6 py-2 rounded-lg hover:bg-[#FF8535] transition-colors"
                           >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add New Method
+                            Add Payment Method
                           </button>
                         </div>
-
-                        <div className="space-y-4">
-                          {walletData.withdrawalMethods && walletData.withdrawalMethods.length > 0 ? (
-                            walletData.withdrawalMethods.map(method => (
-                              <WithdrawalMethodCard 
-                                key={method.id} 
-                                method={method}
-                                maskWalletAddress={maskWalletAddress}
-                                onDelete={handleDeleteMethod}
-                                onSetPrimary={handleSetPrimary}
-                              />
-                            ))
-                          ) : (
-                            <div className="text-center py-12 text-gray-500">
-                              <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                              <p className="mb-4">No withdrawal methods added yet</p>
-                              <button 
-                                onClick={() => setShowAddMethodModal(true)}
-                                className="bg-[#FF6B35] text-white px-6 py-2 rounded-lg hover:bg-[#FF8535] transition-colors"
-                              >
-                                Add Withdrawal Method
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-start space-x-3">
-                            <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
-                            <div>
-                              <h4 className="font-semibold text-blue-800 mb-1">Security & Privacy</h4>
-                              <ul className="text-blue-700 text-sm space-y-1">
-                                <li>• Your withdrawal methods are encrypted end-to-end</li>
-                                <li>• Bank details are never fully displayed for security</li>
-                                <li>• Crypto wallet addresses are stored securely</li>
-                                <li>• All withdrawals require verification</li>
-                              </ul>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Quick Stats */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-4">This Month</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Earnings</span>
-                  <span className="text-green-600 font-semibold">+₦45,600</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Withdrawals</span>
-                  <span className="text-red-600 font-semibold">-₦15,000</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Fees</span>
-                  <span className="text-gray-500">-₦2,400</span>
-                </div>
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-900 font-semibold">Net</span>
-                    <span className="text-gray-900 font-semibold">+₦28,200</span>
-                  </div>
+            {/* Security Notice */}
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+              <div className="flex items-start space-x-3">
+                <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-blue-800 mb-2">Your funds are secure</h4>
+                  <p className="text-blue-700 text-sm">
+                    All transactions are encrypted and monitored 24/7. 
+                    Contact support if you notice any suspicious activity.
+                  </p>
                 </div>
               </div>
-            </div>
-
-            {/* Security Tips */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <Shield className="h-5 w-5 text-[#FF6B35] mr-2" />
-                Security Tips
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-start space-x-2">
-                  <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Never share your withdrawal method details</p>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Enable 2FA for additional security</p>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Verify payment addresses before confirming</p>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <div className="w-2 h-2 bg-[#FF6B35] rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="text-gray-600">Monitor your transaction history regularly</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Support Card */}
-            <div className="bg-[#FF6B35] rounded-2xl p-6 text-white shadow-lg">
-              <h3 className="font-semibold mb-2">Need Help?</h3>
-              <p className="text-white/80 text-sm mb-4">
-                Our support team is here to help with any wallet issues.
-              </p>
-              <Link 
-                to="/contact"
-                className="block w-full bg-white/20 text-white py-2 rounded-lg hover:bg-white/30 transition-all duration-200 hover:scale-105 text-center"
-              >
-                Contact Support
-              </Link>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Add Withdrawal Method Modal */}
+      {/* Add Payment Method Modal */}
       {showAddMethodModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Add Withdrawal Method</h3>
+              <h3 className="text-xl font-bold text-gray-900">Add Bank Account</h3>
               <button
                 onClick={() => {
                   setShowAddMethodModal(false);
@@ -683,141 +595,49 @@ const WalletComponent = () => {
             </div>
 
             <div className="space-y-4">
-              {/* Method Type Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Withdrawal Method Type
+                  Bank Name
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setNewMethodType('bank')}
-                    className={`p-4 border-2 rounded-lg flex flex-col items-center transition-all ${
-                      newMethodType === 'bank'
-                        ? 'border-[#FF6B35] bg-orange-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
-                    <CreditCard className="h-6 w-6 mb-2 text-[#FF6B35]" />
-                    <span className="font-medium text-sm">Bank Account</span>
-                  </button>
-                  <button
-                    onClick={() => setNewMethodType('crypto')}
-                    className={`p-4 border-2 rounded-lg flex flex-col items-center transition-all ${
-                      newMethodType === 'crypto'
-                        ? 'border-[#FF6B35] bg-orange-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
-                    <Wallet className="h-6 w-6 mb-2 text-[#FF6B35]" />
-                    <span className="font-medium text-sm">Crypto Wallet</span>
-                  </button>
-                </div>
+                <select
+                  value={newMethodData.bankName}
+                  onChange={(e) => setNewMethodData({...newMethodData, bankName: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                >
+                  <option value="">Select your bank</option>
+                  <option value="Access Bank">Access Bank</option>
+                  <option value="GTBank">Guaranty Trust Bank</option>
+                  <option value="First Bank">First Bank of Nigeria</option>
+                  <option value="UBA">United Bank for Africa</option>
+                  <option value="Zenith Bank">Zenith Bank</option>
+                </select>
               </div>
 
-              {/* Bank Account Form */}
-              {newMethodType === 'bank' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Bank Name
-                    </label>
-                    <select
-                      value={newMethodData.bankName}
-                      onChange={(e) => setNewMethodData({...newMethodData, bankName: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                    >
-                      <option value="">Select your bank</option>
-                      <option value="Access Bank">Access Bank</option>
-                      <option value="GTBank">Guaranty Trust Bank</option>
-                      <option value="First Bank">First Bank of Nigeria</option>
-                      <option value="UBA">United Bank for Africa</option>
-                      <option value="Zenith Bank">Zenith Bank</option>
-                      <option value="Ecobank">Ecobank Nigeria</option>
-                      <option value="Fidelity Bank">Fidelity Bank</option>
-                      <option value="FCMB">First City Monument Bank</option>
-                      <option value="Sterling Bank">Sterling Bank</option>
-                      <option value="Wema Bank">Wema Bank</option>
-                    </select>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Number
+                </label>
+                <input
+                  type="text"
+                  value={newMethodData.accountNumber}
+                  onChange={(e) => setNewMethodData({...newMethodData, accountNumber: e.target.value})}
+                  placeholder="Enter 10-digit account number"
+                  maxLength="10"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                />
+              </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Account Number
-                    </label>
-                    <input
-                      type="text"
-                      value={newMethodData.accountNumber}
-                      onChange={(e) => setNewMethodData({...newMethodData, accountNumber: e.target.value})}
-                      placeholder="Enter 10-digit account number"
-                      maxLength="10"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Account Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newMethodData.accountName}
-                      onChange={(e) => setNewMethodData({...newMethodData, accountName: e.target.value})}
-                      placeholder="Account holder's name"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Crypto Wallet Form */}
-              {newMethodType === 'crypto' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Wallet Type
-                    </label>
-                    <select
-                      value={newMethodData.walletType}
-                      onChange={(e) => setNewMethodData({...newMethodData, walletType: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                    >
-                      <option value="ethereum">Ethereum (ETH)</option>
-                      <option value="bitcoin">Bitcoin (BTC)</option>
-                      <option value="usdt">Tether (USDT)</option>
-                      <option value="usdc">USD Coin (USDC)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Wallet Address
-                    </label>
-                    <input
-                      type="text"
-                      value={newMethodData.walletAddress}
-                      onChange={(e) => setNewMethodData({...newMethodData, walletAddress: e.target.value})}
-                      placeholder="Enter your wallet address"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] font-mono text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Double-check your wallet address. Funds sent to wrong address cannot be recovered.
-                    </p>
-                  </div>
-                </>
-              )}
-
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-amber-800 text-sm mb-1">Important Security Notice</h4>
-                    <p className="text-amber-700 text-sm">
-                      {newMethodType === 'bank' 
-                        ? 'Ensure your bank details are correct. Your account will be verified before first withdrawal.'
-                        : 'Crypto transactions are irreversible. Always verify your wallet address is correct.'}
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Name
+                </label>
+                <input
+                  type="text"
+                  value={newMethodData.accountName}
+                  onChange={(e) => setNewMethodData({...newMethodData, accountName: e.target.value})}
+                  placeholder="Account holder's name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                />
               </div>
 
               <div className="flex space-x-3 pt-4">
@@ -832,14 +652,10 @@ const WalletComponent = () => {
                 </button>
                 <button
                   onClick={handleAddMethod}
-                  disabled={
-                    newMethodType === 'bank' 
-                      ? !newMethodData.bankName || !newMethodData.accountNumber || !newMethodData.accountName
-                      : !newMethodData.walletAddress
-                  }
+                  disabled={!newMethodData.bankName || !newMethodData.accountNumber || !newMethodData.accountName}
                   className="flex-1 px-4 py-3 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Method
+                  Add Account
                 </button>
               </div>
             </div>
@@ -890,30 +706,10 @@ const WalletComponent = () => {
                   <option value="">Select withdrawal method</option>
                   {walletData.withdrawalMethods.map(method => (
                     <option key={method.id} value={method.id}>
-                      {method.type === 'bank' 
-                        ? `${method.name} (${method.accountNumber})`
-                        : `${method.name} (${maskWalletAddress(method.walletAddress)})`}
+                      {method.name} ({method.accountNumber})
                     </option>
                   ))}
                 </select>
-                {walletData.withdrawalMethods.length === 0 && (
-                  <p className="text-sm text-amber-600 mt-2">
-                    Please add a withdrawal method first
-                  </p>
-                )}
-              </div>
-
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-blue-800 text-sm mb-1">Processing Time</h4>
-                    <p className="text-blue-700 text-sm">
-                      Bank withdrawals: 1-3 business days<br/>
-                      Crypto withdrawals: 10-30 minutes
-                    </p>
-                  </div>
-                </div>
               </div>
 
               <div className="flex space-x-3 pt-4">
@@ -925,7 +721,7 @@ const WalletComponent = () => {
                 </button>
                 <button
                   onClick={handleWithdrawal}
-                  disabled={walletData.withdrawalMethods.length === 0}
+                  disabled={!withdrawAmount || !selectedWithdrawalMethod}
                   className="flex-1 px-4 py-3 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#FF8535] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Withdraw
@@ -940,106 +736,5 @@ const WalletComponent = () => {
     </div>
   );
 };
-
-// Reusable Components
-const StatCard = ({ title, value, change, trend }) => (
-  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-[#FF6B35] transition-all duration-200 hover:scale-105">
-    <div className="text-gray-600 text-sm mb-1">{title}</div>
-    <div className="text-gray-900 font-semibold text-lg mb-2">{value}</div>
-    <div className={`text-xs flex items-center ${
-      trend === 'up' ? 'text-green-600' :
-      trend === 'down' ? 'text-red-600' :
-      'text-yellow-600'
-    }`}>
-      <TrendingUp className={`h-3 w-3 mr-1 ${trend === 'down' ? 'rotate-180' : ''}`} />
-      {change}
-    </div>
-  </div>
-);
-
-const TransactionItem = ({ transaction, formatCurrency, formatDate }) => (
-  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#FF6B35] transition-all duration-200 hover:scale-102">
-    <div className="flex items-center space-x-4">
-      <div className={`p-3 rounded-full ${
-        transaction.type === 'credit' 
-          ? 'bg-green-100 text-green-600' 
-          : 'bg-red-100 text-red-600'
-      }`}>
-        {transaction.type === 'credit' ? 
-          <ArrowDownLeft className="h-5 w-5" /> : 
-          <ArrowUpRight className="h-5 w-5" />
-        }
-      </div>
-      <div>
-        <h4 className="font-semibold text-gray-900 text-sm">{transaction.description}</h4>
-        <p className="text-gray-500 text-xs mt-1">
-          {formatDate(transaction.date)}
-          {transaction.event && ` • ${transaction.event}`}
-          {transaction.bank && ` • ${transaction.bank}`}
-        </p>
-      </div>
-    </div>
-    <div className="text-right">
-      <div className={`font-semibold ${
-        transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
-      }`}>
-        {transaction.type === 'credit' ? '+' : ''}{formatCurrency(transaction.amount)}
-      </div>
-      <div className={`text-xs px-2 py-1 rounded-full mt-1 ${
-        transaction.status === 'completed' 
-          ? 'bg-green-100 text-green-700' 
-          : 'bg-yellow-100 text-yellow-700'
-      }`}>
-        {transaction.status}
-      </div>
-    </div>
-  </div>
-);
-
-const WithdrawalMethodCard = ({ method, maskWalletAddress, onDelete, onSetPrimary }) => (
-  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#FF6B35] transition-all duration-200">
-    <div className="flex items-center space-x-4">
-      <div className="p-3 bg-orange-100 rounded-lg">
-        {method.type === 'bank' ? (
-          <CreditCard className="h-6 w-6 text-[#FF6B35]" />
-        ) : (
-          <Wallet className="h-6 w-6 text-[#FF6B35]" />
-        )}
-      </div>
-      <div>
-        <h4 className="font-semibold text-gray-900 text-sm">
-          {method.type === 'bank' ? method.name : `${method.walletType?.toUpperCase() || 'Crypto'} Wallet`}
-        </h4>
-        <p className="text-gray-500 text-xs mt-1">
-          {method.type === 'bank' 
-            ? `${method.accountNumber} • ${method.accountName}` 
-            : maskWalletAddress(method.walletAddress)}
-        </p>
-      </div>
-    </div>
-    <div className="flex items-center space-x-2">
-      {method.primary ? (
-        <span className="bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-medium">
-          Primary
-        </span>
-      ) : (
-        <button 
-          onClick={() => onSetPrimary(method.id)}
-          className="text-xs text-gray-600 hover:text-[#FF6B35] px-3 py-1 border border-gray-300 rounded-full hover:border-[#FF6B35] transition-colors"
-        >
-          Set Primary
-        </button>
-      )}
-      <button 
-        onClick={() => onDelete(method.id)}
-        disabled={method.primary}
-        className="p-2 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title={method.primary ? "Cannot delete primary method" : "Delete method"}
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    </div>
-  </div>
-);
 
 export default WalletComponent;

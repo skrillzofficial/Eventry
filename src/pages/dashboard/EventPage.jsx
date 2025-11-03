@@ -21,19 +21,6 @@ import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import CheckoutFlow from "../../checkout/Checkout";
 import { eventAPI, apiCall } from "../../services/api";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix Leaflet default icon issue
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
 
 // Local images
 import eventOne from "../../assets/Vision one.png";
@@ -65,22 +52,10 @@ export default function EventPage() {
   const [error, setError] = useState(null);
   const [tabLoading, setTabLoading] = useState(false);
 
-  // Map refs
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markerRef = useRef(null);
-
   useEffect(() => {
     if (id) {
       loadEvent();
     }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
   }, [id]);
 
   const loadEvent = async () => {
@@ -172,6 +147,9 @@ export default function EventPage() {
             eventData.ticketTypes.length > 0
               ? eventData.ticketTypes
               : null,
+
+          requiresApproval: eventData.requiresApproval || false,
+          approvalCriteria: eventData.approvalCriteria || null,
         };
 
         setEvent(eventWithImages);
@@ -326,53 +304,6 @@ export default function EventPage() {
     window.open(url, "_blank");
   };
 
-  const initializeMap = () => {
-    if (!event || !mapRef.current) return;
-
-    try {
-      let lat, lng;
-
-      if (event.location?.coordinates) {
-        lat = event.location.coordinates.lat;
-        lng = event.location.coordinates.lng;
-      } else if (event.coordinates) {
-        lat = event.coordinates.latitude;
-        lng = event.coordinates.longitude;
-      } else {
-        lat = 6.5244;
-        lng = 3.3792;
-      }
-
-      mapInstanceRef.current = L.map(mapRef.current).setView([lat, lng], 15);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(mapInstanceRef.current);
-
-      markerRef.current = L.marker([lat, lng])
-        .addTo(mapInstanceRef.current)
-        .bindPopup(
-          `<b>${event.title}</b><br>${event.venue}<br>${event.address}, ${event.city}`
-        )
-        .openPopup();
-    } catch (error) {
-      console.error("Error initializing map:", error);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === "location" && event && mapRef.current) {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-
-      setTimeout(initializeMap, 100);
-    }
-  }, [activeTab, event]);
-
   // Subcomponents
   const EventHeader = ({ ev }) => {
     const eventDate = new Date(ev.date);
@@ -525,11 +456,18 @@ export default function EventPage() {
           </div>
         </div>
 
-        <div
-          ref={mapRef}
-          className="h-80 w-full bg-white rounded-lg overflow-hidden"
-          style={{ zIndex: 1 }}
-        />
+        <div className="h-80 w-full bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+          <div className="text-center text-gray-500">
+            <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+            <p>Location map</p>
+            <button
+              onClick={openDirections}
+              className="mt-2 text-[#FF6B35] font-medium hover:text-[#FF8535]"
+            >
+              Open in Google Maps
+            </button>
+          </div>
+        </div>
       </>
     );
   };
@@ -769,6 +707,7 @@ export default function EventPage() {
 
   const TicketCard = ({ ev }) => {
     const hasTicketTypes = ev.ticketTypes && ev.ticketTypes.length > 0;
+    const requiresApproval = ev.requiresApproval;
 
     const getAvailableTickets = () => {
       if (hasTicketTypes && selectedTicketType) {
@@ -789,6 +728,22 @@ export default function EventPage() {
     const price = getPrice();
     const total = price * ticketQuantity;
 
+    const getButtonText = () => {
+      if (available === 0) return "Sold Out";
+      if (requiresApproval) return "Request Tickets";
+      return "Get Tickets Now";
+    };
+
+    const getHelperText = () => {
+      if (requiresApproval) {
+        return "⏳ Requires organizer approval • You'll be notified via email";
+      }
+      if (isAuthenticated) {
+        return "🔒 Secure payment • Instant confirmation";
+      }
+      return "Browse events • Sign in to book";
+    };
+
     return (
       <div className="bg-white rounded-xl p-6 sticky top-24">
         <div className="space-y-5">
@@ -802,6 +757,24 @@ export default function EventPage() {
                 : "per ticket"}
             </div>
           </div>
+
+          {/* Approval Notice */}
+          {requiresApproval && (
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-blue-900 mb-1">
+                    Approval Required
+                  </div>
+                  <div className="text-sm text-blue-700">
+                    {ev.approvalCriteria || 
+                      "The organizer will review your request before issuing tickets. You'll be notified via email once approved."}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {hasTicketTypes && (
             <div>
@@ -921,7 +894,7 @@ export default function EventPage() {
               className="w-full bg-[#FF6B35] text-white py-4 rounded-lg font-bold text-lg hover:bg-[#FF8535] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               <Ticket className="h-5 w-5" />
-              {available === 0 ? "Sold Out" : "Get Tickets Now"}
+              {getButtonText()}
             </button>
           ) : (
             <div className="space-y-3">
@@ -932,7 +905,7 @@ export default function EventPage() {
                     Sign in required
                   </div>
                   <div className="text-xs text-yellow-700">
-                    Create an account or sign in to purchase tickets
+                    Create an account or sign in to {requiresApproval ? "request" : "purchase"} tickets
                   </div>
                 </div>
               </div>
@@ -941,7 +914,7 @@ export default function EventPage() {
                 state={{ returnTo: `/event/${id}` }}
                 className="block w-full bg-[#FF6B35] text-white py-4 rounded-lg font-bold text-center hover:bg-[#FF8535] transition-colors"
               >
-                Sign In to Purchase
+                Sign In to {requiresApproval ? "Request" : "Purchase"}
               </Link>
               <Link
                 to="/register"
@@ -954,9 +927,7 @@ export default function EventPage() {
           )}
 
           <div className="text-xs text-gray-500 text-center pt-2">
-            {isAuthenticated
-              ? "🔒 Secure payment • Instant confirmation"
-              : "Browse events • Sign in to book"}
+            {getHelperText()}
           </div>
         </div>
       </div>
@@ -967,7 +938,7 @@ export default function EventPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-6xl mx-auto px-4 py-24">
+        <div className="container mx-auto w-11/12 py-24">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
             <div className="text-gray-600 font-medium">Loading event...</div>
@@ -984,7 +955,7 @@ export default function EventPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 py-20">
+        <div className="container mx-auto w-11/12 py-20">
           <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <TrendingUp className="h-10 w-10 text-red-500" />
@@ -1015,7 +986,7 @@ export default function EventPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="container mx-auto w-11/12 py-8">
         <Link
           to="/discover"
           className="inline-flex items-center gap-2 text-[#FF6B35] mb-6 hover:text-[#FF8535] transition-colors font-medium"

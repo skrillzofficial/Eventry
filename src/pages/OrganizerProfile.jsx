@@ -15,15 +15,6 @@ import {
   CheckCircle,
   AlertCircle,
   RefreshCw,
-  Settings,
-  Bell,
-  Search,
-  Filter,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Copy,
-  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
@@ -38,15 +29,12 @@ const OrganizerDashboard = () => {
   const location = useLocation();
   const [stats, setStats] = useState({});
   const [recentEvents, setRecentEvents] = useState([]);
-  const [allEvents, setAllEvents] = useState([]);
   const [revenueData, setRevenueData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
 
   // Handle payment callback on mount
   useEffect(() => {
@@ -56,66 +44,34 @@ const OrganizerDashboard = () => {
       const reference = params.get("reference");
 
       if (paymentStatus === "success" && reference) {
-        console.log("🎯 Payment callback detected:", {
-          paymentStatus,
-          reference,
-        });
         setProcessingPayment(true);
-
         try {
-          console.log(
-            "🚀 Calling createEventAfterPayment with reference:",
-            reference
-          );
-
           const result = await createEventAfterPayment(reference);
-
-          console.log("✅ createEventAfterPayment result:", result);
-
           if (result.success) {
-            console.log("🎉 Event created successfully:", result.event);
-
             toast.success(result.message || "Event created successfully!", {
               duration: 5000,
               icon: "🎉",
             });
-
             window.history.replaceState({}, "", "/dashboard/organizer/events");
-
             setTimeout(() => {
               const eventId = result.event?._id || result.event?.id;
-              console.log("🔄 Redirecting to event:", eventId);
-
               if (eventId) {
                 navigate(`/event/${eventId}`);
               } else {
-                console.warn("⚠️ No event ID found, reloading dashboard");
                 setProcessingPayment(false);
                 loadOrganizerData();
               }
             }, 2000);
           } else {
-            console.error("❌ Event creation failed:", result.error);
-
-            toast.error(result.error || "Failed to create event", {
-              duration: 6000,
-            });
-
+            toast.error(result.error || "Failed to create event", { duration: 6000 });
             window.history.replaceState({}, "", "/dashboard/organizer/events");
             setProcessingPayment(false);
-
             loadOrganizerData();
           }
         } catch (error) {
-          console.error("💥 Error processing payment callback:", error);
-
-          toast.error("Error creating event. Please contact support.", {
-            duration: 6000,
-          });
-
+          toast.error("Error creating event. Please contact support.", { duration: 6000 });
           window.history.replaceState({}, "", "/dashboard/organizer/events");
           setProcessingPayment(false);
-
           loadOrganizerData();
         }
       }
@@ -146,43 +102,23 @@ const OrganizerDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("📊 Starting to load organizer data...");
-
       const result = await apiCall(eventAPI.getOrganizerEvents);
-      console.log("✅ API Response:", result);
 
       if (result.success) {
         const events = result.data?.events || result.data || [];
-        console.log("📅 Events loaded:", events.length);
-
-        if (events.length > 0) {
-          console.log("📋 Events status breakdown:");
-          events.forEach((event, index) => {
-            console.log(
-              `  ${index + 1}. "${event.title}" - Status: "${
-                event.status
-              }" - Date: ${event.date}`
-            );
-          });
-        }
-
         processAndDisplayEvents(events);
         calculateStatistics(events);
       } else {
-        console.log("❌ API call failed:", result.error);
         throw new Error(result.error || "Failed to load events");
       }
     } catch (error) {
-      console.error("💥 Error loading organizer data:", error);
+      console.error("Error loading organizer data:", error);
       setError(error.message || "Failed to load dashboard data");
       setStats({
         totalEvents: 0,
         activeEvents: 0,
-        publishedEvents: 0,
         totalAttendees: 0,
         totalRevenue: 0,
-        ticketsSold: 0,
-        conversionRate: 0,
         walletBalance: 0,
       });
     } finally {
@@ -191,8 +127,6 @@ const OrganizerDashboard = () => {
   };
 
   const processAndDisplayEvents = (events) => {
-    console.log("🔄 Processing events for display:", events.length, "events");
-
     const processedEvents = events.map((event) => {
       const ticketsSold = event.totalAttendees || 0;
       const revenue = event.totalRevenue || (event.price || 0) * ticketsSold;
@@ -210,20 +144,13 @@ const OrganizerDashboard = () => {
       };
     });
 
-    console.log("✨ Processed events:", processedEvents);
-
-    setAllEvents(processedEvents);
     setRecentEvents(processedEvents.slice(0, 5));
-
     const monthlyRevenue = generateMonthlyRevenue(processedEvents);
     setRevenueData(monthlyRevenue);
   };
 
   const calculateStatistics = (events) => {
-    console.log("🧮 Calculating statistics from", events.length, "events");
-
     const totalEvents = events.length;
-
     const publishedEvents = events.filter(
       (event) => event.status === "published"
     ).length;
@@ -232,11 +159,6 @@ const OrganizerDashboard = () => {
     const activeEvents = events.filter((event) => {
       const eventDate = new Date(event.date);
       return eventDate >= today && event.status === "published";
-    }).length;
-
-    const completedEvents = events.filter((event) => {
-      const eventDate = new Date(event.date);
-      return eventDate < today && event.status === "published";
     }).length;
 
     const totalAttendees = events.reduce(
@@ -258,35 +180,22 @@ const OrganizerDashboard = () => {
         ? Math.round((totalAttendees / totalCapacity) * 100)
         : 0;
 
-    const capacityUsage =
-      events.length > 0
-        ? Math.round(
-            events.reduce((sum, event) => {
-              const capacity = event.capacity || 100;
-              const sold = event.totalAttendees || 0;
-              return sum + (sold / capacity) * 100;
-            }, 0) / events.length
-          )
-        : 0;
-
-    const averageTicketPrice =
-      totalAttendees > 0 ? Math.round(totalRevenue / totalAttendees) : 0;
+    // Calculate pending approvals
+    const pendingApprovals = events.filter(
+      (event) => event.status === 'draft' || event.status === 'pending' || event.approvalStatus === 'pending'
+    ).length;
 
     const statsData = {
       totalEvents: totalEvents,
       activeEvents: activeEvents,
       publishedEvents: publishedEvents,
-      completedEvents: completedEvents,
       totalAttendees: totalAttendees,
       totalRevenue: totalRevenue,
-      ticketsSold: totalAttendees,
       conversionRate: conversionRate,
       walletBalance: Math.round(totalRevenue * 0.85),
-      averageTicketPrice: averageTicketPrice,
-      capacityUsage: capacityUsage,
+      pendingApprovals: pendingApprovals,
     };
 
-    console.log("📈 Final statistics:", statsData);
     setStats(statsData);
   };
 
@@ -310,18 +219,8 @@ const OrganizerDashboard = () => {
   const generateMonthlyRevenue = (events) => {
     const monthlyData = {};
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
 
     const now = new Date();
@@ -348,64 +247,11 @@ const OrganizerDashboard = () => {
     };
   };
 
-  const shareEvent = (event) => {
-    const eventUrl = `${window.location.origin}/event/${event.id}`;
-    const text = `Check out my event: ${event.title}`;
-
-    const shareUrls = {
-      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-        text
-      )}&url=${encodeURIComponent(eventUrl)}`,
-    };
-
-    window.open(shareUrls.twitter, "_blank", "width=600,height=400");
-  };
-
-  const downloadEventReport = (event) => {
-    const reportData = `
-EVENT REPORT
-
-Event: ${event.title}
-Date: ${new Date(event.date).toLocaleDateString()}
-Location: ${event.location}
-
-PERFORMANCE METRICS
-Tickets Sold: ${event.ticketsSold}
-Capacity: ${event.capacity}
-Capacity Usage: ${Math.round((event.ticketsSold / event.capacity) * 100)}%
-Total Revenue: ₦${event.revenue?.toLocaleString()}
-Ticket Price: ₦${event.price?.toLocaleString()}
-
-STATUS: ${event.status.toUpperCase()}
-
-Generated: ${new Date().toLocaleString()}
-    `.trim();
-
-    const blob = new Blob([reportData], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `event-report-${event.id}-${Date.now()}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const filteredEvents = allEvents.filter((event) => {
-    const matchesSearch = event.title
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesFilter =
-      filterStatus === "all" || event.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
-
   if (!isAuthenticated || !isOrganizer) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 py-20">
+        <div className="container mx-auto w-11/12 py-20">
           <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-200">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
@@ -422,9 +268,7 @@ Generated: ${new Date().toLocaleString()}
             </Link>
           </div>
         </div>
-        <div className="bg-[#FF6B35]">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
@@ -433,7 +277,7 @@ Generated: ${new Date().toLocaleString()}
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center h-96">
+        <div className="container mx-auto w-11/12 py-8 flex flex-col items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mb-4"></div>
           <p className="text-gray-900 font-medium">
             {processingPayment
@@ -446,9 +290,7 @@ Generated: ${new Date().toLocaleString()}
             </p>
           )}
         </div>
-        <div className="bg-[#FF6B35]">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
@@ -457,7 +299,7 @@ Generated: ${new Date().toLocaleString()}
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="container mx-auto w-11/12 py-6">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-700 flex items-center">
@@ -563,202 +405,175 @@ Generated: ${new Date().toLocaleString()}
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-          <div className="border-b border-gray-200 px-6">
-            <nav className="flex space-x-8">
-              <button
-                onClick={() => setActiveTab("overview")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
-                  activeTab === "overview"
-                    ? "border-[#FF6B35] text-[#FF6B35]"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Overview
-              </button>
-              <button
-                onClick={() => setActiveTab("analytics")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
-                  activeTab === "analytics"
-                    ? "border-[#FF6B35] text-[#FF6B35]"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Analytics
-              </button>
-            </nav>
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left Column - Quick Actions */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+              <div className="space-y-3">
+                <Link
+                  to="/create-event"
+                  className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
+                >
+                  <Plus className="h-6 w-6 text-[#FF6B35] group-hover:scale-110 transition" />
+                  <span className="font-medium text-gray-900">Create Event</span>
+                </Link>
+                <Link
+                  to="/dashboard/organizer/events"
+                  className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
+                >
+                  <Calendar className="h-6 w-6 text-[#FF6B35] group-hover:scale-110 transition" />
+                  <span className="font-medium text-gray-900">My Events</span>
+                </Link>
+                <Link
+                  to="/dashboard/wallet"
+                  className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
+                >
+                  <Wallet className="h-6 w-6 text-[#FF6B35] group-hover:scale-110 transition" />
+                  <span className="font-medium text-gray-900">Wallet</span>
+                </Link>
+                <Link
+                  to="/dashboard/approvals"
+                  className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group relative"
+                >
+                  <CheckCircle className="h-6 w-6 text-[#FF6B35] group-hover:scale-110 transition" />
+                  <span className="font-medium text-gray-900">Approvals</span>
+                  {stats.pendingApprovals > 0 && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                      {stats.pendingApprovals}
+                    </span>
+                  )}
+                </Link>
+              </div>
+            </div>
           </div>
 
-          <div className="p-6">
-            {activeTab === "overview" && (
-              <OverviewTab
-                events={recentEvents}
-                stats={stats}
-              />
-            )}
-            {activeTab === "analytics" && (
-              <AnalyticsTab revenueData={revenueData} stats={stats} />
-            )}
+          {/* Right Column - Content */}
+          <div className="lg:col-span-3">
+            {/* Simplified Tabs */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+              <div className="border-b border-gray-200 px-6">
+                <nav className="flex space-x-8">
+                  <button
+                    onClick={() => setActiveTab("overview")}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                      activeTab === "overview"
+                        ? "border-[#FF6B35] text-[#FF6B35]"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Overview
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("analytics")}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                      activeTab === "analytics"
+                        ? "border-[#FF6B35] text-[#FF6B35]"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Analytics
+                  </button>
+                </nav>
+              </div>
+
+              <div className="p-6">
+                {activeTab === "overview" && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">Recent Events</h3>
+                      <Link
+                        to="/my-events"
+                        className="text-sm text-[#FF6B35] hover:text-[#E55A2B] flex items-center"
+                      >
+                        View all <ArrowRight className="h-4 w-4 ml-1" />
+                      </Link>
+                    </div>
+                    <div className="space-y-4">
+                      {recentEvents.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+                          <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p className="text-gray-500 mb-4">No events created yet</p>
+                          <Link
+                            to="/create-event"
+                            className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] font-medium"
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Create your first event
+                          </Link>
+                        </div>
+                      ) : (
+                        recentEvents.map((event) => (
+                          <EventRow
+                            key={event.id}
+                            event={event}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "analytics" && (
+                  <div className="space-y-6">
+                    {/* Revenue Chart */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Revenue Over Time
+                      </h3>
+                      {revenueData.values &&
+                      revenueData.values.length > 0 &&
+                      revenueData.values.some((v) => v > 0) ? (
+                        <div className="space-y-3">
+                          {revenueData.labels.map((label, index) => {
+                            const value = revenueData.values[index];
+                            const maxValue = Math.max(...revenueData.values);
+                            const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+
+                            return (
+                              <div key={index}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm text-gray-600">{label}</span>
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    ₦{value.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-[#FF6B35] h-2 rounded-full transition-all duration-500"
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+                          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p className="text-gray-500 mb-2">No revenue data available</p>
+                          <Link
+                            to="/create-event"
+                            className="text-[#FF6B35] hover:underline text-sm"
+                          >
+                            Create your first event
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-[#FF6B35]">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 };
-
-const OverviewTab = ({ events, stats }) => (
-  <div className="space-y-6">
-    {/* Quick Actions */}
-    <div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Link
-          to="/create-event"
-          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
-        >
-          <Plus className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
-          <span className="text-sm font-medium text-gray-900">Create Event</span>
-        </Link>
-        <Link
-          to="/dashboard/organizer/events"
-          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
-        >
-          <Calendar className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
-          <span className="text-sm font-medium text-gray-900">My Events</span>
-        </Link>
-        <Link
-          to="/dashboard/wallet"
-          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
-        >
-          <Wallet className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
-          <span className="text-sm font-medium text-gray-900">Wallet</span>
-        </Link>
-        <Link
-          to="/discover"
-          className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
-        >
-          <Users className="h-8 w-8 text-[#FF6B35] mb-2 group-hover:scale-110 transition" />
-          <span className="text-sm font-medium text-gray-900">Browse Events</span>
-        </Link>
-      </div>
-    </div>
-
-    {/* Recent Events */}
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Recent Events</h3>
-        <Link
-          to="/my-events"
-          className="text-sm text-[#FF6B35] hover:text-[#E55A2B] flex items-center"
-        >
-          View all <ArrowRight className="h-4 w-4 ml-1" />
-        </Link>
-      </div>
-      <div className="space-y-3">
-        {events.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-500 mb-4">No events created yet</p>
-            <Link
-              to="/create-event"
-              className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] font-medium"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Create your first event
-            </Link>
-          </div>
-        ) : (
-          events.map((event) => (
-            <EventRow
-              key={event.id}
-              event={event}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  </div>
-);
-
-const AnalyticsTab = ({ revenueData, stats }) => (
-  <div className="space-y-6">
-    {/* Revenue Chart */}
-    <div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-        Revenue Over Time
-      </h3>
-      {revenueData.values &&
-      revenueData.values.length > 0 &&
-      revenueData.values.some((v) => v > 0) ? (
-        <div className="space-y-3">
-          {revenueData.labels.map((label, index) => {
-            const value = revenueData.values[index];
-            const maxValue = Math.max(...revenueData.values);
-            const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
-
-            return (
-              <div key={index}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-gray-600">{label}</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    ₦{value.toLocaleString()}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-[#FF6B35] h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500 mb-2">No revenue data available</p>
-          <Link
-            to="/create-event"
-            className="text-[#FF6B35] hover:underline text-sm"
-          >
-            Create your first event
-          </Link>
-        </div>
-      )}
-    </div>
-
-    {/* Key Metrics */}
-    <div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Metrics</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Average Ticket Price</p>
-          <p className="text-2xl font-bold text-gray-900">
-            ₦{(stats.averageTicketPrice || 0).toLocaleString()}
-          </p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Capacity Usage</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {stats.capacityUsage || 0}%
-          </p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Completed Events</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {stats.completedEvents || 0}
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 const EventRow = ({ event }) => {
   const getStatusStyle = () => {
@@ -778,7 +593,6 @@ const EventRow = ({ event }) => {
 
   const capacityPercentage = (event.ticketsSold / event.capacity) * 100;
   
-  // Check if event needs approval (draft status or pending)
   const needsApproval = event.status === 'draft' || event.status === 'pending' || event.approvalStatus === 'pending';
 
   return (
@@ -798,11 +612,10 @@ const EventRow = ({ event }) => {
             </span>
             {needsApproval && (
               <span
-                className="px-2 py-1 rounded-md text-xs font-medium border bg-yellow-100 text-yellow-700 border-yellow-200 flex items-center gap-1"
+                className="px-2 py-1 rounded-md text-xs font-medium border bg-yellow-100 text-yellow-700 border-yellow-200"
                 title="Approval needed"
               >
-                <AlertTriangle className="h-3 w-3" />
-                Approval Needed
+                Needs Approval
               </span>
             )}
           </div>
