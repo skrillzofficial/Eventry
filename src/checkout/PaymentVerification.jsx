@@ -73,7 +73,7 @@ const PaymentVerification = () => {
             }
           }, 5000);
         } else {
-          console.error('❌ Service fee verification failed:', result);
+          console.error(' Service fee verification failed:', result);
           setVerificationStatus('failed');
         }
       } else if (type === 'free') {

@@ -20,8 +20,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
-import { eventAPI, apiCall } from "../../services/api";
-import { createEventAfterPayment } from "../../services/createEventAfterPayment";
+import apiClient from "../../services/api"; // Import axios instance directly
 import { toast } from "react-hot-toast";
 
 const MyEvents = () => {
@@ -100,6 +99,24 @@ const MyEvents = () => {
     return attendees * price;
   };
 
+  // 🚀 DIRECT API CALL - Complete event after payment
+  const completeEventAfterPayment = async (reference) => {
+    try {
+      const response = await apiClient.post(`/transactions/${reference}/complete-draft-event`);
+      return {
+        success: true,
+        event: response.data.event,
+        message: "Event created and published successfully!"
+      };
+    } catch (error) {
+      console.error("Error completing event after payment:", error);
+      return {
+        success: false,
+        error: error.response?.data?.message || "Failed to create event after payment"
+      };
+    }
+  };
+
   // Payment callback handler
   useEffect(() => {
     const handlePaymentCallback = async () => {
@@ -110,7 +127,7 @@ const MyEvents = () => {
       if (paymentStatus === "success" && reference) {
         setProcessingPayment(true);
         try {
-          const result = await createEventAfterPayment(reference);
+          const result = await completeEventAfterPayment(reference);
           if (result.success) {
             toast.success(result.message || "Event created and published successfully!", {
               duration: 5000,
@@ -149,100 +166,76 @@ const MyEvents = () => {
     }
   }, [location.search, isAuthenticated, user, navigate]);
 
-  // Load events
-  useEffect(() => {
-    if (isAuthenticated && user?.role === "organizer" && !processingPayment) {
-      loadMyEvents();
-      loadOrganizerStats();
-    }
-  }, [isAuthenticated, user, processingPayment]);
-
+  // 🚀 DIRECT API CALL - Load events
   const loadMyEvents = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiCall(eventAPI.getOrganizerEvents);
-      if (result.success) {
-        const eventsData = result.data.events || result.data || [];
-        setEvents(eventsData);
-      } else {
-        throw new Error(result.error || "Failed to load your events");
-      }
+      const response = await apiClient.get('/events/organizer/my-events');
+      const eventsData = response.data.events || response.data || [];
+      setEvents(eventsData);
     } catch (err) {
       console.error("Error loading events:", err);
-      setError(err?.message || "Failed to load your events");
+      setError(err.response?.data?.message || "Failed to load your events");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🚀 DIRECT API CALL - Load organizer stats
   const loadOrganizerStats = async () => {
     try {
-      const result = await apiCall(eventAPI.getOrganizerStatistics);
-      if (result.success) {
-        setStats(result.data.statistics || result.data);
-      }
+      const response = await apiClient.get('/events/organizer/statistics');
+      setStats(response.data.statistics || response.data);
     } catch (err) {
       console.error("Error loading stats:", err);
     }
   };
 
-  // Load attendees for approval management
+  // 🚀 DIRECT API CALL - Load attendees for approval management
   const loadEventAttendees = async (eventId) => {
     setLoadingAttendees(true);
     try {
-      const result = await apiCall(eventAPI.getEventAttendees, eventId);
-      if (result.success) {
-        setAttendees(result.data.attendees || result.data || []);
-        setSelectedEvent(events.find(e => e._id === eventId || e.id === eventId));
-      } else {
-        throw new Error(result.error || "Failed to load attendees");
-      }
+      const response = await apiClient.get(`/events/${eventId}/attendees`);
+      setAttendees(response.data.attendees || response.data || []);
+      setSelectedEvent(events.find(e => e._id === eventId || e.id === eventId));
     } catch (err) {
       console.error("Error loading attendees:", err);
-      toast.error(err?.message || "Failed to load attendees");
+      toast.error(err.response?.data?.message || "Failed to load attendees");
     } finally {
       setLoadingAttendees(false);
     }
   };
 
-  // Handle attendee approval
+  // 🚀 DIRECT API CALL - Handle attendee approval
   const handleApproveAttendee = async (attendeeId) => {
     try {
-      const result = await apiCall(eventAPI.approveAttendee, selectedEvent._id, { attendeeId });
-      if (result.success) {
-        setAttendees(attendees.map(attendee => 
-          attendee._id === attendeeId ? { ...attendee, status: 'approved' } : attendee
-        ));
-        toast.success("Attendee approved successfully");
-      } else {
-        throw new Error(result.error || "Failed to approve attendee");
-      }
+      const response = await apiClient.post(`/events/${selectedEvent._id}/attendees/${attendeeId}/approve`);
+      setAttendees(attendees.map(attendee => 
+        attendee._id === attendeeId ? { ...attendee, status: 'approved' } : attendee
+      ));
+      toast.success("Attendee approved successfully");
     } catch (err) {
       console.error("Error approving attendee:", err);
-      toast.error(err?.message || "Failed to approve attendee");
+      toast.error(err.response?.data?.message || "Failed to approve attendee");
     }
   };
 
-  // Handle attendee rejection
+  // 🚀 DIRECT API CALL - Handle attendee rejection
   const handleRejectAttendee = async (attendeeId) => {
     try {
-      const result = await apiCall(eventAPI.rejectAttendee, selectedEvent._id, { attendeeId });
-      if (result.success) {
-        setAttendees(attendees.map(attendee => 
-          attendee._id === attendeeId ? { ...attendee, status: 'rejected' } : attendee
-        ));
-        toast.success("Attendee rejected successfully");
-      } else {
-        throw new Error(result.error || "Failed to reject attendee");
-      }
+      const response = await apiClient.post(`/events/${selectedEvent._id}/attendees/${attendeeId}/reject`);
+      setAttendees(attendees.map(attendee => 
+        attendee._id === attendeeId ? { ...attendee, status: 'rejected' } : attendee
+      ));
+      toast.success("Attendee rejected successfully");
     } catch (err) {
       console.error("Error rejecting attendee:", err);
-      toast.error(err?.message || "Failed to reject attendee");
+      toast.error(err.response?.data?.message || "Failed to reject attendee");
     }
   };
 
-  // Bulk actions
+  // 🚀 DIRECT API CALL - Bulk approve attendees
   const handleBulkApprove = async () => {
     const pendingAttendees = attendees.filter(a => a.status === 'pending');
     if (pendingAttendees.length === 0) {
@@ -251,57 +244,57 @@ const MyEvents = () => {
     }
 
     try {
-      const result = await apiCall(eventAPI.bulkApproveAttendees, selectedEvent._id);
-      if (result.success) {
-        setAttendees(attendees.map(attendee => 
-          attendee.status === 'pending' ? { ...attendee, status: 'approved' } : attendee
-        ));
-        toast.success(`Approved ${pendingAttendees.length} attendees`);
-      } else {
-        throw new Error(result.error || "Failed to approve attendees");
-      }
+      const response = await apiClient.post(`/events/${selectedEvent._id}/attendees/bulk-approve`);
+      setAttendees(attendees.map(attendee => 
+        attendee.status === 'pending' ? { ...attendee, status: 'approved' } : attendee
+      ));
+      toast.success(`Approved ${pendingAttendees.length} attendees`);
     } catch (err) {
       console.error("Error bulk approving:", err);
-      toast.error(err?.message || "Failed to approve attendees");
+      toast.error(err.response?.data?.message || "Failed to approve attendees");
     }
   };
 
+  // 🚀 DIRECT API CALL - Delete event
   const handleDeleteEvent = async (eventId) => {
     try {
-      const result = await apiCall(eventAPI.deleteEvent, eventId);
-      if (result.success) {
-        setEvents(events.filter(event => event._id !== eventId && event.id !== eventId));
-        setDeleteConfirm(null);
-        loadOrganizerStats();
-      } else {
-        throw new Error(result.error || "Failed to delete event");
-      }
+      await apiClient.delete(`/events/${eventId}`);
+      setEvents(events.filter(event => event._id !== eventId && event.id !== eventId));
+      setDeleteConfirm(null);
+      loadOrganizerStats();
+      toast.success("Event deleted successfully");
     } catch (err) {
       console.error("Error deleting event:", err);
-      alert(err?.message || "Failed to delete event");
+      toast.error(err.response?.data?.message || "Failed to delete event");
     }
   };
 
+  // 🚀 DIRECT API CALL - Cancel event
   const handleCancelEvent = async (eventId) => {
     if (!window.confirm("Are you sure you want to cancel this event? This action cannot be undone.")) {
       return;
     }
 
     try {
-      const result = await apiCall(eventAPI.cancelEvent, eventId);
-      if (result.success) {
-        setEvents(events.map(event => 
-          (event._id === eventId || event.id === eventId) ? { ...event, status: "cancelled" } : event
-        ));
-        loadOrganizerStats();
-      } else {
-        throw new Error(result.error || "Failed to cancel event");
-      }
+      await apiClient.patch(`/events/${eventId}/cancel`);
+      setEvents(events.map(event => 
+        (event._id === eventId || event.id === eventId) ? { ...event, status: "cancelled" } : event
+      ));
+      loadOrganizerStats();
+      toast.success("Event cancelled successfully");
     } catch (err) {
       console.error("Error cancelling event:", err);
-      alert(err?.message || "Failed to cancel event");
+      toast.error(err.response?.data?.message || "Failed to cancel event");
     }
   };
+
+  // Load events on component mount
+  useEffect(() => {
+    if (isAuthenticated && user?.role === "organizer" && !processingPayment) {
+      loadMyEvents();
+      loadOrganizerStats();
+    }
+  }, [isAuthenticated, user, processingPayment]);
 
   // Filter events
   const filteredEvents = events.filter(event => {
@@ -604,7 +597,7 @@ const MyEvents = () => {
               </p>
             </div>
             <Link
-              to="/create-event"
+              to="/events/create"
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white font-semibold rounded-lg hover:bg-[#FF8535] transition-colors"
             >
               <Plus className="h-5 w-5" />
@@ -713,7 +706,7 @@ const MyEvents = () => {
                 : "No events match your current filters."}
             </p>
             <Link
-              to="/create-event"
+              to="/events/create"
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF6B35] text-white font-semibold rounded-lg hover:bg-[#FF8535]"
             >
               <Plus className="h-5 w-5" />

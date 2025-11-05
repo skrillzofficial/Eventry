@@ -202,20 +202,16 @@ export const ticketAPI = {
     apiClient.post(`/tickets/${ticketId}/validate`, validationData),
 };
 
-// ============================================
-// TRANSACTION API CALLS
-// ============================================
 export const transactionAPI = {
   // ========== PUBLIC ROUTES ==========
   verifyTransaction: (reference) =>
     apiClient.get(`/transactions/verify/${reference}`),
   verifyServiceFee: (reference) =>
     apiClient.post(`/transactions/verify-service-fee/${reference}`),
-  completeDraftEvent: (reference, eventData) =>
-    apiClient.post(
-      `/transactions/${reference}/complete-draft-event`,
-      eventData
-    ),
+  
+  // ✅ FIXED: Remove eventData parameter (backend gets data from transaction metadata)
+  completeDraftEvent: (reference) =>
+    apiClient.post(`/transactions/${reference}/complete-draft-event`),
 
   // ========== USER ROUTES ==========
   initializeTransaction: (paymentData) =>
@@ -237,6 +233,7 @@ export const transactionAPI = {
   getRevenueStats: (params = {}) =>
     apiClient.get("/transactions/stats/revenue", { params }),
 };
+
 
 // ============================================
 // NOTIFICATION API CALLS

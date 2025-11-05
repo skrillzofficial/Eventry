@@ -26,6 +26,8 @@ import SocialBannerUploader from "../../../form/SocialBannerUploader/SocialBanne
 import EventCommunity from "../../../form/EventCommunity/EventCommunity";
 import LocationSelector from "../../../form/LocationSelector/LocationSelector";
 import TicketManager from "../../../form/TicketManager/TicketManager";
+import  apiClient  from "../../services/api";
+import { toast } from "react-hot-toast";
 
 const CreateEvent = () => {
   const { isAuthenticated, isOrganizer } = useAuth();
@@ -41,6 +43,7 @@ const CreateEvent = () => {
   const [imageFiles, setImageFiles] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [imageUploading, setImageUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Event type and location states
   const [eventType, setEventType] = useState("physical");
@@ -198,7 +201,7 @@ const CreateEvent = () => {
     }
   }, [location.state, setValue]);
 
-  // Update form values when state/city changes - CRITICAL FIX
+  // Update form values when state/city changes
   useEffect(() => {
     if (selectedState) {
       setValue("state", selectedState, { shouldValidate: true });
@@ -383,6 +386,7 @@ const CreateEvent = () => {
     const files = Array.from(e.target.files);
 
     if (files.length + uploadedImages.length > 3) {
+      toast.error("Maximum 3 images allowed");
       return;
     }
 
@@ -392,14 +396,14 @@ const CreateEvent = () => {
       const newImageFiles = [...imageFiles];
       const newUploadedImages = [...uploadedImages];
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       for (const file of files) {
         if (!file.type.startsWith("image/")) {
+          toast.error("Please upload only image files");
           continue;
         }
 
         if (file.size > 5 * 1024 * 1024) {
+          toast.error("Image size should be less than 5MB");
           continue;
         }
 
@@ -414,8 +418,10 @@ const CreateEvent = () => {
       }
 
       setImageFiles(newImageFiles);
+      toast.success("Images uploaded successfully");
     } catch (error) {
       console.error("Failed to upload images");
+      toast.error("Failed to upload images");
     } finally {
       setImageUploading(false);
     }
@@ -426,9 +432,10 @@ const CreateEvent = () => {
       prev.filter((_, index) => index !== indexToRemove)
     );
     setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+    toast.success("Image removed");
   };
 
-  // Step validation - ENHANCED VALIDATION
+  // Step validation
   const validateStep = async (step) => {
     let isValid = true;
     const values = getValues();
@@ -438,7 +445,6 @@ const CreateEvent = () => {
         isValid = await trigger(["title", "description", "category"]);
         break;
       case 2:
-        // Enhanced date validation
         isValid = await trigger(["startDate", "time", "endTime"]);
 
         if (!values.startDate) {
@@ -460,12 +466,10 @@ const CreateEvent = () => {
         }
         break;
       case 3:
-        // Enhanced location validation
         if (eventType === "physical" || eventType === "hybrid") {
           isValid = await trigger(["venue", "address", "state", "city"]);
           isValid = isValid && selectedState && selectedCity;
 
-          // Double check form values
           if (!values.state || !values.city) {
             isValid = false;
           }
@@ -485,10 +489,10 @@ const CreateEvent = () => {
         }
         break;
       case 5:
-        isValid = true; // Optional step
+        isValid = true;
         break;
       case 6:
-        isValid = true; // Optional step
+        isValid = true;
         break;
       default:
         isValid = true;
@@ -504,6 +508,8 @@ const CreateEvent = () => {
       setCompletedSteps({ ...completedSteps, [currentStep]: true });
       setCurrentStep(currentStep + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      toast.error("Please complete all required fields before proceeding");
     }
   };
 
@@ -513,11 +519,10 @@ const CreateEvent = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // COMPREHENSIVE PREVIEW DATA PREPARATION
+  // Prepare preview data
   const preparePreviewData = () => {
     const formData = getValues();
 
-    // ✅ FIX: If using legacy pricing, ensure ticketTypes has the form data
     let finalTicketTypes = ticketTypes;
     if (useLegacyPricing) {
       finalTicketTypes = [
@@ -536,41 +541,29 @@ const CreateEvent = () => {
       ];
     }
 
-    // Create comprehensive event data object
     const eventData = {
-      // Basic Info
       title: formData.title || "",
       category: formData.category || "",
       description: formData.description || "",
       longDescription: formData.longDescription || "",
-
-      // Date & Time - ENSURING THESE ARE INCLUDED
       startDate: formData.startDate || "",
       endDate: formData.endDate || "",
       time: formData.time || "",
       endTime: formData.endTime || "",
       isMultiDay: isMultiDay,
-
-      // Location - ENSURING STATE AND CITY ARE INCLUDED
       eventType: eventType,
       virtualEventLink: virtualEventLink || "",
       venue: formData.venue || "",
       address: formData.address || "",
       state: selectedState || formData.state || "",
       city: selectedCity || formData.city || "",
-
-      // Tickets - ✅ USE CORRECTED TICKET TYPES
       ticketTypes: finalTicketTypes,
       useLegacyPricing: useLegacyPricing,
       singleTicketBenefits: singleTicketBenefits,
       price: formData.price || "",
       capacity: formData.capacity || "",
-
-      // Additional Info
       tags: tags,
       requirements: requirements,
-
-      // Media & Social
       socialBannerEnabled: socialBannerEnabled,
       socialBannerFile: socialBannerFile,
       communityEnabled: communityEnabled,
@@ -580,37 +573,29 @@ const CreateEvent = () => {
     return eventData;
   };
 
-  // Handle preview navigation - FIXED DATA PASSING
+  // Handle preview - NO API CALL
   const handlePreview = async () => {
-    // Validate current step before proceeding to preview
     const isValid = await validateStep(currentStep);
     if (!isValid) {
-      alert(
-        "Please complete all required fields in the current step before previewing."
-      );
+      toast.error("Please complete all required fields before previewing");
       return;
     }
 
     const eventData = preparePreviewData();
 
-    // Debug log to verify data
-    console.log("Preview Data:", {
+    console.log("📦 Navigating to preview with data:", {
       eventData,
-      hasStartDate: !!eventData.startDate,
-      hasState: !!eventData.state,
-      stateValue: eventData.state,
-      selectedState,
-      formState: getValues("state"),
+      imageFilesCount: imageFiles.length,
+      uploadedImagesCount: uploadedImages.length,
     });
 
+    // Navigate directly to preview without API validation
     navigate("/events/preview", {
       state: {
         eventData: eventData,
-        formData: getValues(),
         imageFiles: imageFiles,
         uploadedImages: uploadedImages,
       },
-      replace: true,
     });
   };
 
@@ -729,6 +714,7 @@ const CreateEvent = () => {
           </p>
         </div>
 
+        {/* Progress Steps */}
         <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
@@ -777,6 +763,7 @@ const CreateEvent = () => {
         </div>
 
         <form className="space-y-8">
+          {/* Step 1: Basic Information */}
           {currentStep === 1 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-6">
@@ -893,6 +880,7 @@ const CreateEvent = () => {
             </div>
           )}
 
+          {/* Step 2: Date & Time */}
           {currentStep === 2 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-6">
@@ -1007,6 +995,7 @@ const CreateEvent = () => {
             </div>
           )}
 
+          {/* Step 3: Location */}
           {currentStep === 3 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <LocationSelector
@@ -1025,6 +1014,7 @@ const CreateEvent = () => {
             </div>
           )}
 
+          {/* Step 4: Tickets */}
           {currentStep === 4 && (
             <TicketManager
               useLegacyPricing={useLegacyPricing}
@@ -1049,6 +1039,7 @@ const CreateEvent = () => {
             />
           )}
 
+          {/* Step 5: Additional Information */}
           {currentStep === 5 && (
             <div className="space-y-8">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -1164,6 +1155,7 @@ const CreateEvent = () => {
             </div>
           )}
 
+          {/* Step 6: Media */}
           {currentStep === 6 && (
             <div className="space-y-8">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -1184,8 +1176,7 @@ const CreateEvent = () => {
                       className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6B35] file:text-white hover:file:bg-[#FF8535] disabled:opacity-50"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB
-                      per image.
+                      Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB per image.
                     </p>
                     {imageUploading && (
                       <div className="flex items-center gap-2 text-blue-600 text-sm mt-2">
@@ -1230,6 +1221,7 @@ const CreateEvent = () => {
             </div>
           )}
 
+          {/* Navigation Buttons */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex flex-col sm:flex-row gap-4 justify-between">
               <div className="flex gap-4">
@@ -1275,8 +1267,7 @@ const CreateEvent = () => {
                   {currentStep === 1 && (
                     <>
                       <li>
-                        Choose a clear, descriptive title that captures your
-                        event
+                        Choose a clear, descriptive title that captures your event
                       </li>
                       <li>
                         Write a compelling description to attract attendees

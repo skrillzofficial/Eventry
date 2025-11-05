@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -21,18 +21,18 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import PaymentAgreement from "../pages/dashboard/PaymentAgreement";
 import ServiceFeeCheckout from "../checkout/ServiceFeeCheckout";
-import { eventAPI, apiCall } from "../services/api";
-import {
-  storePendingEventData,
-  clearPendingEventData,
-} from "../services/createEventAfterPayment";
+import apiClient from "../services/api"; // Import axios instance directly
 import { toast } from "react-hot-toast";
 
 const EventPreview = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { eventData, formData, imageFiles, uploadedImages } =
-    location.state || {};
+
+  // State for data with proper initialization
+  const [eventData, setEventData] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [savingAs, setSavingAs] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -42,11 +42,57 @@ const EventPreview = () => {
   const [publishData, setPublishData] = useState(null);
   const [showServiceFeeCheckout, setShowServiceFeeCheckout] = useState(false);
   const [serviceFeeData, setServiceFeeData] = useState(null);
-  const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Redirect back if no data
-  if (!eventData || !formData) {
-    navigate("/events/create");
+  // Load data from location state
+  useEffect(() => {
+    if (location.state) {
+      const { eventData: stateEventData, imageFiles: stateImageFiles, uploadedImages: stateUploadedImages } = location.state;
+
+      console.log("📥 Received data in EventPreview:", {
+        hasEventData: !!stateEventData,
+        eventData: stateEventData,
+        imageFilesCount: stateImageFiles?.length,
+        uploadedImagesCount: stateUploadedImages?.length
+      });
+
+      if (stateEventData) {
+        setEventData(stateEventData);
+        setImageFiles(stateImageFiles || []);
+        setUploadedImages(stateUploadedImages || []);
+        setIsLoading(false);
+      } else {
+        console.error("❌ Missing event data in location state");
+        navigate("/events/create");
+      }
+    } else {
+      console.error("❌ No location state found");
+      navigate("/events/create");
+    }
+  }, [location.state, navigate]);
+
+  // Simple storage for pending event data
+  const storePendingEventData = (data) => {
+    localStorage.setItem('pendingEventData', JSON.stringify(data));
+  };
+
+  const clearPendingEventData = () => {
+    localStorage.removeItem('pendingEventData');
+  };
+
+  // Show loading while checking data
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading event preview...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if no data (will redirect)
+  if (!eventData) {
     return null;
   }
 
@@ -79,60 +125,6 @@ const EventPreview = () => {
     communityEnabled,
     communityData,
   } = eventData;
-
-  // ✅ CLOUDINARY UPLOAD FUNCTION
-  const uploadImagesToCloudinary = async (files) => {
-    if (!files || files.length === 0) {
-      return [];
-    }
-
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-
-    if (!cloudName || !uploadPreset) {
-      throw new Error("Cloudinary configuration missing. Please check your environment variables.");
-    }
-
-    const uploadedUrls = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", uploadPreset);
-      formData.append("folder", "event-images");
-
-      try {
-        console.log(`Uploading image ${i + 1}/${files.length} to Cloudinary...`);
-
-        const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || "Upload failed");
-        }
-
-        const data = await response.json();
-        uploadedUrls.push({
-          url: data.secure_url,
-          publicId: data.public_id,
-        });
-
-        console.log(`✅ Image ${i + 1} uploaded:`, data.secure_url);
-      } catch (error) {
-        console.error(`❌ Failed to upload image ${i + 1}:`, error);
-        throw new Error(`Failed to upload image ${i + 1}: ${error.message}`);
-      }
-    }
-
-    return uploadedUrls;
-  };
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -297,61 +289,42 @@ const EventPreview = () => {
     setShowPaymentAgreement(true);
   };
 
-  // ✅ UPDATED: Handle agreement confirmation with Cloudinary upload
+  // ✅ DIRECT API CALL - Handle agreement confirmation
   const handleAgreementConfirm = async (
     agreementData,
     actionType = "publish_direct"
   ) => {
     try {
       if (actionType === "service_fee_payment") {
-        // ✅ STEP 1: Upload images to Cloudinary BEFORE payment
-        setUploadingImages(true);
-        toast.loading("Uploading images to cloud storage...", { id: "image-upload" });
-
-        let cloudinaryUrls = [];
-        
-        try {
-          if (imageFiles && imageFiles.length > 0) {
-            cloudinaryUrls = await uploadImagesToCloudinary(imageFiles);
-            toast.success(`${cloudinaryUrls.length} image(s) uploaded successfully!`, { id: "image-upload" });
-          }
-        } catch (uploadError) {
-          console.error("❌ Image upload failed:", uploadError);
-          toast.error(uploadError.message || "Failed to upload images", { id: "image-upload" });
-          setUploadingImages(false);
-          return; // Stop here if upload fails
-        }
-
-        setUploadingImages(false);
-
-        // ✅ STEP 2: Prepare event data with Cloudinary URLs
+        // ✅ STEP 1: Prepare complete event data with image files
         const enhancedAgreementData = {
           ...agreementData,
           acceptedTerms: true,
           acceptedAt: new Date().toISOString(),
         };
 
-        // ✅ Create complete publish data with Cloudinary URLs
+        // ✅ Create complete publish data with image files for metadata
         const completePublishData = {
           ...publishData,
-          cloudinaryImages: cloudinaryUrls, // Add Cloudinary URLs
+          imageFiles: imageFiles, // Include image files for metadata
+          uploadedImages: uploadedImages, // Include for reference
         };
 
         console.log("💾 Storing pending event data with agreement:", {
           hasPublishData: !!completePublishData,
           hasAgreementData: !!enhancedAgreementData,
-          cloudinaryImagesCount: cloudinaryUrls.length,
+          imageFilesCount: imageFiles?.length || 0,
           agreementAcceptedTerms: enhancedAgreementData.acceptedTerms,
           serviceFee: enhancedAgreementData.serviceFee,
           attendanceRange: enhancedAgreementData.attendanceRange,
         });
 
-        // ✅ Store data with Cloudinary URLs
+        // ✅ Store data with image files
         storePendingEventData(completePublishData);
 
         setShowPaymentAgreement(false);
         setServiceFeeData({
-          eventData: completePublishData, // Pass data with Cloudinary URLs
+          eventData: completePublishData, // Pass data with image files
           agreementData: enhancedAgreementData,
           serviceFee: agreementData.serviceFee.min,
           attendanceRange: agreementData.attendanceRange,
@@ -446,18 +419,11 @@ const EventPreview = () => {
         formDataToSend.append("requirements", JSON.stringify(requirements));
       }
 
-      // ✅ For free events, upload images to Cloudinary
+      // ✅ Append image files directly - backend will handle as metadata
       if (imageFiles && imageFiles.length > 0) {
-        toast.loading("Uploading images...", { id: "image-upload" });
-        try {
-          const cloudinaryUrls = await uploadImagesToCloudinary(imageFiles);
-          formDataToSend.append("cloudinaryImages", JSON.stringify(cloudinaryUrls));
-          toast.success("Images uploaded!", { id: "image-upload" });
-        } catch (uploadError) {
-          console.error("Image upload failed:", uploadError);
-          toast.error("Failed to upload images", { id: "image-upload" });
-          throw uploadError;
-        }
+        imageFiles.forEach((file) => {
+          formDataToSend.append("images", file);
+        });
       }
 
       // Social banner
@@ -488,11 +454,15 @@ const EventPreview = () => {
         city: formDataToSend.get("city"),
         eventType: formDataToSend.get("eventType"),
         hasAgreement: !!formDataToSend.get("agreement"),
+        imageFilesCount: imageFiles?.length || 0,
       });
 
-      const result = await apiCall(eventAPI.createEvent, formDataToSend);
+      // 🚀 DIRECT API CALL - No service layer!
+      const response = await apiClient.post('/events/create', formDataToSend, {
+        timeout: 120000,
+      });
 
-      if (result.success) {
+      if (response.data.success) {
         setSuccessMessage("Event published successfully!");
         setShowSuccess(true);
 
@@ -502,11 +472,11 @@ const EventPreview = () => {
           navigate("/dashboard/organizer");
         }, 2500);
       } else {
-        throw new Error(result.error || "Failed to publish event");
+        throw new Error(response.data.message || "Failed to publish event");
       }
     } catch (error) {
       console.error("Publish error:", error);
-      setError(error.message || "Failed to publish event. Please try again.");
+      setError(error.response?.data?.message || error.message || "Failed to publish event. Please try again.");
     } finally {
       setSavingAs(null);
     }
@@ -603,6 +573,7 @@ const EventPreview = () => {
       if (requirements && requirements.length > 0)
         formDataToSend.append("requirements", JSON.stringify(requirements));
 
+      // ✅ Append image files for draft too
       if (imageFiles && imageFiles.length > 0) {
         imageFiles.forEach((file) => {
           formDataToSend.append("images", file);
@@ -619,9 +590,12 @@ const EventPreview = () => {
         formDataToSend.append("communityEnabled", "true");
       }
 
-      const result = await apiCall(eventAPI.createEvent, formDataToSend);
+      // 🚀 DIRECT API CALL - No service layer!
+      const response = await apiClient.post('/events/create', formDataToSend, {
+        timeout: 120000,
+      });
 
-      if (result.success) {
+      if (response.data.success) {
         setSuccessMessage(
           "Event saved as draft! You can edit and publish it later from your dashboard."
         );
@@ -633,10 +607,10 @@ const EventPreview = () => {
           navigate("/dashboard/organizer");
         }, 2500);
       } else {
-        setError(result.error || "Failed to save as draft");
+        setError(response.data.message || "Failed to save as draft");
       }
     } catch (error) {
-      setError("An unexpected error occurred. Please try again.");
+      setError(error.response?.data?.message || "An unexpected error occurred. Please try again.");
     } finally {
       setSavingAs(null);
     }
@@ -691,8 +665,8 @@ const EventPreview = () => {
         <div className="mb-8">
           <button
             onClick={() =>
-              navigate("/create-event", {
-                state: { eventData, formData, imageFiles, uploadedImages },
+              navigate("/events/create", {
+                state: { eventData, imageFiles, uploadedImages },
               })
             }
             className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] mb-4 transition-colors"
@@ -750,8 +724,7 @@ const EventPreview = () => {
                   Service Fee Required
                 </h4>
                 <p className="text-blue-700 text-sm">
-                  This event has paid tickets and requires a service fee payment
-                  to publish. Images will be uploaded to cloud storage before payment.
+                  This event has paid tickets and requires a service fee payment to publish.
                 </p>
               </div>
             </div>
@@ -1136,10 +1109,9 @@ const EventPreview = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
                   onClick={() =>
-                    navigate("/create-event", {
+                    navigate("/events/create", {
                       state: {
                         eventData,
-                        formData,
                         imageFiles,
                         uploadedImages,
                       },
@@ -1154,7 +1126,7 @@ const EventPreview = () => {
                 <button
                   type="button"
                   onClick={handleSaveAsDraft}
-                  disabled={savingAs || uploadingImages}
+                  disabled={savingAs}
                   className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 disabled:opacity-50 transition-colors flex items-center justify-center"
                 >
                   {savingAs === "draft" ? (
@@ -1173,15 +1145,10 @@ const EventPreview = () => {
                 <button
                   type="button"
                   onClick={handlePublishClick}
-                  disabled={savingAs || !canPublish || uploadingImages}
+                  disabled={savingAs || !canPublish}
                   className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] disabled:opacity-50 transition-colors flex items-center justify-center"
                 >
-                  {uploadingImages ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Uploading Images...
-                    </>
-                  ) : savingAs === "published" ? (
+                  {savingAs === "published" ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Publishing...

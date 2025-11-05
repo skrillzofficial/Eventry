@@ -19,8 +19,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { eventAPI, apiCall } from "../services/api";
-import createEventAfterPayment from "../services/createEventAfterPayment";
+import apiClient  from "../services/api"; // Import axios instance directly
 import { toast } from "react-hot-toast";
 
 const OrganizerDashboard = () => {
@@ -36,6 +35,24 @@ const OrganizerDashboard = () => {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
+  // 🚀 DIRECT API CALL - Complete event after payment
+  const completeEventAfterPayment = async (reference) => {
+    try {
+      const response = await apiClient.post(`/transactions/${reference}/complete-draft-event`);
+      return {
+        success: true,
+        event: response.data.event,
+        message: "Event created and published successfully!"
+      };
+    } catch (error) {
+      console.error("Error completing event after payment:", error);
+      return {
+        success: false,
+        error: error.response?.data?.message || "Failed to create event after payment"
+      };
+    }
+  };
+
   // Handle payment callback on mount
   useEffect(() => {
     const handlePaymentCallback = async () => {
@@ -46,7 +63,7 @@ const OrganizerDashboard = () => {
       if (paymentStatus === "success" && reference) {
         setProcessingPayment(true);
         try {
-          const result = await createEventAfterPayment(reference);
+          const result = await completeEventAfterPayment(reference);
           if (result.success) {
             toast.success(result.message || "Event created successfully!", {
               duration: 5000,
@@ -98,22 +115,22 @@ const OrganizerDashboard = () => {
     }
   }, [isAuthenticated, isOrganizer, navigate, processingPayment]);
 
+  // 🚀 DIRECT API CALL - Load organizer data
   const loadOrganizerData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiCall(eventAPI.getOrganizerEvents);
-
-      if (result.success) {
-        const events = result.data?.events || result.data || [];
-        processAndDisplayEvents(events);
-        calculateStatistics(events);
-      } else {
-        throw new Error(result.error || "Failed to load events");
-      }
+      
+      // Load events
+      const eventsResponse = await apiClient.get('/events/organizer/my-events');
+      const events = eventsResponse.data?.events || eventsResponse.data || [];
+      
+      processAndDisplayEvents(events);
+      calculateStatistics(events);
+      
     } catch (error) {
       console.error("Error loading organizer data:", error);
-      setError(error.message || "Failed to load dashboard data");
+      setError(error.response?.data?.message || "Failed to load dashboard data");
       setStats({
         totalEvents: 0,
         activeEvents: 0,
@@ -339,7 +356,7 @@ const OrganizerDashboard = () => {
                 />
               </button>
               <Link
-                to="/create-event"
+                to="/events/create"
                 className="bg-[#FF6B35] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#E55A2B] transition flex items-center"
               >
                 <Plus className="w-5 h-5 mr-2" />
@@ -413,7 +430,7 @@ const OrganizerDashboard = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <Link
-                  to="/create-event"
+                  to="/events/create"
                   className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-[#FF6B35] hover:bg-orange-50 transition group"
                 >
                   <Plus className="h-6 w-6 text-[#FF6B35] group-hover:scale-110 transition" />
@@ -484,7 +501,7 @@ const OrganizerDashboard = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-900">Recent Events</h3>
                       <Link
-                        to="/my-events"
+                        to="/dashboard/organizer/events"
                         className="text-sm text-[#FF6B35] hover:text-[#E55A2B] flex items-center"
                       >
                         View all <ArrowRight className="h-4 w-4 ml-1" />
@@ -496,7 +513,7 @@ const OrganizerDashboard = () => {
                           <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                           <p className="text-gray-500 mb-4">No events created yet</p>
                           <Link
-                            to="/create-event"
+                            to="/events/create"
                             className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] font-medium"
                           >
                             <Plus className="h-4 w-4 mr-1" />
@@ -554,7 +571,7 @@ const OrganizerDashboard = () => {
                           <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                           <p className="text-gray-500 mb-2">No revenue data available</p>
                           <Link
-                            to="/create-event"
+                            to="/events/create"
                             className="text-[#FF6B35] hover:underline text-sm"
                           >
                             Create your first event

@@ -82,7 +82,7 @@ const AppRoutes = () => {
           <Route path="/resend-verification" element={<ResendVerification />} />
 
           {/* Event Routes */}
-          <Route path="/create-event" element={<CreateEvent />} />
+          <Route path="/events/create" element={<CreateEvent />} />
           <Route path="/events/preview" element={<EventPreview/>} />
           <Route path="/discover" element={<DiscoverEvents />} />
           <Route path="/event/:id" element={<EventPage />} />
