@@ -66,7 +66,7 @@ const AppRoutes = () => {
           <Route path="/checkout/:eventId" element={<CheckoutFlow />} />
 
           {/* Payment Verification */}
-          <Route path="/payment/verify" element={<PaymentVerification />} />
+          <Route path="/payment-verification" element={<PaymentVerification />} />
           
           {/* Tickets */}
           <Route path="/my-tickets" element={<MyTickets />} />

@@ -4,11 +4,10 @@ export const BACKEND_URL =
   import.meta.env.VITE_API_URL ||
   "https://ecommerce-backend-tb8u.onrender.com/api/v1";
 
-// Create axios instance WITHOUT default Content-Type
+// Create axios instance 
 const apiClient = axios.create({
   baseURL: BACKEND_URL,
   timeout: 50000,
-  // Don't set default headers - let axios handle Content-Type per request
 });
 
 // Request interceptor to add auth token
@@ -20,7 +19,7 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // CRITICAL: Let browser set Content-Type for FormData with boundary
+    // Content-Type for FormData with boundary
     if (config.data instanceof FormData) {
       // Delete any Content-Type header to let browser handle it
       if (config.headers["Content-Type"]) {
@@ -31,13 +30,12 @@ apiClient.interceptors.request.use(
       config.headers["Content-Type"] = "application/json";
     }
 
-    // Debug logging (remove in production)
+    // Debug logging
     if (process.env.NODE_ENV === "development") {
-      console.log("📤 API Request:", {
+      console.log(" API Request:", {
         url: config.url,
         method: config.method,
         isFormData: config.data instanceof FormData,
-        contentType: config.headers["Content-Type"],
       });
     }
 
@@ -51,12 +49,11 @@ apiClient.interceptors.request.use(
 // Response interceptor to handle common errors
 apiClient.interceptors.response.use(
   (response) => {
-    // Debug logging (remove in production)
+    // Debug logging
     if (process.env.NODE_ENV === "development") {
       console.log("📥 API Response:", {
         url: response.config.url,
         status: response.status,
-        success: response.data?.success,
       });
     }
     return response;
@@ -138,7 +135,7 @@ export const eventAPI = {
   getEventsNeedingApproval: (params = {}) =>
     apiClient.get("/events/organizer/needing-approval", { params }),
   createEvent: (eventData) =>
-    apiClient.post("/events/create", eventData, { timeout: 120000 }),
+    apiClient.post("/events", eventData, { timeout: 120000 }),
   updateEvent: (eventId, eventData) =>
     apiClient.patch(`/events/${eventId}`, eventData, { timeout: 120000 }),
   deleteEventImage: (eventId, imageIndex) =>
@@ -202,16 +199,15 @@ export const ticketAPI = {
     apiClient.post(`/tickets/${ticketId}/validate`, validationData),
 };
 
+// ============================================
+// TRANSACTION API CALLS
+// ============================================
 export const transactionAPI = {
   // ========== PUBLIC ROUTES ==========
   verifyTransaction: (reference) =>
     apiClient.get(`/transactions/verify/${reference}`),
   verifyServiceFee: (reference) =>
     apiClient.post(`/transactions/verify-service-fee/${reference}`),
-  
-  // ✅ FIXED: Remove eventData parameter (backend gets data from transaction metadata)
-  completeDraftEvent: (reference) =>
-    apiClient.post(`/transactions/${reference}/complete-draft-event`),
 
   // ========== USER ROUTES ==========
   initializeTransaction: (paymentData) =>
@@ -233,7 +229,6 @@ export const transactionAPI = {
   getRevenueStats: (params = {}) =>
     apiClient.get("/transactions/stats/revenue", { params }),
 };
-
 
 // ============================================
 // NOTIFICATION API CALLS
@@ -272,18 +267,18 @@ export const superadminAPI = {
 };
 
 // ============================================
-// UNIFIED API CALL WRAPPER
+// SIMPLIFIED API CALL WRAPPER
 // ============================================
 export const apiCall = async (apiFunction, ...args) => {
   try {
-    // Execute the API function with any arguments
     const response = await (typeof apiFunction === "function"
       ? apiFunction(...args)
       : apiFunction);
 
+    // ✅ FIX: Return the data directly without nesting
     return {
       success: true,
-      data: response.data,
+      ...response.data, // Spread response data at top level
       status: response.status,
     };
   } catch (error) {
@@ -292,64 +287,26 @@ export const apiCall = async (apiFunction, ...args) => {
     let errorMessage = "An unexpected error occurred";
     let errorCode = error.response?.status;
 
-    // Handle timeout errors
+    // Handle specific error types
     if (error.code === "ECONNABORTED") {
       errorMessage = "Request timeout. Please check your connection.";
       errorCode = 408;
-    }
-    // Handle network errors
-    else if (error.code === "ERR_NETWORK") {
+    } else if (error.code === "ERR_NETWORK") {
       errorMessage = "Network error. Please check your internet connection.";
       errorCode = 0;
-    }
-    // Handle response errors
-    else if (error.response?.data) {
+    } else if (error.response?.data) {
       errorMessage =
         error.response.data.message ||
         error.response.data.error ||
         errorMessage;
-    }
-    // Handle request errors
-    else if (error.message) {
+    } else if (error.message) {
       errorMessage = error.message;
-    }
-
-    // Map common HTTP status codes to user-friendly messages
-    switch (errorCode) {
-      case 400:
-        // Keep the specific error message from server for validation errors
-        break;
-      case 401:
-        errorMessage = "Please log in to access this feature";
-        break;
-      case 403:
-        errorMessage = "You don't have permission to perform this action";
-        break;
-      case 404:
-        errorMessage = "The requested resource was not found";
-        break;
-      case 409:
-        errorMessage = "A conflict occurred while processing your request";
-        break;
-      case 413:
-        errorMessage = "File size too large. Please use smaller files";
-        break;
-      case 429:
-        errorMessage = "Too many requests. Please try again later";
-        break;
-      case 500:
-      case 502:
-      case 503:
-      case 504:
-        errorMessage = "Server error. Please try again later";
-        break;
     }
 
     return {
       success: false,
       error: errorMessage,
       status: errorCode,
-      details: error.response?.data,
     };
   }
 };

@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Calendar,
   Users,
-  TrendingUp,
-  Ticket,
   Wallet,
   ArrowRight,
   Plus,
@@ -19,86 +17,20 @@ import {
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import apiClient  from "../services/api"; // Import axios instance directly
-import { toast } from "react-hot-toast";
+import apiClient  from "../services/api";
 
 const OrganizerDashboard = () => {
   const { user, isAuthenticated, isOrganizer } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [stats, setStats] = useState({});
   const [recentEvents, setRecentEvents] = useState([]);
   const [revenueData, setRevenueData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [processingPayment, setProcessingPayment] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
-  // 🚀 DIRECT API CALL - Complete event after payment
-  const completeEventAfterPayment = async (reference) => {
-    try {
-      const response = await apiClient.post(`/transactions/${reference}/complete-draft-event`);
-      return {
-        success: true,
-        event: response.data.event,
-        message: "Event created and published successfully!"
-      };
-    } catch (error) {
-      console.error("Error completing event after payment:", error);
-      return {
-        success: false,
-        error: error.response?.data?.message || "Failed to create event after payment"
-      };
-    }
-  };
-
-  // Handle payment callback on mount
-  useEffect(() => {
-    const handlePaymentCallback = async () => {
-      const params = new URLSearchParams(location.search);
-      const paymentStatus = params.get("payment");
-      const reference = params.get("reference");
-
-      if (paymentStatus === "success" && reference) {
-        setProcessingPayment(true);
-        try {
-          const result = await completeEventAfterPayment(reference);
-          if (result.success) {
-            toast.success(result.message || "Event created successfully!", {
-              duration: 5000,
-              icon: "🎉",
-            });
-            window.history.replaceState({}, "", "/dashboard/organizer/events");
-            setTimeout(() => {
-              const eventId = result.event?._id || result.event?.id;
-              if (eventId) {
-                navigate(`/event/${eventId}`);
-              } else {
-                setProcessingPayment(false);
-                loadOrganizerData();
-              }
-            }, 2000);
-          } else {
-            toast.error(result.error || "Failed to create event", { duration: 6000 });
-            window.history.replaceState({}, "", "/dashboard/organizer/events");
-            setProcessingPayment(false);
-            loadOrganizerData();
-          }
-        } catch (error) {
-          toast.error("Error creating event. Please contact support.", { duration: 6000 });
-          window.history.replaceState({}, "", "/dashboard/organizer/events");
-          setProcessingPayment(false);
-          loadOrganizerData();
-        }
-      }
-    };
-
-    if (isAuthenticated && isOrganizer) {
-      handlePaymentCallback();
-    }
-  }, [location.search, isAuthenticated, isOrganizer, navigate]);
-
+  // ✅ CHECK AUTHENTICATION
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
@@ -110,10 +42,8 @@ const OrganizerDashboard = () => {
       return;
     }
 
-    if (!processingPayment) {
-      loadOrganizerData();
-    }
-  }, [isAuthenticated, isOrganizer, navigate, processingPayment]);
+    loadOrganizerData();
+  }, [isAuthenticated, isOrganizer, navigate]);
 
   // 🚀 DIRECT API CALL - Load organizer data
   const loadOrganizerData = async () => {
@@ -121,7 +51,6 @@ const OrganizerDashboard = () => {
       setLoading(true);
       setError(null);
       
-      // Load events
       const eventsResponse = await apiClient.get('/events/organizer/my-events');
       const events = eventsResponse.data?.events || eventsResponse.data || [];
       
@@ -197,7 +126,6 @@ const OrganizerDashboard = () => {
         ? Math.round((totalAttendees / totalCapacity) * 100)
         : 0;
 
-    // Calculate pending approvals
     const pendingApprovals = events.filter(
       (event) => event.status === 'draft' || event.status === 'pending' || event.approvalStatus === 'pending'
     ).length;
@@ -290,22 +218,13 @@ const OrganizerDashboard = () => {
     );
   }
 
-  if (loading || processingPayment) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <div className="container mx-auto w-11/12 py-8 flex flex-col items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FF6B35] border-t-transparent mb-4"></div>
-          <p className="text-gray-900 font-medium">
-            {processingPayment
-              ? "Processing your payment and creating event..."
-              : "Loading your dashboard..."}
-          </p>
-          {processingPayment && (
-            <p className="text-gray-600 text-sm mt-2">
-              Please wait, this may take a moment...
-            </p>
-          )}
+          <p className="text-gray-900 font-medium">Loading your dashboard...</p>
         </div>
         <Footer />
       </div>
@@ -468,7 +387,6 @@ const OrganizerDashboard = () => {
 
           {/* Right Column - Content */}
           <div className="lg:col-span-3">
-            {/* Simplified Tabs */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
               <div className="border-b border-gray-200 px-6">
                 <nav className="flex space-x-8">
@@ -522,10 +440,7 @@ const OrganizerDashboard = () => {
                         </div>
                       ) : (
                         recentEvents.map((event) => (
-                          <EventRow
-                            key={event.id}
-                            event={event}
-                          />
+                          <EventRow key={event.id} event={event} />
                         ))
                       )}
                     </div>
@@ -534,7 +449,6 @@ const OrganizerDashboard = () => {
 
                 {activeTab === "analytics" && (
                   <div className="space-y-6">
-                    {/* Revenue Chart */}
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">
                         Revenue Over Time
@@ -609,7 +523,6 @@ const EventRow = ({ event }) => {
   };
 
   const capacityPercentage = (event.ticketsSold / event.capacity) * 100;
-  
   const needsApproval = event.status === 'draft' || event.status === 'pending' || event.approvalStatus === 'pending';
 
   return (
@@ -628,10 +541,7 @@ const EventRow = ({ event }) => {
               {event.status}
             </span>
             {needsApproval && (
-              <span
-                className="px-2 py-1 rounded-md text-xs font-medium border bg-yellow-100 text-yellow-700 border-yellow-200"
-                title="Approval needed"
-              >
+              <span className="px-2 py-1 rounded-md text-xs font-medium border bg-yellow-100 text-yellow-700 border-yellow-200">
                 Needs Approval
               </span>
             )}
@@ -652,7 +562,6 @@ const EventRow = ({ event }) => {
             </span>
           </div>
 
-          {/* Progress Bar */}
           <div className="mt-3">
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-gray-500">Capacity</span>

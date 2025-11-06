@@ -158,7 +158,7 @@ const CreateEvent = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Restore state from location if coming back from preview
+  // Restore state from location 
   useEffect(() => {
     if (location.state?.eventData) {
       const {

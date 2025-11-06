@@ -15,13 +15,14 @@ import {
   Image as ImageIcon,
   Monitor,
   Globe,
+  CreditCard,
+  Loader
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import PaymentAgreement from "../pages/dashboard/PaymentAgreement";
 import ServiceFeeCheckout from "../checkout/ServiceFeeCheckout";
-import apiClient from "../services/api"; // Import axios instance directly
 import { toast } from "react-hot-toast";
 
 const EventPreview = () => {
@@ -69,6 +70,39 @@ const EventPreview = () => {
       navigate("/events/create");
     }
   }, [location.state, navigate]);
+
+  // Check if event has free tickets (requires service fee)
+  const hasFreeTickets = () => {
+    if (!eventData) return false;
+    
+    if (!eventData.useLegacyPricing && eventData.ticketTypes) {
+      return eventData.ticketTypes.some((ticket) => parseFloat(ticket.price) === 0);
+    }
+    return parseFloat(eventData.price) === 0;
+  };
+
+  // Check if event has paid tickets
+  const hasPaidTickets = () => {
+    if (!eventData) return false;
+    
+    if (!eventData.useLegacyPricing && eventData.ticketTypes) {
+      return eventData.ticketTypes.some((ticket) => parseFloat(ticket.price) > 0);
+    }
+    return parseFloat(eventData.price) > 0;
+  };
+
+  // Calculate service fee based on attendance range
+  const calculateServiceFee = (attendanceRange) => {
+    const feeStructure = {
+      "1-100": 5000,      // ₦5,000
+      "101-500": 10000,   // ₦10,000  
+      "501-1000": 20000,  // ₦20,000
+      "1001-5000": 50000, // ₦50,000
+      "5001+": 100000     // ₦100,000
+    };
+    
+    return feeStructure[attendanceRange] || 5000; 
+  };
 
   // Simple storage for pending event data
   const storePendingEventData = (data) => {
@@ -177,14 +211,6 @@ const EventPreview = () => {
   const eventTypeDisplay = getEventTypeDisplay();
   const EventTypeIcon = eventTypeDisplay.icon;
 
-  // Check if event has paid tickets (requires service fee)
-  const hasPaidTickets = () => {
-    if (!useLegacyPricing && ticketTypes) {
-      return ticketTypes.some((ticket) => parseFloat(ticket.price) > 0);
-    }
-    return parseFloat(price) > 0;
-  };
-
   // Validation function
   const validateForPublish = () => {
     const errors = [];
@@ -266,203 +292,93 @@ const EventPreview = () => {
 
   const validationErrors = validateForPublish();
   const canPublish = validationErrors.length === 0;
+  const isFreeEvent = hasFreeTickets();
 
-  // Handle publish click
-  const handlePublishClick = () => {
-    if (!canPublish) {
-      setError(`Cannot publish event: ${validationErrors.join(", ")}`);
-      return;
-    }
-
-    console.log("Publishing event with data:", {
-      title,
-      startDate,
-      state,
-      city,
-      eventType,
-      venue,
-      address,
-      hasPaidTickets: hasPaidTickets(),
-    });
-
-    setPublishData(eventData);
-    setShowPaymentAgreement(true);
-  };
-
-  // ✅ DIRECT API CALL - Handle agreement confirmation
-  const handleAgreementConfirm = async (
-    agreementData,
-    actionType = "publish_direct"
-  ) => {
+  // Handle publish click - MAIN ENTRY POINT
+  const handlePublishClick = async () => {
     try {
-      if (actionType === "service_fee_payment") {
-        // ✅ STEP 1: Prepare complete event data with image files
-        const enhancedAgreementData = {
-          ...agreementData,
-          acceptedTerms: true,
-          acceptedAt: new Date().toISOString(),
-        };
-
-        // ✅ Create complete publish data with image files for metadata
-        const completePublishData = {
-          ...publishData,
-          imageFiles: imageFiles, // Include image files for metadata
-          uploadedImages: uploadedImages, // Include for reference
-        };
-
-        console.log("💾 Storing pending event data with agreement:", {
-          hasPublishData: !!completePublishData,
-          hasAgreementData: !!enhancedAgreementData,
-          imageFilesCount: imageFiles?.length || 0,
-          agreementAcceptedTerms: enhancedAgreementData.acceptedTerms,
-          serviceFee: enhancedAgreementData.serviceFee,
-          attendanceRange: enhancedAgreementData.attendanceRange,
-        });
-
-        // ✅ Store data with image files
-        storePendingEventData(completePublishData);
-
-        setShowPaymentAgreement(false);
-        setServiceFeeData({
-          eventData: completePublishData, // Pass data with image files
-          agreementData: enhancedAgreementData,
-          serviceFee: agreementData.serviceFee.min,
-          attendanceRange: agreementData.attendanceRange,
-        });
-        setShowServiceFeeCheckout(true);
+      if (!canPublish) {
+        toast.error("Please complete all required fields before publishing");
         return;
       }
 
-      // Direct publishing (for free events that don't require service fee)
+      console.log('🎯 Publishing event - Type:', isFreeEvent ? 'FREE (needs service fee)' : 'PAID (direct publish)');
+
+      if (isFreeEvent) {
+        // ✅ FREE EVENT: Show payment agreement first
+        console.log('💰 Free event - proceeding to service fee payment');
+        
+        const preparedData = preparePreviewData();
+        
+        // Store data for the payment flow
+        setPublishData({
+          eventData: preparedData,
+          imageFiles: imageFiles,
+          uploadedImages: uploadedImages
+        });
+        
+        // Show payment agreement modal
+        setShowPaymentAgreement(true);
+        
+      } else {
+        // ✅ PAID EVENT: Publish directly
+        console.log('🎫 Paid event - publishing directly');
+        await handleDirectPublish();
+      }
+
+    } catch (error) {
+      console.error("Publish click error:", error);
+      setError("Failed to process publication. Please try again.");
+    }
+  };
+
+  // Direct publishing for paid events
+  const handleDirectPublish = async () => {
+    try {
       setSavingAs("published");
 
       const formDataToSend = new FormData();
+      const preparedData = preparePreviewData();
 
-      // Basic event info
-      formDataToSend.append("title", title || "");
-      formDataToSend.append("status", "published");
-      formDataToSend.append("description", description || "");
-      formDataToSend.append("eventType", eventType || "physical");
-
-      if (longDescription)
-        formDataToSend.append("longDescription", longDescription);
-      if (category) formDataToSend.append("category", category);
-
-      // Date and time fields
-      if (startDate) {
-        formDataToSend.append("startDate", startDate);
-        formDataToSend.append("eventDate", startDate);
-      }
-
-      if (isMultiDay && endDate) {
-        formDataToSend.append("endDate", endDate);
-      } else {
-        formDataToSend.append("endDate", startDate || "");
-      }
-
-      if (time) formDataToSend.append("time", time);
-      if (endTime) formDataToSend.append("endTime", endTime);
-
-      // Location data for physical/hybrid events
-      if (eventType !== "virtual") {
-        if (venue) formDataToSend.append("venue", venue);
-        if (address) formDataToSend.append("address", address);
-        if (state) formDataToSend.append("state", state);
-        if (city) formDataToSend.append("city", city);
-      }
-
-      // Virtual event data
-      if (eventType === "virtual" || eventType === "hybrid") {
-        if (virtualEventLink) {
-          formDataToSend.append("virtualEventLink", virtualEventLink);
+      // Add all event data to formData
+      Object.keys(preparedData).forEach(key => {
+        if (preparedData[key] !== null && preparedData[key] !== undefined) {
+          if (typeof preparedData[key] === 'object') {
+            formDataToSend.append(key, JSON.stringify(preparedData[key]));
+          } else {
+            formDataToSend.append(key, preparedData[key]);
+          }
         }
-      }
+      });
 
-      // Append ticket types or legacy pricing
-      if (!useLegacyPricing) {
-        const validTicketTypes = ticketTypes
-          .filter((t) => t.price && t.capacity)
-          .map((t) => ({
-            name: t.name,
-            price: parseFloat(t.price),
-            capacity: parseInt(t.capacity),
-            description: t.description || "",
-            benefits: t.benefits || [],
-            accessType: t.accessType || "both",
-          }));
+      // Set status to published for paid events
+      formDataToSend.append('status', 'published');
 
-        if (validTicketTypes.length > 0) {
-          formDataToSend.append(
-            "ticketTypes",
-            JSON.stringify(validTicketTypes)
-          );
-        } else {
-          throw new Error("At least one valid ticket type is required");
-        }
-      } else {
-        if (price) formDataToSend.append("price", parseFloat(price));
-        if (capacity) formDataToSend.append("capacity", parseInt(capacity));
-        if (ticketDescription)
-          formDataToSend.append("ticketDescription", ticketDescription);
-        if (singleTicketBenefits && singleTicketBenefits.length > 0) {
-          formDataToSend.append(
-            "ticketBenefits",
-            JSON.stringify(singleTicketBenefits)
-          );
-        }
-      }
-
-      // Additional event data
-      if (tags && tags.length > 0)
-        formDataToSend.append("tags", JSON.stringify(tags));
-      if (requirements && requirements.length > 0) {
-        formDataToSend.append("requirements", JSON.stringify(requirements));
-      }
-
-      // ✅ Append image files directly - backend will handle as metadata
+      // Add image files
       if (imageFiles && imageFiles.length > 0) {
-        imageFiles.forEach((file) => {
-          formDataToSend.append("images", file);
+        imageFiles.forEach(file => {
+          formDataToSend.append('images', file);
         });
       }
 
-      // Social banner
-      if (socialBannerEnabled && socialBannerFile) {
-        formDataToSend.append("socialBanner", socialBannerFile);
-        formDataToSend.append("socialBannerEnabled", "true");
+      // Add social banner if exists
+      if (socialBannerFile) {
+        formDataToSend.append('socialBanner', socialBannerFile);
       }
 
-      // Community data
-      if (communityEnabled && communityData) {
-        formDataToSend.append("community", JSON.stringify(communityData));
-        formDataToSend.append("communityEnabled", "true");
-      }
+      console.log('🚀 Publishing paid event directly...');
 
-      // Agreement data with acceptedTerms = true
-      const enhancedAgreementData = {
-        ...agreementData,
-        acceptedTerms: true,
-        acceptedAt: new Date().toISOString(),
-      };
-
-      formDataToSend.append("agreement", JSON.stringify(enhancedAgreementData));
-
-      console.log("Sending FormData for free event:", {
-        title: formDataToSend.get("title"),
-        startDate: formDataToSend.get("startDate"),
-        state: formDataToSend.get("state"),
-        city: formDataToSend.get("city"),
-        eventType: formDataToSend.get("eventType"),
-        hasAgreement: !!formDataToSend.get("agreement"),
-        imageFilesCount: imageFiles?.length || 0,
+      const response = await fetch('/api/v1/events/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formDataToSend,
       });
 
-      // 🚀 DIRECT API CALL - No service layer!
-      const response = await apiClient.post('/events/create', formDataToSend, {
-        timeout: 120000,
-      });
+      const result = await response.json();
 
-      if (response.data.success) {
+      if (result.success) {
         setSuccessMessage("Event published successfully!");
         setShowSuccess(true);
 
@@ -472,13 +388,49 @@ const EventPreview = () => {
           navigate("/dashboard/organizer");
         }, 2500);
       } else {
-        throw new Error(response.data.message || "Failed to publish event");
+        throw new Error(result.message || "Failed to publish event");
       }
     } catch (error) {
-      console.error("Publish error:", error);
-      setError(error.response?.data?.message || error.message || "Failed to publish event. Please try again.");
+      console.error("Direct publish error:", error);
+      setError(error.message || "Failed to publish event. Please try again.");
     } finally {
       setSavingAs(null);
+    }
+  };
+
+  // Handle agreement confirmation - FOR FREE EVENTS
+  const handleAgreementConfirm = async (agreementData, actionType = "service_fee_payment") => {
+    try {
+      if (actionType === "service_fee_payment") {
+        console.log('💳 Proceeding to service fee payment after agreement');
+        
+        // Enhanced agreement data
+        const enhancedAgreementData = {
+          ...agreementData,
+          acceptedTerms: true,
+          acceptedAt: new Date().toISOString(),
+        };
+
+        setShowPaymentAgreement(false);
+        
+        // Calculate service fee
+        const serviceFee = calculateServiceFee(agreementData.estimatedAttendance);
+        
+        // Show service fee checkout
+        setServiceFeeData({
+          eventData: publishData.eventData,
+          serviceFee: serviceFee,
+          attendanceRange: agreementData.estimatedAttendance,
+          agreementData: enhancedAgreementData,
+        });
+        
+        setShowServiceFeeCheckout(true);
+        return;
+      }
+
+    } catch (error) {
+      console.error("Agreement confirmation error:", error);
+      setError("Failed to process agreement. Please try again.");
     }
   };
 
@@ -487,12 +439,12 @@ const EventPreview = () => {
     console.log("Service fee payment successful:", paymentResult);
     setShowServiceFeeCheckout(false);
 
-    setSuccessMessage("Payment successful! Your event is being created...");
+    setSuccessMessage("Payment successful! Your free event is now published.");
     setShowSuccess(true);
 
     setTimeout(() => {
-      navigate("/dashboard/organizer/events?payment=success");
-    }, 2000);
+      navigate("/dashboard/organizer/events?published=success");
+    }, 3000);
   };
 
   // Handle save as draft
@@ -501,101 +453,47 @@ const EventPreview = () => {
       setSavingAs("draft");
 
       const formDataToSend = new FormData();
-      formDataToSend.append("title", title || "");
-      formDataToSend.append("status", "draft");
-      formDataToSend.append("eventType", eventType || "physical");
+      const preparedData = preparePreviewData();
 
-      if (description) formDataToSend.append("description", description);
-      if (longDescription)
-        formDataToSend.append("longDescription", longDescription);
-      if (category) formDataToSend.append("category", category);
-
-      if (startDate) {
-        formDataToSend.append("startDate", startDate);
-        formDataToSend.append("eventDate", startDate);
-      }
-
-      if (isMultiDay && endDate) {
-        formDataToSend.append("endDate", endDate);
-      } else if (startDate) {
-        formDataToSend.append("endDate", startDate);
-      }
-
-      if (time) formDataToSend.append("time", time);
-      if (endTime) formDataToSend.append("endTime", endTime);
-
-      if (eventType !== "virtual") {
-        if (venue) formDataToSend.append("venue", venue);
-        if (address) formDataToSend.append("address", address);
-        if (state) formDataToSend.append("state", state);
-        if (city) formDataToSend.append("city", city);
-      }
-
-      if (eventType === "virtual" || eventType === "hybrid") {
-        if (virtualEventLink) {
-          formDataToSend.append("virtualEventLink", virtualEventLink);
+      // Add all event data to formData
+      Object.keys(preparedData).forEach(key => {
+        if (preparedData[key] !== null && preparedData[key] !== undefined) {
+          if (typeof preparedData[key] === 'object') {
+            formDataToSend.append(key, JSON.stringify(preparedData[key]));
+          } else {
+            formDataToSend.append(key, preparedData[key]);
+          }
         }
-      }
+      });
 
-      if (!useLegacyPricing) {
-        const validTicketTypes = ticketTypes
-          .filter((t) => t.price && t.capacity)
-          .map((t) => ({
-            name: t.name,
-            price: parseFloat(t.price),
-            capacity: parseInt(t.capacity),
-            description: t.description || "",
-            benefits: t.benefits || [],
-            accessType: t.accessType || "both",
-          }));
+      // Set status to draft
+      formDataToSend.append('status', 'draft');
 
-        if (validTicketTypes.length > 0) {
-          formDataToSend.append(
-            "ticketTypes",
-            JSON.stringify(validTicketTypes)
-          );
-        }
-      } else {
-        if (price) formDataToSend.append("price", parseFloat(price));
-        if (capacity) formDataToSend.append("capacity", parseInt(capacity));
-        if (ticketDescription)
-          formDataToSend.append("ticketDescription", ticketDescription);
-        if (singleTicketBenefits && singleTicketBenefits.length > 0) {
-          formDataToSend.append(
-            "ticketBenefits",
-            JSON.stringify(singleTicketBenefits)
-          );
-        }
-      }
-
-      if (tags && tags.length > 0)
-        formDataToSend.append("tags", JSON.stringify(tags));
-      if (requirements && requirements.length > 0)
-        formDataToSend.append("requirements", JSON.stringify(requirements));
-
-      // ✅ Append image files for draft too
+      // Add image files
       if (imageFiles && imageFiles.length > 0) {
-        imageFiles.forEach((file) => {
-          formDataToSend.append("images", file);
+        imageFiles.forEach(file => {
+          formDataToSend.append('images', file);
         });
       }
 
-      if (socialBannerEnabled && socialBannerFile) {
-        formDataToSend.append("socialBanner", socialBannerFile);
-        formDataToSend.append("socialBannerEnabled", "true");
+      // Add social banner if exists
+      if (socialBannerFile) {
+        formDataToSend.append('socialBanner', socialBannerFile);
       }
 
-      if (communityEnabled && communityData) {
-        formDataToSend.append("community", JSON.stringify(communityData));
-        formDataToSend.append("communityEnabled", "true");
-      }
+      console.log('💾 Saving event as draft...');
 
-      // 🚀 DIRECT API CALL - No service layer!
-      const response = await apiClient.post('/events/create', formDataToSend, {
-        timeout: 120000,
+      const response = await fetch('/api/v1/events/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formDataToSend,
       });
 
-      if (response.data.success) {
+      const result = await response.json();
+
+      if (result.success) {
         setSuccessMessage(
           "Event saved as draft! You can edit and publish it later from your dashboard."
         );
@@ -607,13 +505,66 @@ const EventPreview = () => {
           navigate("/dashboard/organizer");
         }, 2500);
       } else {
-        setError(response.data.message || "Failed to save as draft");
+        throw new Error(result.message || "Failed to save as draft");
       }
     } catch (error) {
-      setError(error.response?.data?.message || "An unexpected error occurred. Please try again.");
+      console.error("Save draft error:", error);
+      setError(error.message || "Failed to save as draft. Please try again.");
     } finally {
       setSavingAs(null);
     }
+  };
+
+  // Prepare preview data
+  const preparePreviewData = () => {
+    let finalTicketTypes = ticketTypes;
+    if (useLegacyPricing) {
+      finalTicketTypes = [
+        {
+          name: "Regular",
+          price: price || "",
+          capacity: capacity || "",
+          description: ticketDescription || "",
+          benefits: singleTicketBenefits || [],
+          accessType: eventType === "hybrid" ? "both" : undefined,
+          requiresApproval: ticketTypes[0]?.requiresApproval || false,
+          approvalQuestions: ticketTypes[0]?.approvalQuestions || [],
+          maxAttendees: ticketTypes[0]?.maxAttendees || "",
+          approvalDeadline: ticketTypes[0]?.approvalDeadline || "",
+        },
+      ];
+    }
+
+    const eventData = {
+      title: title || "",
+      category: category || "",
+      description: description || "",
+      longDescription: longDescription || "",
+      startDate: startDate || "",
+      endDate: endDate || "",
+      time: time || "",
+      endTime: endTime || "",
+      isMultiDay: isMultiDay,
+      eventType: eventType,
+      virtualEventLink: virtualEventLink || "",
+      venue: venue || "",
+      address: address || "",
+      state: state || "",
+      city: city || "",
+      ticketTypes: finalTicketTypes,
+      useLegacyPricing: useLegacyPricing,
+      singleTicketBenefits: singleTicketBenefits,
+      price: price || "",
+      capacity: capacity || "",
+      tags: tags,
+      requirements: requirements,
+      socialBannerEnabled: socialBannerEnabled,
+      socialBannerFile: socialBannerFile,
+      communityEnabled: communityEnabled,
+      communityData: communityData,
+    };
+
+    return eventData;
   };
 
   // Show payment agreement
@@ -622,10 +573,10 @@ const EventPreview = () => {
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <PaymentAgreement
-          eventData={publishData}
+          eventData={publishData.eventData}
           ticketTypes={ticketTypes}
           onAgree={handleAgreementConfirm}
-          onCancel={() => navigate("/dashboard/organizer")}
+          onCancel={() => setShowPaymentAgreement(false)}
           onBack={() => setShowPaymentAgreement(false)}
         />
         <div className="bg-black">
@@ -714,17 +665,35 @@ const EventPreview = () => {
           </div>
         )}
 
-        {/* Service Fee Notice */}
-        {hasPaidTickets() && canPublish && (
+        {/* Service Fee Notice for Free Events */}
+        {isFreeEvent && canPublish && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
+              <CreditCard className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
               <div>
                 <h4 className="font-semibold text-blue-800 mb-1">
                   Service Fee Required
                 </h4>
                 <p className="text-blue-700 text-sm">
-                  This event has paid tickets and requires a service fee payment to publish.
+                  This is a free event and requires a service fee payment to publish.
+                  You'll proceed to payment after agreeing to the terms.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Paid Event Notice */}
+        {!isFreeEvent && canPublish && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start">
+              <CheckCircle className="w-5 h-5 text-green-600 mr-2 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-green-800 mb-1">
+                  Ready to Publish
+                </h4>
+                <p className="text-green-700 text-sm">
+                  This is a paid event and will be published immediately without additional fees.
                 </p>
               </div>
             </div>
@@ -774,6 +743,11 @@ const EventPreview = () => {
                   {category && (
                     <span className="text-sm text-gray-500 ml-2">
                       • {category}
+                    </span>
+                  )}
+                  {isFreeEvent && (
+                    <span className="text-sm text-green-600 ml-2">
+                      • Free Event
                     </span>
                   )}
                 </div>
@@ -906,14 +880,22 @@ const EventPreview = () => {
                 {ticketTypes.map((ticket, index) => (
                   <div
                     key={index}
-                    className="border border-gray-200 rounded-lg p-4 hover:border-[#FF6B35] transition-colors"
+                    className={`border rounded-lg p-4 hover:border-[#FF6B35] transition-colors ${
+                      parseFloat(ticket.price) === 0 
+                        ? 'border-green-200 bg-green-50' 
+                        : 'border-gray-200'
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-semibold text-gray-900">
                         {ticket.name}
                       </h4>
-                      <span className="text-[#FF6B35] font-bold">
-                        ₦{parseFloat(ticket.price || 0).toLocaleString()}
+                      <span className={`font-bold ${
+                        parseFloat(ticket.price) === 0 
+                          ? 'text-green-600' 
+                          : 'text-[#FF6B35]'
+                      }`}>
+                        {parseFloat(ticket.price) === 0 ? 'FREE' : `₦${parseFloat(ticket.price || 0).toLocaleString()}`}
                       </span>
                     </div>
                     <div className="space-y-2">
@@ -953,13 +935,21 @@ const EventPreview = () => {
                 ))}
               </div>
             ) : (
-              <div className="border border-gray-200 rounded-lg p-4">
+              <div className={`border rounded-lg p-4 ${
+                parseFloat(price) === 0 
+                  ? 'border-green-200 bg-green-50' 
+                  : 'border-gray-200'
+              }`}>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-gray-900">
                     General Admission
                   </h4>
-                  <span className="text-[#FF6B35] font-bold text-xl">
-                    ₦{price ? parseFloat(price).toLocaleString() : "0"}
+                  <span className={`font-bold text-xl ${
+                    parseFloat(price) === 0 
+                      ? 'text-green-600' 
+                      : 'text-[#FF6B35]'
+                  }`}>
+                    {parseFloat(price) === 0 ? 'FREE' : `₦${parseFloat(price).toLocaleString()}`}
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -1101,7 +1091,9 @@ const EventPreview = () => {
                 </h3>
                 <p className="text-gray-600 text-sm">
                   {canPublish
-                    ? "Everything looks good! You can publish your event now or save it as a draft."
+                    ? isFreeEvent
+                      ? "Everything looks good! You'll need to pay a service fee to publish this free event."
+                      : "Everything looks good! You can publish your paid event now."
                     : "Some required fields are missing. You can save as draft and complete them later, or go back to edit."}
                 </p>
               </div>
@@ -1131,7 +1123,7 @@ const EventPreview = () => {
                 >
                   {savingAs === "draft" ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <Loader className="h-4 w-4 animate-spin mr-2" />
                       Saving Draft...
                     </>
                   ) : (
@@ -1150,8 +1142,13 @@ const EventPreview = () => {
                 >
                   {savingAs === "published" ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <Loader className="h-4 w-4 animate-spin mr-2" />
                       Publishing...
+                    </>
+                  ) : isFreeEvent ? (
+                    <>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Pay & Publish
                     </>
                   ) : (
                     <>
@@ -1181,8 +1178,9 @@ const EventPreview = () => {
                     them later. Drafts are only visible to you.
                   </li>
                   <li>
-                    <strong>Publish:</strong> Make your event live and visible
-                    to everyone immediately.
+                    <strong>Publish:</strong> {isFreeEvent 
+                      ? "Make your free event live after paying the service fee." 
+                      : "Make your paid event live and visible to everyone immediately."}
                   </li>
                   <li>
                     You can edit or unpublish events anytime from your
