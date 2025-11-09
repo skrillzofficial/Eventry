@@ -20,7 +20,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
-import apiClient from "../../services/api"; // Import axios instance directly
+import apiClient from "../../services/api";
 import { toast } from "react-hot-toast";
 
 const MyEvents = () => {

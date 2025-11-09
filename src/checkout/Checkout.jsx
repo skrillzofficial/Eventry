@@ -15,12 +15,12 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     email: "",
     phone: "",
   });
+  const [approvalAnswers, setApprovalAnswers] = useState({});
 
   useEffect(() => {
     console.log("CheckoutFlow received event:", event);
     console.log("CheckoutFlow received quantity:", ticketQuantity);
     
-    // Check if current user is the organizer
     checkIfOrganizer();
   }, [event, ticketQuantity, user]);
 
@@ -30,11 +30,8 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
       return;
     }
 
-    // Check if current user is the organizer of this event
     const currentUserId = user._id || user.id;
     const organizerId = event.organizer?._id || event.organizer?.id;
-    
-    // Also check if user email matches organizer email as fallback
     const userEmail = user.email;
     const organizerEmail = event.organizer?.email;
 
@@ -53,7 +50,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     }
   };
 
-  // Check if this is an approval-based free event
   const isApprovalEvent = () => {
     const ticketPrice = event.selectedTicketType
       ? event.selectedTicketType.price
@@ -66,7 +62,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     return ticketPrice === 0 && requiresApproval;
   };
 
-  // Check if this is a regular free event (no approval required)
   const isRegularFreeEvent = () => {
     const ticketPrice = event.selectedTicketType
       ? event.selectedTicketType.price
@@ -79,6 +74,182 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     return ticketPrice === 0 && !requiresApproval;
   };
 
+  // Helper function to safely extract approval questions
+  const getApprovalQuestions = () => {
+    if (!event.selectedTicketType?.approvalQuestions) return [];
+    
+    const questions = event.selectedTicketType.approvalQuestions;
+    
+    return questions.map(question => {
+      if (typeof question === 'object' && question.question) {
+        return {
+          id: question._id || question.id || Math.random().toString(36).substr(2, 9),
+          question: question.question,
+          required: question.required !== false
+        };
+      }
+      else if (typeof question === 'string') {
+        return {
+          id: Math.random().toString(36).substr(2, 9),
+          question: question,
+          required: true
+        };
+      }
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        question: "Please provide additional information for your application",
+        required: true
+      };
+    });
+  };
+
+  const handleApprovalAnswerChange = (questionId, answer) => {
+    setApprovalAnswers(prev => ({
+      ...prev,
+      [questionId]: answer
+    }));
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const calculateTotal = () => {
+    const ticketPrice = event.selectedTicketType
+      ? event.selectedTicketType.price
+      : event.price || 0;
+    return ticketPrice * ticketQuantity;
+  };
+
+  const handlePayment = async () => {
+    // Validate required fields
+    if (!formData.fullName || !formData.email) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    // Validate approval questions if this is an approval event
+    const approvalQuestions = getApprovalQuestions();
+    if (isApprovalEvent() && approvalQuestions.length > 0) {
+      const unansweredRequiredQuestions = approvalQuestions.filter(q => 
+        q.required && (!approvalAnswers[q.id] || approvalAnswers[q.id].trim() === '')
+      );
+      
+      if (unansweredRequiredQuestions.length > 0) {
+        alert("Please answer all required approval questions");
+        return;
+      }
+    }
+
+    if (isOrganizer) {
+      alert("Organizers cannot purchase tickets for their own events.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login to complete your booking");
+      onClose();
+      navigate("/login", { state: { from: `/event/${event.id}` } });
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const ticketType = event.selectedTicketType
+        ? event.selectedTicketType.name
+        : "Regular";
+      
+      const ticketPrice = event.selectedTicketType
+        ? event.selectedTicketType.price
+        : event.price || 0;
+
+      const isFreeEvent = ticketPrice === 0;
+      const requiresApproval = isApprovalEvent();
+
+      // Build the booking data - backend will handle generating IDs, QR codes, etc.
+      const bookingData = {
+        ticketType: ticketType,
+        quantity: ticketQuantity,
+        userInfo: {
+          name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+        },
+        requiresApproval: requiresApproval,
+      };
+
+      // Add approval answers if this is an approval-based event
+      if (requiresApproval && approvalQuestions.length > 0) {
+        bookingData.approvalQuestions = approvalQuestions.map(q => ({
+          question: q.question,
+          answer: approvalAnswers[q.id] || "",
+          required: q.required
+        }));
+      }
+
+      console.log("Sending booking data to backend:", bookingData);
+
+      // Make the booking request - backend will handle all the ticket creation
+      const response = await apiClient.post(
+        `/events/${event.id || event._id}/book`,
+        bookingData
+      );
+
+      console.log("Booking response:", response.data);
+
+      if (response.data.success) {
+        const bookingReference = response.data.data?.booking?.id || 
+                                response.data.booking?.id ||
+                                response.data.data?.booking?._id || 
+                                response.data.booking?._id;
+        
+        onClose();
+        
+        if (requiresApproval) {
+          navigate(`/payment-verification?reference=${bookingReference}&type=approval-pending`);
+        } else {
+          navigate(`/payment-verification?reference=${bookingReference}&type=free`);
+        }
+      } else {
+        throw new Error(response.data.message || "Booking failed");
+      }
+    } catch (err) {
+      console.error("=== BOOKING ERROR ===");
+      console.error("Error object:", err);
+      console.error("Error response:", err.response?.data);
+      console.error("Error status:", err.response?.status);
+
+      let errorMessage = "Booking failed. Please try again.";
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate pricing
+  const subtotal = calculateTotal();
+  const isFreeEvent = subtotal === 0;
+  const requiresApproval = isApprovalEvent();
+  const isRegularFree = isRegularFreeEvent();
+  const approvalQuestions = getApprovalQuestions();
+
+  // ... rest of your component remains the same (the UI part)
   if (!event) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -96,12 +267,10 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     );
   }
 
-  // Show organizer blocked view
   if (isOrganizer) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-          {/* Header */}
           <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
             <h2 className="text-2xl font-bold text-gray-900">Event Organizer</h2>
             <button
@@ -113,7 +282,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
           </div>
 
           <div className="p-6">
-            {/* Organizer Block Message */}
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -128,7 +296,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
               </div>
             </div>
 
-            {/* Event Details */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-2">{event.title}</h3>
               <div className="text-sm text-gray-600 space-y-1">
@@ -146,7 +313,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
               </div>
             </div>
 
-            {/* Management Options */}
             <div className="space-y-3">
               <button
                 onClick={() => {
@@ -177,162 +343,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
       </div>
     );
   }
-
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const calculateTotal = () => {
-    const ticketPrice = event.selectedTicketType
-      ? event.selectedTicketType.price
-      : event.price || 0;
-    return ticketPrice * ticketQuantity;
-  };
-
-  const handlePayment = async () => {
-    // Validate required fields
-    if (!formData.fullName || !formData.email) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
-    // Double-check organizer status (safety check)
-    if (isOrganizer) {
-      alert("Organizers cannot purchase tickets for their own events.");
-      return;
-    }
-
-    // Check authentication
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("Please login to complete your booking");
-      onClose();
-      navigate("/login", { state: { from: `/event/${event.id}` } });
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const ticketType = event.selectedTicketType
-        ? event.selectedTicketType.name
-        : "Regular";
-      
-      const ticketPrice = event.selectedTicketType
-        ? event.selectedTicketType.price
-        : event.price || 0;
-
-      // Determine event type
-      const isFreeEvent = ticketPrice === 0;
-      const requiresApproval = isApprovalEvent();
-
-      if (isFreeEvent) {
-        // ===== FREE EVENT FLOW =====
-        const bookingData = {
-          ticketType: ticketType,
-          quantity: ticketQuantity,
-          userInfo: {
-            name: formData.fullName,
-            email: formData.email,
-            phone: formData.phone,
-          },
-          requiresApproval: requiresApproval,
-        };
-
-        console.log("Booking free event:", bookingData);
-
-        const response = await apiClient.post(
-          `/events/${event.id || event._id}/book`,
-          bookingData
-        );
-
-        console.log("Booking response:", response.data);
-
-        if (response.data.success) {
-          // Generate a booking reference for free events
-          const bookingReference = response.data.booking?._id || 
-                                  response.data.booking?.bookingId || 
-                                  `FREE-${Date.now()}`;
-          
-          // Close modal
-          onClose();
-          
-          // Redirect to appropriate verification page
-          if (requiresApproval) {
-            // For approval-based events, go to pending approval page
-            navigate(`/payment-verification?reference=${bookingReference}&type=approval-pending`);
-          } else {
-            // For regular free events, go to standard verification
-            navigate(`/payment-verification?reference=${bookingReference}&type=free`);
-          }
-        } else {
-          throw new Error(response.data.message || "Booking failed");
-        }
-      } else {
-        // ===== PAID EVENT FLOW =====
-        // Initialize payment through Paystack
-        const tickets = [
-          {
-            ticketType: ticketType,
-            quantity: ticketQuantity,
-          },
-        ];
-
-        const paymentData = {
-          eventId: event.id || event._id,
-          tickets: tickets,
-          userInfo: {
-            name: formData.fullName,
-            email: formData.email,
-            phone: formData.phone,
-          },
-        };
-
-        console.log("Initializing payment:", paymentData);
-
-        const response = await apiClient.post("/transactions/initialize", paymentData);
-
-        console.log("Payment response:", response.data);
-
-        // Handle Paystack response and redirect to payment page
-        if (response.data.success && response.data.data?.authorizationUrl) {
-          window.location.href = response.data.data.authorizationUrl;
-        } else if (response.data.authorizationUrl) {
-          window.location.href = response.data.authorizationUrl;
-        } else if (response.data.data?.authorization_url) {
-          window.location.href = response.data.data.authorization_url;
-        } else {
-          throw new Error("Authorization URL not found in response");
-        }
-      }
-    } catch (err) {
-      console.error("=== BOOKING/PAYMENT ERROR ===");
-      console.error("Error object:", err);
-      console.error("Error response:", err.response?.data);
-      console.error("Error status:", err.response?.status);
-
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        "Booking failed. Please try again.";
-
-      setError(errorMessage);
-      alert(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Calculate pricing
-  const subtotal = calculateTotal();
-  const isFreeEvent = subtotal === 0;
-  const requiresApproval = isApprovalEvent();
-  const isRegularFree = isRegularFreeEvent();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -469,23 +479,25 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                 />
               </div>
 
-              {/* Additional Questions for Approval Events */}
-              {requiresApproval && event.selectedTicketType?.approvalQuestions && event.selectedTicketType.approvalQuestions.length > 0 && (
+              {/* Fixed Approval Questions Section */}
+              {requiresApproval && approvalQuestions.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-gray-700">
                     Please answer these questions to help the organizer review your application:
                   </p>
-                  {event.selectedTicketType.approvalQuestions.map((question, index) => (
-                    <div key={index}>
+                  {approvalQuestions.map((questionObj) => (
+                    <div key={questionObj.id}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {question}
+                        {questionObj.question}
+                        {questionObj.required && <span className="text-red-500 ml-1">*</span>}
                       </label>
                       <textarea
-                        name={`question-${index}`}
+                        value={approvalAnswers[questionObj.id] || ''}
+                        onChange={(e) => handleApprovalAnswerChange(questionObj.id, e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35] resize-none"
                         rows="3"
                         placeholder="Your answer..."
-                        required
+                        required={questionObj.required}
                       />
                     </div>
                   ))}
@@ -550,7 +562,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
             )}
           </button>
 
-          {/* Footer Message */}
+          {/* Footer Messages */}
           {!isFreeEvent && (
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-500 flex items-center justify-center">

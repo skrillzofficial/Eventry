@@ -10,7 +10,9 @@ import {
   CreditCard,
   MapPin,
   Ticket,
-  ArrowLeft
+  ArrowLeft,
+  Clock,
+  UserCheck
 } from 'lucide-react';
 
 const PaymentVerification = () => {
@@ -21,6 +23,7 @@ const PaymentVerification = () => {
   const [tickets, setTickets] = useState([]);
   const [paymentType, setPaymentType] = useState('ticket');
   const [countdown, setCountdown] = useState(5);
+  const [bookingData, setBookingData] = useState(null);
 
   useEffect(() => {
     verifyPayment();
@@ -40,69 +43,164 @@ const PaymentVerification = () => {
   const verifyPayment = async () => {
     const reference = searchParams.get('reference') || searchParams.get('trxref');
     const type = searchParams.get('type') || 'ticket';
+    const bookingId = searchParams.get('bookingId');
     
-    console.log('🔍 Payment verification started:', { reference, type });
+    console.log('🔍 Payment verification started:', { reference, type, bookingId });
 
-    if (!reference) {
-      console.error('❌ No reference found');
-      setVerificationStatus('error');
-      return;
+    // Set payment type based on URL parameters or logic
+    if (type === 'free' || type === 'approval-pending') {
+      setPaymentType('free');
+    } else {
+      setPaymentType('ticket');
     }
 
-    setPaymentType(type);
-
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/transactions/verify-${type === 'free' ? 'booking' : 'payment'}/${reference}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      const result = await response.json();
-
-      if (result.success) {
-        console.log('✅ Verification successful:', result.data);
+      // Handle free bookings (no transaction, just booking)
+      if (paymentType === 'free' || type === 'free' || type === 'approval-pending') {
+        console.log('🆓 Processing free booking verification');
         
-        const data = result.data || result;
-        const txn = data.transaction || data;
-        const event = data.event || txn.eventId || {};
-        const booking = data.booking || {};
-
-        setTransaction({
-          reference: txn.reference || reference,
-          amount: txn.amount || txn.totalAmount || 0,
-          eventTitle: event.title || booking.eventTitle || txn.eventTitle || 'Event',
-          eventDate: event.startDate || event.date,
-          eventLocation: event.venue || event.address || 'Online',
-          organizerName: event.organizer?.name || 'Organizer',
-          attendeeName: txn.userId?.name || booking.userInfo?.name || 'Attendee',
-          attendeeEmail: txn.userId?.email || booking.userInfo?.email,
-          bookingDate: txn.createdAt || booking.createdAt || new Date().toISOString(),
-          status: 'completed'
-        });
-
-        if (data.tickets || booking.ticketDetails) {
-          const ticketData = data.tickets || booking.ticketDetails || [];
-          setTickets(Array.isArray(ticketData) ? ticketData : [ticketData]);
+        // For free bookings, we need to check the booking status directly
+        let bookingResponse;
+        
+        if (bookingId) {
+          // If we have a booking ID, use that
+          bookingResponse = await fetch(
+            `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/bookings/${bookingId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+        } else if (reference && reference.startsWith('ORD-')) {
+          // If reference looks like an order number, try to find booking by order number
+          bookingResponse = await fetch(
+            `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/bookings/order/${reference}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+        } else {
+          throw new Error('No booking reference provided for free booking');
         }
 
-        setVerificationStatus('success');
+        if (!bookingResponse.ok) {
+          throw new Error(`Failed to fetch booking: ${bookingResponse.status}`);
+        }
+
+        const bookingResult = await bookingResponse.json();
+        
+        if (bookingResult.success) {
+          console.log('✅ Free booking found:', bookingResult.data);
+          const booking = bookingResult.data.booking || bookingResult.data;
+          
+          setBookingData(booking);
+          
+          // Set transaction-like data for display
+          setTransaction({
+            reference: booking.orderNumber || reference,
+            amount: 0,
+            eventTitle: booking.eventSnapshot?.title || booking.event?.title || 'Event',
+            eventDate: booking.eventSnapshot?.startDate || booking.event?.startDate,
+            eventLocation: booking.eventSnapshot?.venue || booking.event?.venue || 'Online',
+            organizerName: booking.eventSnapshot?.organizerName || 'Organizer',
+            attendeeName: booking.customerInfo?.name || 'Attendee',
+            attendeeEmail: booking.customerInfo?.email,
+            bookingDate: booking.bookingDate || booking.createdAt,
+            status: booking.status,
+            paymentStatus: booking.paymentStatus
+          });
+
+          // Set tickets if available
+          if (booking.tickets && booking.tickets.length > 0) {
+            setTickets(booking.tickets);
+          } else if (booking.ticketDetails) {
+            setTickets(booking.ticketDetails);
+          }
+
+          // Determine verification status based on booking status
+          if (booking.status === 'confirmed' && booking.paymentStatus === 'free') {
+            setVerificationStatus('success');
+          } else if (booking.status === 'pending' && booking.paymentStatus === 'free') {
+            setVerificationStatus('approval-pending');
+          } else {
+            setVerificationStatus('failed');
+          }
+
+        } else {
+          throw new Error(bookingResult.message || 'Free booking verification failed');
+        }
 
       } else {
-        throw new Error(result.message || 'Verification failed');
+        // Handle paid transactions (original logic)
+        console.log('💰 Processing paid transaction verification');
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/transactions/verify-payment/${reference}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const result = await response.json();
+
+        if (result.success) {
+          console.log('✅ Verification successful:', result.data);
+          
+          const data = result.data || result;
+          const txn = data.transaction || data;
+          const event = data.event || txn.eventId || {};
+          const booking = data.booking || {};
+
+          setTransaction({
+            reference: txn.reference || reference,
+            amount: txn.amount || txn.totalAmount || 0,
+            eventTitle: event.title || booking.eventTitle || txn.eventTitle || 'Event',
+            eventDate: event.startDate || event.date,
+            eventLocation: event.venue || event.address || 'Online',
+            organizerName: event.organizer?.name || 'Organizer',
+            attendeeName: txn.userId?.name || booking.userInfo?.name || 'Attendee',
+            attendeeEmail: txn.userId?.email || booking.userInfo?.email,
+            bookingDate: txn.createdAt || booking.createdAt || new Date().toISOString(),
+            status: 'completed'
+          });
+
+          if (data.tickets || booking.ticketDetails) {
+            const ticketData = data.tickets || booking.ticketDetails || [];
+            setTickets(Array.isArray(ticketData) ? ticketData : [ticketData]);
+          }
+
+          setVerificationStatus('success');
+
+        } else {
+          throw new Error(result.message || 'Payment verification failed');
+        }
       }
 
     } catch (error) {
       console.error('❌ Verification error:', error);
-      setVerificationStatus('failed');
-      setTransaction({
-        reference,
-        error: error.message || 'Payment verification failed'
-      });
+      
+      // Check if it's a 404 for free booking (which might be normal)
+      if (paymentType === 'free' && error.message.includes('404')) {
+        setVerificationStatus('approval-pending');
+        setTransaction({
+          reference: reference,
+          error: 'Booking is pending organizer approval'
+        });
+      } else {
+        setVerificationStatus('failed');
+        setTransaction({
+          reference: reference,
+          error: error.message || 'Verification failed'
+        });
+      }
     }
   };
 
@@ -136,6 +234,8 @@ const PaymentVerification = () => {
         title: 'Free Booking',
         successTitle: 'Booking Confirmed! 🎉',
         successMessage: 'Your free event registration was successful',
+        approvalTitle: 'Approval Pending ⏳',
+        approvalMessage: 'Your booking is waiting for organizer approval',
         icon: Ticket,
         redirectTo: 'My Bookings',
         color: 'green'
@@ -144,6 +244,8 @@ const PaymentVerification = () => {
         title: 'Ticket Purchase',
         successTitle: 'Payment Successful! 🎉',
         successMessage: 'Your tickets have been booked successfully',
+        approvalTitle: 'Processing',
+        approvalMessage: 'Your payment is being processed',
         icon: CreditCard,
         redirectTo: 'My Tickets',
         color: 'blue'
@@ -173,7 +275,7 @@ const PaymentVerification = () => {
         </h2>
         
         <p className="text-gray-600 mb-8">
-          Please wait while we confirm your transaction...
+          Please wait while we confirm your {paymentType === 'free' ? 'booking' : 'transaction'}...
         </p>
 
         <div className="space-y-4 max-w-sm mx-auto">
@@ -182,8 +284,12 @@ const PaymentVerification = () => {
               <Loader className="w-4 h-4 text-orange-600 animate-spin" />
             </div>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">Processing Payment</p>
-              <p className="text-sm text-gray-500">Verifying transaction details</p>
+              <p className="font-medium text-gray-900">
+                {paymentType === 'free' ? 'Processing Booking' : 'Processing Payment'}
+              </p>
+              <p className="text-sm text-gray-500">
+                {paymentType === 'free' ? 'Verifying booking details' : 'Verifying transaction details'}
+              </p>
             </div>
           </div>
 
@@ -217,6 +323,106 @@ const PaymentVerification = () => {
     );
   };
 
+  const renderApprovalPending = () => {
+    const config = getPaymentTypeConfig();
+
+    return (
+      <div className="text-center">
+        <div className="mb-6">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
+            <Clock className="w-12 h-12 text-yellow-600" />
+          </div>
+        </div>
+
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          {config.approvalTitle}
+        </h2>
+        
+        <p className="text-gray-600 mb-6">
+          {config.approvalMessage}
+        </p>
+
+        {transaction && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6 text-left space-y-4">
+            <h3 className="text-lg font-semibold text-yellow-900 flex items-center gap-2">
+              <UserCheck className="w-5 h-5" />
+              Booking Details
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Booking ID</p>
+                <p className="font-medium text-gray-900 truncate" title={transaction.reference}>
+                  {transaction.reference}
+                </p>
+              </div>
+              
+              <div>
+                <p className="text-gray-500">Status</p>
+                <p className="font-medium text-yellow-600">
+                  Pending Approval
+                </p>
+              </div>
+              
+              <div className="col-span-2">
+                <p className="text-gray-500">Event</p>
+                <p className="font-medium text-gray-900">{transaction.eventTitle}</p>
+              </div>
+
+              {transaction.eventDate && (
+                <div>
+                  <p className="text-gray-500">Date</p>
+                  <p className="font-medium text-gray-900 flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {formatDate(transaction.eventDate)}
+                  </p>
+                </div>
+              )}
+
+              {transaction.eventLocation && (
+                <div>
+                  <p className="text-gray-500">Location</p>
+                  <p className="font-medium text-gray-900 flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {transaction.eventLocation}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">
+            What happens next?
+          </h3>
+          <ul className="text-sm text-blue-700 space-y-2 text-left">
+            <li>• The event organizer will review your booking request</li>
+            <li>• You'll receive an email once your booking is approved</li>
+            <li>• This usually takes 24-48 hours</li>
+            <li>• You can check your booking status in "My Bookings"</li>
+          </ul>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={() => navigate('/my-bookings')}
+            className="flex-1 bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+          >
+            View My Bookings
+          </button>
+          
+          <button
+            onClick={() => navigate('/discover')}
+            className="flex-1 bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+          >
+            Browse More Events
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderSuccess = () => {
     const config = getPaymentTypeConfig();
     const Icon = config.icon;
@@ -243,8 +449,8 @@ const PaymentVerification = () => {
         {transaction && (
           <div className="bg-gray-50 rounded-xl p-6 mb-6 text-left space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
-              Transaction Details
+              {paymentType === 'free' ? <Ticket className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
+              {paymentType === 'free' ? 'Booking Details' : 'Transaction Details'}
             </h3>
             
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -364,11 +570,11 @@ const PaymentVerification = () => {
         </div>
 
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Payment Failed
+          {paymentType === 'free' ? 'Booking Failed' : 'Payment Failed'}
         </h2>
         
         <p className="text-gray-600 mb-6">
-          {transaction?.error || 'We encountered an issue processing your payment.'}
+          {transaction?.error || `We encountered an issue processing your ${paymentType === 'free' ? 'booking' : 'payment'}.`}
         </p>
 
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6 text-left">
@@ -377,10 +583,21 @@ const PaymentVerification = () => {
             What Happened?
           </h3>
           <ul className="text-sm text-red-700 space-y-2">
-            <li>• Your payment could not be processed successfully</li>
-            <li>• No money was deducted from your account</li>
-            <li>• This might be due to network issues or insufficient funds</li>
-            <li>• Please try again or use a different payment method</li>
+            {paymentType === 'free' ? (
+              <>
+                <li>• Your booking could not be processed successfully</li>
+                <li>• This might be due to event capacity limits</li>
+                <li>• Or there might be an issue with your booking details</li>
+                <li>• Please try again or contact the event organizer</li>
+              </>
+            ) : (
+              <>
+                <li>• Your payment could not be processed successfully</li>
+                <li>• No money was deducted from your account</li>
+                <li>• This might be due to network issues or insufficient funds</li>
+                <li>• Please try again or use a different payment method</li>
+              </>
+            )}
           </ul>
         </div>
 
@@ -435,7 +652,7 @@ const PaymentVerification = () => {
         </h2>
         
         <p className="text-gray-600 mb-6">
-          We're having trouble verifying your payment. This might be a temporary issue.
+          We're having trouble verifying your {paymentType === 'free' ? 'booking' : 'payment'}. This might be a temporary issue.
         </p>
 
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6">
@@ -443,10 +660,10 @@ const PaymentVerification = () => {
             Next Steps
           </h3>
           <ul className="text-sm text-yellow-700 space-y-2">
-            <li>• Check your email for payment confirmation</li>
-            <li>• Verify the payment in your bank statement</li>
+            <li>• Check your email for confirmation</li>
+            <li>• Verify in your {paymentType === 'free' ? 'bookings' : 'bank statement'}</li>
             <li>• Contact support if the issue persists</li>
-            <li>• Your event/booking might still be processed</li>
+            <li>• Your {paymentType === 'free' ? 'event/booking' : 'payment'} might still be processed</li>
           </ul>
         </div>
 
@@ -481,12 +698,15 @@ const PaymentVerification = () => {
             <ArrowLeft className="w-5 h-5" />
             Back
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Payment Verification</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {paymentType === 'free' ? 'Booking Verification' : 'Payment Verification'}
+          </h1>
         </div>
 
         {/* Content Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
           {verificationStatus === 'verifying' && renderVerifying()}
+          {verificationStatus === 'approval-pending' && renderApprovalPending()}
           {verificationStatus === 'success' && renderSuccess()}
           {verificationStatus === 'failed' && renderFailed()}
           {verificationStatus === 'error' && renderError()}

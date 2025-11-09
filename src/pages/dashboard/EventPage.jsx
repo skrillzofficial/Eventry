@@ -4,7 +4,6 @@ import {
   MapPin,
   Calendar,
   Clock,
-  Users,
   TrendingUp,
   Ticket,
   Star,
@@ -52,7 +51,6 @@ export default function EventPage() {
   const [error, setError] = useState(null);
   const [tabLoading, setTabLoading] = useState(false);
 
-  // Check if user is an organizer
   const isOrganizer = user?.role === "organizer" || user?.userType === "organizer";
 
   useEffect(() => {
@@ -65,110 +63,114 @@ export default function EventPage() {
     setLoading(true);
     setError(null);
     try {
+      console.log('🔄 Loading event with ID:', id);
+      
       const result = await apiCall(() => eventAPI.getEventById(id));
+      console.log('📊 Event API response:', result);
 
-      if (result.success) {
-        const eventData = result.data.event || result.data;
-
-        if (!eventData) {
-          throw new Error("Event not found");
-        }
-
-        const rawImages = eventData.images || [];
-        const mappedImages =
-          rawImages.length > 0
-            ? rawImages.map((img) => {
-                if (img && typeof img === "object" && img.url) {
-                  return img.url;
-                }
-                if (typeof img === "string") {
-                  return img;
-                }
-                return imageMap[img] || fallbackImage;
-              })
-            : [fallbackImage];
-
-        const eventWithImages = {
-          ...eventData,
-          id: eventData._id || eventData.id,
-          images: mappedImages,
-          requiresApproval: eventData.requiresApproval || false,
-          approvalCriteria: eventData.approvalCriteria || null,
-
-          organizer: {
-            name:
-              eventData.organizerInfo?.name ||
-              eventData.organizerInfo?.companyName ||
-              "Unknown Organizer",
-            email: eventData.organizerInfo?.email || "",
-            companyName: eventData.organizerInfo?.companyName || "",
-            verified: eventData.blockchainData?.verified || false,
-            description:
-              eventData.organizerInfo?.description || "Event organizer",
-            eventsHosted: eventData.organizerInfo?.eventsHosted || "Multiple",
-            rating: eventData.organizerInfo?.rating || 4.5,
-          },
-
-          tags:
-            Array.isArray(eventData.tags) && eventData.tags.length > 0
-              ? eventData.tags
-              : [eventData.category].filter(Boolean),
-
-          requirements: (() => {
-            if (Array.isArray(eventData.requirements)) {
-              return eventData.requirements;
-            }
-            if (
-              typeof eventData.requirements === "string" &&
-              eventData.requirements.trim()
-            ) {
-              return [eventData.requirements];
-            }
-            return ["Valid ID", "Ticket confirmation"];
-          })(),
-
-          rating: eventData.rating || 4.5,
-          reviews: eventData.totalLikes || 0,
-          attendees: eventData.totalAttendees || 0,
-          availableTickets:
-            eventData.availableTickets || eventData.capacity || 0,
-          featured: eventData.isFeatured || false,
-          status: eventData.status || "published",
-          isActive: eventData.isActive !== false,
-          views: eventData.views || 0,
-          totalLikes: eventData.totalLikes || 0,
-          bookings: eventData.bookings || 0,
-          totalRevenue: eventData.totalRevenue || 0,
-          refundPolicy: eventData.refundPolicy || "partial",
-          currency: eventData.currency || "NGN",
-          agenda: Array.isArray(eventData.agenda) ? eventData.agenda : [],
-          faqs: Array.isArray(eventData.faqs) ? eventData.faqs : [],
-          longDescription: eventData.longDescription || eventData.description,
-
-          location: eventData.location || null,
-
-          ticketTypes:
-            Array.isArray(eventData.ticketTypes) &&
-            eventData.ticketTypes.length > 0
-              ? eventData.ticketTypes
-              : null,
-        };
-
-        setEvent(eventWithImages);
-
-        if (
-          eventWithImages.ticketTypes &&
-          eventWithImages.ticketTypes.length > 0
-        ) {
-          setSelectedTicketType(eventWithImages.ticketTypes[0]);
-        }
-
-        loadRelatedEvents(eventData.category, eventData._id || eventData.id);
-      } else {
-        throw new Error(result.error || "Failed to load event");
+      if (!result) {
+        throw new Error('No response from server');
       }
+
+      if (!result.success) {
+        throw new Error(result.error || result.message || 'Failed to load event');
+      }
+
+      // Extract event data from various possible response structures
+      let eventData = result.data?.event || 
+                     result.data?.data?.event || 
+                     result.data || 
+                     result.event || 
+                     result;
+
+      if (!eventData) {
+        throw new Error('Event data not found in response');
+      }
+
+      console.log('✅ Processed event data:', eventData);
+
+      // Process images
+      const rawImages = eventData.images || [];
+      const mappedImages = rawImages.length > 0
+        ? rawImages.map((img) => {
+            if (img && typeof img === "object" && img.url) {
+              return img.url;
+            }
+            if (typeof img === "string") {
+              return img;
+            }
+            return imageMap[img] || fallbackImage;
+          })
+        : [fallbackImage];
+
+      // Build complete event object
+      const eventWithImages = {
+        ...eventData,
+        id: eventData._id || eventData.id,
+        images: mappedImages,
+        requiresApproval: eventData.requiresApproval || false,
+        approvalCriteria: eventData.approvalCriteria || null,
+
+        organizer: {
+          name: eventData.organizerInfo?.name ||
+                eventData.organizerInfo?.companyName ||
+                eventData.organizer?.name ||
+                "Unknown Organizer",
+          email: eventData.organizerInfo?.email || eventData.organizer?.email || "",
+          companyName: eventData.organizerInfo?.companyName || eventData.organizer?.companyName || "",
+          verified: eventData.blockchainData?.verified || false,
+          description: eventData.organizerInfo?.description || eventData.organizer?.description || "Event organizer",
+          eventsHosted: eventData.organizerInfo?.eventsHosted || "Multiple",
+          rating: eventData.organizerInfo?.rating || 4.5,
+        },
+
+        tags: Array.isArray(eventData.tags) && eventData.tags.length > 0
+          ? eventData.tags
+          : [eventData.category].filter(Boolean),
+
+        requirements: (() => {
+          if (Array.isArray(eventData.requirements)) {
+            return eventData.requirements;
+          }
+          if (typeof eventData.requirements === "string" && eventData.requirements.trim()) {
+            return [eventData.requirements];
+          }
+          return ["Valid ID", "Ticket confirmation"];
+        })(),
+
+        rating: eventData.rating || 4.5,
+        reviews: eventData.totalLikes || 0,
+        attendees: eventData.totalAttendees || 0,
+        availableTickets: eventData.availableTickets || eventData.capacity || 0,
+        featured: eventData.isFeatured || false,
+        status: eventData.status || "published",
+        isActive: eventData.isActive !== false,
+        views: eventData.views || 0,
+        totalLikes: eventData.totalLikes || 0,
+        bookings: eventData.bookings || 0,
+        totalRevenue: eventData.totalRevenue || 0,
+        refundPolicy: eventData.refundPolicy || "partial",
+        currency: eventData.currency || "NGN",
+        agenda: Array.isArray(eventData.agenda) ? eventData.agenda : [],
+        faqs: Array.isArray(eventData.faqs) ? eventData.faqs : [],
+        longDescription: eventData.longDescription || eventData.description,
+        location: eventData.location || null,
+        ticketTypes: Array.isArray(eventData.ticketTypes) && eventData.ticketTypes.length > 0
+          ? eventData.ticketTypes
+          : null,
+      };
+
+      setEvent(eventWithImages);
+
+      // Set default ticket type if available
+      if (eventWithImages.ticketTypes && eventWithImages.ticketTypes.length > 0) {
+        setSelectedTicketType(eventWithImages.ticketTypes[0]);
+      }
+
+      // Load related events
+      await loadRelatedEvents(eventData.category, eventData._id || eventData.id);
     } catch (err) {
-      console.error("Error loading event:", err);
+      console.error("❌ Error loading event:", err);
       setError(err?.message || "Failed to load event");
     } finally {
       setLoading(false);
@@ -177,23 +179,46 @@ export default function EventPage() {
 
   const loadRelatedEvents = async (category, currentEventId) => {
     try {
+      console.log('🔄 Loading related events for category:', category);
+      
       const result = await apiCall(eventAPI.getAllEvents);
+      console.log('📊 Related events API response:', result);
 
       if (result.success) {
-        const allEvents = result.data.events || result.data || [];
+        // Handle multiple possible response structures
+        const allEvents = result.data?.events || 
+                         result.events || 
+                         result.data?.data?.events || 
+                         result.data || 
+                         [];
+        
+        console.log(`🎯 Found ${allEvents.length} total events`);
+        
+        if (!Array.isArray(allEvents)) {
+          console.warn('⚠️ Events data is not an array:', typeof allEvents);
+          setRelated([]);
+          return;
+        }
+
         const relatedEvents = allEvents
           .filter((ev) => {
+            if (!ev) return false;
+            
             const eventId = ev._id || ev.id;
-            return (
-              eventId !== currentEventId &&
-              ev.category === category &&
-              ev.status !== "cancelled"
-            );
+            const eventCategory = ev.category;
+            const eventStatus = ev.status;
+            
+            // Skip if missing required fields or is current event
+            if (!eventId || eventId === currentEventId) {
+              return false;
+            }
+            
+            // Match category and filter out cancelled events
+            return eventCategory === category && eventStatus !== "cancelled";
           })
           .slice(0, 3)
           .map((ev) => {
-            const img =
-              ev.images && ev.images[0] ? ev.images[0] : fallbackImage;
+            const img = ev.images && ev.images[0] ? ev.images[0] : fallbackImage;
 
             let imageUrl = fallbackImage;
             if (img && typeof img === "object" && img.url) {
@@ -208,13 +233,21 @@ export default function EventPage() {
               ...ev,
               id: ev._id || ev.id,
               image: imageUrl,
+              price: ev.price || 0,
+              category: ev.category || "General",
+              title: ev.title || "Untitled Event",
             };
           });
 
+        console.log(`✅ Found ${relatedEvents.length} related events`);
         setRelated(relatedEvents);
+      } else {
+        console.warn('❌ Related events API call not successful');
+        setRelated([]);
       }
     } catch (err) {
-      console.error("Error loading related events:", err);
+      console.error("❌ Error loading related events:", err);
+      setRelated([]);
     }
   };
 
@@ -222,10 +255,8 @@ export default function EventPage() {
     setShowCheckout(false);
 
     const ticketCount = bookingData?.quantity || ticketQuantity;
-    const ticketTypeName =
-      bookingData?.ticketType || selectedTicketType?.name || "Regular";
-    const reference =
-      bookingData?.transactionId || bookingData?._id || "Confirmed";
+    const ticketTypeName = bookingData?.ticketType || selectedTicketType?.name || "Regular";
+    const reference = bookingData?.transactionId || bookingData?._id || "Confirmed";
 
     alert(
       `🎉 Booking Successful!\n\n` +
@@ -240,20 +271,23 @@ export default function EventPage() {
 
   const toggleFavorite = () => {
     if (!isAuthenticated) {
-      console.log("Sign in to save favorites");
+      alert("Please sign in to save favorites");
+      return;
     }
-    setIsFavorite((s) => !s);
+    setIsFavorite(!isFavorite);
   };
 
   const shareEvent = (platform) => {
     const url = window.location.href;
     const text = `Check out this event: ${event?.title}`;
-    const urls = {
-      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-        text
-      )}&url=${encodeURIComponent(url)}`,
+    
+    const shareUrls = {
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
     };
-    window.open(urls[platform], "_blank", "width=600,height=400");
+    
+    window.open(shareUrls[platform], "_blank", "width=600,height=400");
   };
 
   const handleGetTickets = () => {
@@ -272,7 +306,7 @@ export default function EventPage() {
 
   const getPriceDisplay = (ev) => {
     if (ev.ticketTypes && ev.ticketTypes.length > 0) {
-      const prices = ev.ticketTypes.map((t) => t.price);
+      const prices = ev.ticketTypes.map((t) => t.price || 0);
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
 
@@ -285,7 +319,7 @@ export default function EventPage() {
       return `₦${minPrice.toLocaleString()} - ₦${maxPrice.toLocaleString()}`;
     }
 
-    return ev.price === 0 ? "Free" : `₦${ev.price.toLocaleString()}`;
+    return ev.price === 0 ? "Free" : `₦${(ev.price || 0).toLocaleString()}`;
   };
 
   const openDirections = () => {
@@ -300,9 +334,7 @@ export default function EventPage() {
       lat = event.coordinates.latitude;
       lng = event.coordinates.longitude;
     } else {
-      const address = encodeURIComponent(
-        `${event.venue}, ${event.address}, ${event.city}`
-      );
+      const address = encodeURIComponent(`${event.venue}, ${event.address}, ${event.city}`);
       const url = `https://www.google.com/maps/dir/?api=1&destination=${address}`;
       window.open(url, "_blank");
       return;
@@ -318,7 +350,7 @@ export default function EventPage() {
     const isUpcoming = eventDate >= new Date();
 
     return (
-      <div className="bg-white rounded-xl p-6 mb-6">
+      <div className="bg-white rounded-xl p-6 mb-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <span className="bg-[#FF6B35] text-white px-4 py-1.5 rounded-full text-sm font-medium">
             {ev.category}
@@ -331,13 +363,9 @@ export default function EventPage() {
             </div>
           )}
 
-          <span
-            className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-              isUpcoming
-                ? "bg-green-50 text-green-600"
-                : "bg-gray-100 text-gray-600"
-            }`}
-          >
+          <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+            isUpcoming ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-600"
+          }`}>
             {isUpcoming ? "Upcoming" : "Past event"}
           </span>
         </div>
@@ -388,13 +416,9 @@ export default function EventPage() {
               className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               title={!isAuthenticated ? "Sign in to save favorites" : ""}
             >
-              <Heart
-                className={
-                  isFavorite
-                    ? "h-5 w-5 text-red-500 fill-red-500"
-                    : "h-5 w-5 text-gray-600"
-                }
-              />
+              <Heart className={
+                isFavorite ? "h-5 w-5 text-red-500 fill-red-500" : "h-5 w-5 text-gray-600"
+              } />
             </button>
             <button
               onClick={() => shareEvent("twitter")}
@@ -409,12 +433,15 @@ export default function EventPage() {
   };
 
   const EventGallery = ({ ev }) => (
-    <div className="bg-white rounded-xl overflow-hidden mb-6">
+    <div className="bg-white rounded-xl overflow-hidden mb-6 shadow-sm">
       <div className="w-full h-96 bg-gray-100">
         <img
           src={ev.images[0] || fallbackImage}
           alt={ev.title}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.src = fallbackImage;
+          }}
         />
       </div>
 
@@ -426,6 +453,9 @@ export default function EventPage() {
               src={img}
               alt={`${ev.title} ${i + 2}`}
               className="h-24 w-full object-cover rounded-lg cursor-pointer hover:opacity-75 transition-opacity"
+              onError={(e) => {
+                e.target.src = fallbackImage;
+              }}
             />
           ))}
         </div>
@@ -435,7 +465,7 @@ export default function EventPage() {
 
   const LocationTab = ({ ev }) => {
     const getMapUrl = () => {
-      let lat, lng;
+      let lat = 6.5244, lng = 3.3792; // Default to Lagos coordinates
 
       if (ev.location?.coordinates) {
         lat = ev.location.coordinates.lat;
@@ -443,9 +473,6 @@ export default function EventPage() {
       } else if (ev.coordinates) {
         lat = ev.coordinates.latitude;
         lng = ev.coordinates.longitude;
-      } else {
-        lat = 6.5244;
-        lng = 3.3792;
       }
 
       return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`;
@@ -492,41 +519,34 @@ export default function EventPage() {
             src={getMapUrl()}
             style={{ border: 0 }}
             title="Event Location Map"
-          ></iframe>
+          />
         </div>
       </>
     );
   };
 
   const DetailsTabs = ({ ev }) => {
-    const handleTabChange = (e, tabName) => {
-      e.preventDefault();
+    const handleTabChange = (tabName) => {
       setTabLoading(true);
-
-      requestAnimationFrame(() => {
-        setActiveTab(tabName);
-        setTimeout(() => {
-          setTabLoading(false);
-        }, 300);
-      });
+      setActiveTab(tabName);
+      setTimeout(() => setTabLoading(false), 300);
     };
 
     return (
-      <div className="bg-white rounded-xl overflow-hidden mb-6">
+      <div className="bg-white rounded-xl overflow-hidden mb-6 shadow-sm">
         <div className="border-b border-gray-200">
           <nav className="flex px-6">
-            {["details", "organizer", "location", "reviews"].map((t) => (
+            {["details", "organizer", "location", "reviews"].map((tab) => (
               <button
-                key={t}
-                onClick={(e) => handleTabChange(e, t)}
-                type="button"
+                key={tab}
+                onClick={() => handleTabChange(tab)}
                 className={`py-4 px-6 text-sm font-medium transition-colors ${
-                  activeTab === t
+                  activeTab === tab
                     ? "text-[#FF6B35] border-b-2 border-[#FF6B35]"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
           </nav>
@@ -536,31 +556,19 @@ export default function EventPage() {
           {tabLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
               <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin h-10 w-10 border-4 border-[#FF6B35] border-t-transparent rounded-full"></div>
-                <div className="text-sm text-gray-600 font-medium">
-                  Loading...
-                </div>
+                <div className="animate-spin h-10 w-10 border-4 border-[#FF6B35] border-t-transparent rounded-full" />
+                <div className="text-sm text-gray-600 font-medium">Loading...</div>
               </div>
             </div>
           )}
 
-          <div
-            className={
-              tabLoading
-                ? "opacity-30"
-                : "opacity-100 transition-opacity duration-200"
-            }
-          >
+          <div className={tabLoading ? "opacity-30" : "opacity-100 transition-opacity duration-200"}>
             {activeTab === "details" && (
               <>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  About this event
-                </h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">About this event</h3>
                 <div className="prose max-w-none text-gray-700 leading-relaxed">
                   <p className="whitespace-pre-wrap">
-                    {ev.longDescription ||
-                      ev.description ||
-                      "No description available"}
+                    {ev.longDescription || ev.description || "No description available"}
                   </p>
                 </div>
 
@@ -595,18 +603,14 @@ export default function EventPage() {
 
             {activeTab === "organizer" && (
               <>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  Organizer
-                </h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Organizer</h3>
                 <div className="flex items-start gap-4">
                   <div className="w-16 h-16 rounded-full bg-[#FF6B35] flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
                     {ev.organizer.name?.charAt(0) || "O"}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-bold text-gray-900 text-lg">
-                        {ev.organizer.name}
-                      </h4>
+                      <h4 className="font-bold text-gray-900 text-lg">{ev.organizer.name}</h4>
                       {ev.organizer.verified && (
                         <Shield className="h-5 w-5 text-green-600" />
                       )}
@@ -617,9 +621,7 @@ export default function EventPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-gray-50 rounded-lg">
-                        <div className="text-sm text-gray-500 mb-1">
-                          Events hosted
-                        </div>
+                        <div className="text-sm text-gray-500 mb-1">Events hosted</div>
                         <div className="font-bold text-gray-900 text-lg">
                           {ev.organizer.eventsHosted || "Multiple"}
                         </div>
@@ -643,21 +645,15 @@ export default function EventPage() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-bold text-gray-900">Reviews</h3>
                   <div className="text-right">
-                    <div className="text-3xl font-bold text-gray-900">
-                      {ev.rating}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {ev.reviews} reviews
-                    </div>
+                    <div className="text-3xl font-bold text-gray-900">{ev.rating}</div>
+                    <div className="text-sm text-gray-600">{ev.reviews} reviews</div>
                   </div>
                 </div>
 
                 <div className="space-y-3 mb-6">
                   {[5, 4, 3, 2, 1].map((s) => (
                     <div key={s} className="flex items-center gap-4">
-                      <div className="w-12 text-sm text-gray-600 font-medium">
-                        {s} ⭐
-                      </div>
+                      <div className="w-12 text-sm text-gray-600 font-medium">{s} ⭐</div>
                       <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
                         <div
                           className="bg-[#FF6B35] h-3 transition-all"
@@ -677,15 +673,12 @@ export default function EventPage() {
                       C
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900">
-                        Chinedu O.
-                      </div>
+                      <div className="font-semibold text-gray-900">Chinedu O.</div>
                       <div className="text-xs text-gray-500">2 weeks ago</div>
                     </div>
                   </div>
                   <p className="text-gray-700">
-                    "One of the best events I've attended. Great organization
-                    and networking opportunities!"
+                    "One of the best events I've attended. Great organization and networking opportunities!"
                   </p>
                 </div>
               </>
@@ -698,11 +691,10 @@ export default function EventPage() {
 
   const RelatedEvents = ({ list }) => {
     if (!list || list.length === 0) return null;
+    
     return (
-      <div className="bg-white rounded-xl p-6">
-        <h4 className="text-xl font-bold text-gray-900 mb-4">
-          Related events
-        </h4>
+      <div className="bg-white rounded-xl p-6 shadow-sm">
+        <h4 className="text-xl font-bold text-gray-900 mb-4">Related events</h4>
         <div className="space-y-3">
           {list.map((r) => (
             <Link
@@ -714,14 +706,14 @@ export default function EventPage() {
                 src={r.image}
                 alt={r.title}
                 className="w-20 h-20 object-cover rounded-lg"
+                onError={(e) => {
+                  e.target.src = fallbackImage;
+                }}
               />
               <div className="flex-1">
-                <div className="font-semibold text-gray-900 mb-1">
-                  {r.title}
-                </div>
+                <div className="font-semibold text-gray-900 mb-1">{r.title}</div>
                 <div className="text-sm text-gray-600">
-                  {r.category} •{" "}
-                  {r.price === 0 ? "Free" : `₦${r.price?.toLocaleString()}`}
+                  {r.category} • {r.price === 0 ? "Free" : `₦${r.price?.toLocaleString()}`}
                 </div>
               </div>
             </Link>
@@ -737,7 +729,7 @@ export default function EventPage() {
 
     const getAvailableTickets = () => {
       if (hasTicketTypes && selectedTicketType) {
-        return selectedTicketType.availableTickets;
+        return selectedTicketType.availableTickets || 0;
       }
       return Math.max(0, ev.capacity - (ev.attendees || 0));
     };
@@ -746,9 +738,9 @@ export default function EventPage() {
 
     const getPrice = () => {
       if (hasTicketTypes && selectedTicketType) {
-        return selectedTicketType.price;
+        return selectedTicketType.price || 0;
       }
-      return ev.price;
+      return ev.price || 0;
     };
 
     const price = getPrice();
@@ -774,16 +766,14 @@ export default function EventPage() {
     };
 
     return (
-      <div className="bg-white rounded-xl p-6 sticky top-24">
+      <div className="bg-white rounded-xl p-6 sticky top-24 shadow-sm">
         <div className="space-y-5">
           <div className="text-center pb-4 border-b border-gray-200">
             <div className="text-3xl font-bold text-[#FF6B35] mb-1">
               {getPriceDisplay(ev)}
             </div>
             <div className="text-sm text-gray-500">
-              {ev.ticketTypes && ev.ticketTypes.length > 1
-                ? "Price range"
-                : "per ticket"}
+              {ev.ticketTypes && ev.ticketTypes.length > 1 ? "Price range" : "per ticket"}
             </div>
           </div>
 
@@ -792,12 +782,9 @@ export default function EventPage() {
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-blue-900 mb-1">
-                    Approval Required
-                  </div>
+                  <div className="font-semibold text-blue-900 mb-1">Approval Required</div>
                   <div className="text-sm text-blue-700">
-                    {ev.approvalCriteria ||
-                      "The organizer will review your request before issuing tickets. You'll be notified via email once approved."}
+                    {ev.approvalCriteria || "The organizer will review your request before issuing tickets. You'll be notified via email once approved."}
                   </div>
                 </div>
               </div>
@@ -809,9 +796,7 @@ export default function EventPage() {
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-orange-900 mb-1">
-                    Organizer Account
-                  </div>
+                  <div className="font-semibold text-orange-900 mb-1">Organizer Account</div>
                   <div className="text-sm text-orange-700">
                     You cannot purchase tickets with an organizer account. Please use an attendee account to book tickets.
                   </div>
@@ -841,20 +826,14 @@ export default function EventPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-semibold text-gray-900">
-                          {ticketType.name}
-                        </div>
+                        <div className="font-semibold text-gray-900">{ticketType.name}</div>
                         {ticketType.description && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            {ticketType.description}
-                          </div>
+                          <div className="text-xs text-gray-600 mt-1">{ticketType.description}</div>
                         )}
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-[#FF6B35]">
-                          {ticketType.price === 0
-                            ? "Free"
-                            : `₦${ticketType.price.toLocaleString()}`}
+                          {ticketType.price === 0 ? "Free" : `₦${ticketType.price.toLocaleString()}`}
                         </div>
                         <div className="text-xs text-gray-500">
                           {ticketType.availableTickets} left
@@ -884,9 +863,7 @@ export default function EventPage() {
                   {ticketQuantity}
                 </div>
                 <button
-                  onClick={() =>
-                    setTicketQuantity(Math.min(available, ticketQuantity + 1))
-                  }
+                  onClick={() => setTicketQuantity(Math.min(available, ticketQuantity + 1))}
                   disabled={available === 0 || ticketQuantity >= available}
                   className="px-6 py-3 text-gray-700 font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 >
@@ -955,9 +932,7 @@ export default function EventPage() {
               <div className="text-sm text-gray-700 bg-yellow-50 border border-yellow-200 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-yellow-900 mb-1">
-                    Sign in required
-                  </div>
+                  <div className="font-semibold text-yellow-900 mb-1">Sign in required</div>
                   <div className="text-xs text-yellow-700">
                     Create an account or sign in to {requiresApproval ? "request" : "purchase"} tickets
                   </div>
@@ -998,9 +973,7 @@ export default function EventPage() {
             <div className="text-gray-600 font-medium">Loading event...</div>
           </div>
         </div>
-        <div className="bg-black">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
@@ -1014,9 +987,7 @@ export default function EventPage() {
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <TrendingUp className="h-10 w-10 text-red-500" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Event Not Found
-            </h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Event Not Found</h2>
             <p className="text-gray-600 mb-6 text-lg">
               {error || "The event you're looking for doesn't exist."}
             </p>
@@ -1029,9 +1000,7 @@ export default function EventPage() {
             </Link>
           </div>
         </div>
-        <div className="bg-black">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
@@ -1067,19 +1036,15 @@ export default function EventPage() {
           event={{
             ...event,
             selectedTicketType: selectedTicketType,
-            ticketPrice: selectedTicketType
-              ? selectedTicketType.price
-              : event.price,
+            ticketPrice: selectedTicketType ? selectedTicketType.price : event.price,
           }}
           ticketQuantity={ticketQuantity}
-          onSuccess={(bookingData) => handlePaymentSuccess(bookingData)}
+          onSuccess={handlePaymentSuccess}
           onClose={() => setShowCheckout(false)}
         />
       )}
 
-      <div className="bg-black">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }

@@ -19,19 +19,6 @@ import Footer from "../../components/layout/Footer";
 import { ticketAPI, apiCall } from "../../services/api";
 import QRCode from "qrcode";
 
-// Simple fallback for PDF generation
-const TicketPDFGenerator = {
-  async downloadPDF(ticketData) {
-    // Fallback to text download
-    downloadTextTicket(ticketData);
-    return true;
-  },
-  
-  async downloadIndividualPDF(ticketData) {
-    return this.downloadPDF(ticketData);
-  }
-};
-
 const MyTickets = () => {
   const { user, isAuthenticated } = useAuth();
   const [tickets, setTickets] = useState([]);
@@ -58,36 +45,29 @@ const MyTickets = () => {
       if (result.success) {
         let ticketsData = [];
         
-        if (result.data) {
-          if (result.data.data && result.data.data.tickets && Array.isArray(result.data.data.tickets)) {
-            ticketsData = result.data.data.tickets;
-          }
-          else if (result.data.tickets && Array.isArray(result.data.tickets)) {
-            ticketsData = result.data.tickets;
-          }
-          else if (result.data.data && Array.isArray(result.data.data)) {
-            ticketsData = result.data.data;
-          }
-          else if (Array.isArray(result.data)) {
-            ticketsData = result.data;
-          }
-          else if (result.data._id) {
-            ticketsData = [result.data];
-          }
-          else if (result.data.data && result.data.data._id) {
-            ticketsData = [result.data.data];
-          }
-        }
-        else if (Array.isArray(result)) {
+        // Handle different API response structures
+        if (result.data?.data?.tickets && Array.isArray(result.data.data.tickets)) {
+          ticketsData = result.data.data.tickets;
+        } else if (result.data?.tickets && Array.isArray(result.data.tickets)) {
+          ticketsData = result.data.tickets;
+        } else if (result.data?.data && Array.isArray(result.data.data)) {
+          ticketsData = result.data.data;
+        } else if (Array.isArray(result.data)) {
+          ticketsData = result.data;
+        } else if (result.data?._id) {
+          ticketsData = [result.data];
+        } else if (Array.isArray(result)) {
           ticketsData = result;
         }
         
+        console.log("Loaded tickets:", ticketsData);
         setTickets(ticketsData);
       } else {
-        setError(result.error || "Failed to load tickets");
+        setError(result.error || result.message || "Failed to load tickets");
         setTickets([]);
       }
     } catch (err) {
+      console.error("Error loading tickets:", err);
       setError("Unable to load tickets. Please try again.");
       setTickets([]);
     } finally {
@@ -96,39 +76,46 @@ const MyTickets = () => {
   };
 
   const getTicketDisplayData = (ticket) => {
+    // Handle both direct ticket objects and populated ticket objects
+    const eventData = ticket.eventId || ticket.event || {};
+    const userData = ticket.userId || ticket.user || {};
+    
     return {
       id: ticket._id,
       ticketId: ticket._id,
-      eventId: ticket.eventId,
+      eventId: ticket.eventId?._id || ticket.event?._id || ticket.eventId,
       
-      eventTitle: ticket.eventName || "Untitled Event",
-      eventDate: ticket.eventDate,
-      eventTime: ticket.eventTime,
-      eventEndTime: ticket.eventEndTime,
-      eventVenue: ticket.eventVenue,
-      eventCity: ticket.eventCity,
-      eventCategory: ticket.eventCategory,
+      eventTitle: ticket.eventName || eventData.title || "Untitled Event",
+      eventDate: ticket.eventStartDate || ticket.eventDate || eventData.startDate,
+      eventTime: ticket.eventTime || eventData.time,
+      eventEndTime: ticket.eventEndTime || eventData.endTime,
+      eventVenue: ticket.eventVenue || eventData.venue,
+      eventCity: ticket.eventCity || eventData.city,
+      eventCategory: ticket.eventCategory || eventData.category,
       
       ticketNumber: ticket.ticketNumber,
       ticketType: ticket.ticketType,
-      quantity: ticket.quantity,
-      totalPrice: ticket.totalAmount, 
+      quantity: ticket.quantity || 1,
+      totalPrice: ticket.totalAmount || ticket.ticketPrice, 
       ticketPrice: ticket.ticketPrice, 
-      currency: ticket.currency,
+      currency: ticket.currency || "NGN",
       
-      purchaseDate: ticket.purchaseDate,
-      status: ticket.status,
+      purchaseDate: ticket.purchaseDate || ticket.createdAt,
+      status: ticket.status || "confirmed",
       
-      isUsed: ticket.isCheckedIn || false,
+      isUsed: ticket.checkedInAt !== undefined && ticket.checkedInAt !== null,
       isCancelled: ticket.status === "cancelled",
-      isTransferable: ticket.isTransferable !== undefined ? ticket.isTransferable : true,
+      isTransferable: ticket.isTransferable !== false,
       
       qrCode: ticket.qrCode,
       barcode: ticket.barcode,
       securityCode: ticket.securityCode,
       expiresAt: ticket.expiresAt,
-      paymentStatus: ticket.paymentStatus,
-      organizerName: ticket.organizerName,
+      paymentStatus: ticket.paymentStatus || "completed",
+      organizerName: ticket.organizerName || eventData.organizerName,
+      
+      userName: ticket.userName || userData.name || user?.name,
+      userEmail: ticket.userEmail || userData.email || user?.email,
       
       _rawData: ticket
     };
@@ -138,12 +125,15 @@ const MyTickets = () => {
     try {
       setIsGeneratingQR(true);
       const ticketData = getTicketDisplayData(ticket);
+      
+      // Create QR code data
       const qrData = JSON.stringify({
         ticketId: ticketData.ticketId,
         ticketNumber: ticketData.ticketNumber,
         eventId: ticketData.eventId,
         userId: user?._id,
-        securityCode: ticketData.securityCode
+        securityCode: ticketData.securityCode,
+        timestamp: Date.now()
       });
       
       const url = await QRCode.toDataURL(qrData, {
@@ -157,9 +147,11 @@ const MyTickets = () => {
       });
       setQrCodeUrl(url);
     } catch (err) {
+      console.error("QR generation error:", err);
+      // Fallback QR code
       const ticketData = getTicketDisplayData(ticket);
       setQrCodeUrl(
-        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="white"/><text x="150" y="150" font-family="Arial" font-size="20" text-anchor="middle" fill="%23FF6B35">QR: ${ticketData.ticketNumber}</text></svg>`
+        `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="white"/><text x="150" y="150" font-family="Arial" font-size="16" text-anchor="middle" fill="%23FF6B35">Ticket: ${ticketData.ticketNumber}</text></svg>`
       );
     } finally {
       setIsGeneratingQR(false);
@@ -178,105 +170,12 @@ const MyTickets = () => {
     setQrCodeUrl("");
   };
 
-  // New function to handle multiple ticket generation
-  const generateMultipleTickets = async (ticketData) => {
-    try {
-      // Create individual tickets for each quantity
-      for (let i = 1; i <= ticketData.quantity; i++) {
-        const individualTicketData = {
-          ...ticketData,
-          // Create unique ticket number for each copy
-          ticketNumber: `${ticketData.ticketNumber}-${i}`,
-          // Mark as individual copy
-          isIndividualCopy: true,
-          copyNumber: i,
-          totalQuantity: ticketData.quantity,
-          // Individual price instead of total
-          displayPrice: ticketData.ticketPrice
-        };
-        
-        await TicketPDFGenerator.downloadIndividualPDF(individualTicketData);
-        
-        // Small delay between generations to avoid browser issues
-        if (i < ticketData.quantity) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("Multiple ticket generation failed:", error);
-      // Fallback: generate one combined PDF
-      await TicketPDFGenerator.downloadPDF(ticketData);
-      return false;
-    }
-  };
-
-  const handleDownloadPDF = async (ticket) => {
-    try {
-      setIsGeneratingPDF(true);
-      const ticketData = getTicketDisplayData(ticket);
-      
-      // If quantity is more than 1, generate multiple individual tickets
-      if (ticketData.quantity > 1) {
-        await generateMultipleTickets(ticketData);
-      } else {
-        // Single ticket download
-        const result = await apiCall(ticketAPI.downloadTicket, ticketData.ticketId);
-        
-        if (result.success && result.data) {
-          const blob = new Blob([result.data], { type: 'application/pdf' });
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `ticket-${ticketData.ticketNumber}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        } else {
-          // Fallback to local PDF generation for single ticket
-          const success = await TicketPDFGenerator.downloadPDF(ticketData);
-          if (!success) {
-            downloadTextTicket(ticketData);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("PDF download failed:", error);
-      // Fallback to multiple PDF generation even if backend fails
-      const ticketData = getTicketDisplayData(ticket);
-      if (ticketData.quantity > 1) {
-        await generateMultipleTickets(ticketData);
-      } else {
-        await TicketPDFGenerator.downloadPDF(ticketData);
-      }
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  };
-
-  const handleResendEmail = async (ticket) => {
-    try {
-      const ticketData = getTicketDisplayData(ticket);
-      const result = await apiCall(ticketAPI.resendTicketEmail, ticketData.ticketId);
-      
-      if (result.success) {
-        alert("Ticket confirmation email has been sent!");
-      } else {
-        alert(result.error || "Failed to resend email");
-      }
-    } catch (error) {
-      alert("Unable to resend email. Please try again.");
-    }
-  };
-
   const downloadTextTicket = (ticketData) => {
     const currencySymbol = ticketData.currency === "NGN" ? "₦" : "$";
 
     const ticketText = `
 ╔════════════════════════════════════════╗
-║          EVENT TICKET                  ║
+║               EVENT TICKET             ║
 ╚════════════════════════════════════════╝
 
 ${ticketData.eventTitle}
@@ -303,9 +202,9 @@ Price per ticket: ${currencySymbol}${(ticketData.ticketPrice || 0).toLocaleStrin
 Total Amount: ${currencySymbol}${(ticketData.totalPrice || 0).toLocaleString()}
 Status: ${ticketData.status.toUpperCase()}
 
-👤 PURCHASER
-${ticketData._rawData.userName || user?.name || "N/A"}
-${ticketData._rawData.userEmail || user?.email || "N/A"}
+👤 ATTENDEE
+${ticketData.userName || "N/A"}
+${ticketData.userEmail || "N/A"}
 
 🏢 ORGANIZER
 ${ticketData.organizerName || "N/A"}
@@ -313,7 +212,7 @@ ${ticketData.organizerName || "N/A"}
 Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
 
 ╔════════════════════════════════════════╗
-║  Present this ticket at venue entrance ║
+║   Present this ticket at venue entry   ║
 ╚════════════════════════════════════════╝
     `.trim();
 
@@ -328,14 +227,64 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadPDF = async (ticket) => {
+    try {
+      setIsGeneratingPDF(true);
+      const ticketData = getTicketDisplayData(ticket);
+      
+      // Try to download from backend first
+      const result = await apiCall(() => ticketAPI.downloadTicket(ticketData.ticketId));
+      
+      if (result.success && result.data) {
+        // Handle blob response for PDF download
+        const blob = new Blob([result.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ticket-${ticketData.ticketNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Fallback to text download
+        downloadTextTicket(ticketData);
+      }
+    } catch (error) {
+      console.error("PDF download failed:", error);
+      // Fallback to text download
+      const ticketData = getTicketDisplayData(ticket);
+      downloadTextTicket(ticketData);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleResendEmail = async (ticket) => {
+    try {
+      const ticketData = getTicketDisplayData(ticket);
+      const result = await apiCall(() => ticketAPI.resendTicketEmail(ticketData.ticketId));
+      
+      if (result.success) {
+        alert("Ticket confirmation email has been sent!");
+      } else {
+        alert(result.error || result.message || "Failed to resend email");
+      }
+    } catch (error) {
+      console.error("Resend email error:", error);
+      alert("Unable to resend email. Please try again.");
+    }
+  };
+
   const QRCodeModal = () => {
     if (!showQRModal || !selectedTicket) return null;
 
     const ticketData = getTicketDisplayData(selectedTicket);
-    const isValid = !ticketData.isCancelled && !ticketData.isUsed && ticketData.paymentStatus === "completed";
+    const isValid = !ticketData.isCancelled && !ticketData.isUsed && 
+                   (ticketData.paymentStatus === "completed" || ticketData.paymentStatus === "free");
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl max-w-md w-full p-6 animate-scaleIn">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-gray-900">
@@ -356,26 +305,21 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
             <div className="text-sm text-gray-600 space-y-1">
               <p className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                {new Date(ticketData.eventDate).toLocaleDateString(
-                  "en-NG",
-                  {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  }
-                )}
+                {ticketData.eventDate ? new Date(ticketData.eventDate).toLocaleDateString("en-NG", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                }) : "Date not set"}
               </p>
               <p className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                {ticketData.eventTime}
-                {ticketData.eventEndTime
-                  ? ` - ${ticketData.eventEndTime}`
-                  : ""}
+                {ticketData.eventTime || "Time not set"}
+                {ticketData.eventEndTime ? ` - ${ticketData.eventEndTime}` : ""}
               </p>
               <p className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                {ticketData.eventVenue}, {ticketData.eventCity}
+                {ticketData.eventVenue || "Venue not specified"}, {ticketData.eventCity || ""}
               </p>
             </div>
           </div>
@@ -398,7 +342,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                     alt="QR Code"
                     className="w-64 h-64"
                     onError={(e) => {
-                      e.target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="white"/><text x="150" y="150" font-family="Arial" font-size="20" text-anchor="middle" fill="%23FF6B35">QR: ${ticketData.ticketNumber}</text></svg>`;
+                      e.target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="white"/><text x="150" y="150" font-family="Arial" font-size="16" text-anchor="middle" fill="%23FF6B35">Ticket: ${ticketData.ticketNumber}</text></svg>`;
                     }}
                   />
                 </div>
@@ -426,8 +370,9 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                   <AlertCircle className="h-4 w-4 text-red-500" />
                   <span className="text-red-600 font-medium">
                     {ticketData.isCancelled ? "Ticket Cancelled" : 
-                     ticketData.paymentStatus !== "completed" ? "Payment Pending" : 
-                     "Ticket Already Used"}
+                     ticketData.isUsed ? "Ticket Already Used" :
+                     ticketData.paymentStatus !== "completed" && ticketData.paymentStatus !== "free" ? "Payment Pending" : 
+                     "Ticket Not Valid"}
                   </span>
                 </>
               )}
@@ -441,20 +386,12 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
               {isGeneratingPDF ? (
                 <>
                   <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  <span>
-                    {selectedTicket && getTicketDisplayData(selectedTicket).quantity > 1 
-                      ? `Generating ${getTicketDisplayData(selectedTicket).quantity} Tickets...` 
-                      : "Generating PDF..."}
-                  </span>
+                  <span>Generating PDF...</span>
                 </>
               ) : (
                 <>
                   <Download className="h-4 w-4" />
-                  <span>
-                    {selectedTicket && getTicketDisplayData(selectedTicket).quantity > 1 
-                      ? `Download ${getTicketDisplayData(selectedTicket).quantity} Tickets` 
-                      : "Download PDF Ticket"}
-                  </span>
+                  <span>Download PDF Ticket</span>
                 </>
               )}
             </button>
@@ -478,6 +415,22 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
     );
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex flex-col items-center">
+              <div className="animate-spin h-12 w-12 border-4 border-[#FF6B35] border-t-transparent rounded-full mb-4" />
+              <p className="text-gray-600">Loading your tickets...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -494,9 +447,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
               </div>
               <p className="text-gray-600 text-lg ml-15">
                 {tickets.length > 0
-                  ? `${tickets.length} ticket${
-                      tickets.length > 1 ? "s" : ""
-                    } ready for your events`
+                  ? `${tickets.length} ticket${tickets.length > 1 ? "s" : ""} ready for your events`
                   : "Manage and access your event tickets"}
               </p>
             </div>
@@ -510,7 +461,24 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
           </div>
         </div>
 
-        {tickets.length === 0 ? (
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-6 w-6 text-red-500" />
+              <div>
+                <p className="text-red-800 font-medium">{error}</p>
+                <button 
+                  onClick={loadMyTickets}
+                  className="text-red-600 hover:text-red-800 text-sm mt-1"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tickets.length === 0 && !loading ? (
           <div className="bg-white rounded-3xl p-16 text-center shadow-xl border border-gray-100">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Ticket className="h-12 w-12 text-gray-400" />
@@ -519,8 +487,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
               No tickets yet
             </h3>
             <p className="text-gray-600 mb-8 text-lg max-w-md mx-auto">
-              Start your journey! Discover incredible events and secure your
-              tickets today.
+              Start your journey! Discover incredible events and secure your tickets today.
             </p>
             <Link
               to="/discover"
@@ -539,7 +506,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
               const isPast = !isUpcoming;
               const isCancelled = ticketData.isCancelled;
               const isUsed = ticketData.isUsed;
-              const isPaid = ticketData.paymentStatus === "completed";
+              const isPaid = ticketData.paymentStatus === "completed" || ticketData.paymentStatus === "free";
 
               let statusBadge = {
                 color: "bg-green-500 text-white",
@@ -584,7 +551,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
               return (
                 <div
                   key={ticketData.id}
-                  className="bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-2xl transition-all transform hover:scale-[1.01] border border-gray-100"
+                  className="bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-2xl transition-all border border-gray-100"
                 >
                   <div className="h-2 bg-[#FF6B35]" />
 
@@ -618,17 +585,17 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                           <div className="flex items-center gap-2">
                             <Calendar className="h-5 w-5" />
                             <span className="font-medium">
-                              {eventDate.toLocaleDateString("en-NG", {
+                              {ticketData.eventDate ? eventDate.toLocaleDateString("en-NG", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
-                              })}
+                              }) : "Date not set"}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="h-5 w-5" />
                             <span className="font-medium">
-                              {ticketData.eventTime}
+                              {ticketData.eventTime || "Time not set"}
                             </span>
                           </div>
                         </div>
@@ -654,10 +621,12 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                             {ticketData.currency === "NGN" ? "₦" : "$"}
                             {(ticketData.totalPrice || 0).toLocaleString()}
                           </div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            {ticketData.quantity} × {ticketData.currency === "NGN" ? "₦" : "$"}
-                            {(ticketData.ticketPrice || 0).toLocaleString()} each
-                          </div>
+                          {ticketData.quantity > 1 && (
+                            <div className="text-sm text-gray-600 mt-1">
+                              {ticketData.quantity} × {ticketData.currency === "NGN" ? "₦" : "$"}
+                              {(ticketData.ticketPrice || 0).toLocaleString()} each
+                            </div>
+                          )}
                         </div>
                         <div className="text-right">
                           <div className="text-sm text-gray-500 mb-1">
@@ -677,10 +646,10 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                           <MapPin className="h-5 w-5 text-[#FF6B35] flex-shrink-0 mt-1" />
                           <div>
                             <div className="font-semibold text-gray-900">
-                              {ticketData.eventVenue}
+                              {ticketData.eventVenue || "Venue not specified"}
                             </div>
                             <div className="text-sm text-gray-600">
-                              {ticketData.eventCity}
+                              {ticketData.eventCity || ""}
                             </div>
                           </div>
                         </div>
@@ -697,12 +666,7 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                           ) : (
                             <Download className="h-4 w-4" />
                           )}
-                          <span className="hidden sm:inline">
-                            {isGeneratingPDF 
-                              ? (ticketData.quantity > 1 ? `Generating ${ticketData.quantity}...` : "Generating...")
-                              : (ticketData.quantity > 1 ? `Download ${ticketData.quantity} Tickets` : "Download")
-                            }
-                          </span>
+                          <span>Download</span>
                         </button>
 
                         <button
@@ -711,29 +675,28 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                           className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FF6B35] text-white rounded-xl hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <QrCode className="h-4 w-4" />
-                          <span className="hidden sm:inline">QR Code</span>
+                          <span>QR Code</span>
                         </button>
 
-                        <Link
-                          to={`/event/${ticketData.eventId}`}
-                          className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-[#FF6B35] text-[#FF6B35] rounded-xl hover:bg-[#FFF6F2] transition-all font-medium"
-                        >
-                          <span className="hidden sm:inline">View Event</span>
-                          <ArrowRight className="h-4 w-4" />
-                        </Link>
+                        {ticketData.eventId && (
+                          <Link
+                            to={`/event/${ticketData.eventId}`}
+                            className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-[#FF6B35] text-[#FF6B35] rounded-xl hover:bg-[#FFF6F2] transition-all font-medium"
+                          >
+                            <span>View Event</span>
+                            <ArrowRight className="h-4 w-4" />
+                          </Link>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-sm text-gray-500 pt-4 border-t border-gray-100">
                         <span>
                           Purchased on{" "}
-                          {new Date(ticketData.purchaseDate).toLocaleDateString(
-                            "en-NG",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }
-                          )}
+                          {ticketData.purchaseDate ? new Date(ticketData.purchaseDate).toLocaleDateString("en-NG", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }) : "Unknown date"}
                         </span>
                         <div className="text-right">
                           {!isPaid && (
@@ -777,19 +740,10 @@ Purchased: ${new Date(ticketData.purchaseDate).toLocaleDateString("en-NG")}
                   Important Ticket Information
                 </p>
                 <ul className="text-sm text-blue-800 space-y-1">
-                  <li>
-                    • When downloading multiple tickets, you'll receive separate PDF files for each ticket
-                  </li>
-                  <li>
-                    • Present your QR code at the venue entrance for verification
-                  </li>
-                  <li>
-                    • Download PDF tickets for offline access and professional printing
-                  </li>
+                  <li>• Present your QR code at the venue entrance for verification</li>
+                  <li>• Download PDF tickets for offline access and professional printing</li>
                   <li>• Arrive early to avoid queues at the entrance</li>
-                  <li>
-                    • Contact support if you encounter any issues with your ticket
-                  </li>
+                  <li>• Contact support if you encounter any issues with your ticket</li>
                 </ul>
               </div>
             </div>
