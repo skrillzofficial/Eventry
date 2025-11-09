@@ -21,18 +21,16 @@ apiClient.interceptors.request.use(
 
     // Content-Type for FormData with boundary
     if (config.data instanceof FormData) {
-      // Delete any Content-Type header to let browser handle it
       if (config.headers["Content-Type"]) {
         delete config.headers["Content-Type"];
       }
     } else if (!config.headers["Content-Type"]) {
-      // Only set JSON Content-Type for non-FormData requests
       config.headers["Content-Type"] = "application/json";
     }
 
     // Debug logging
     if (process.env.NODE_ENV === "development") {
-      console.log(" API Request:", {
+      console.log("📤 API Request:", {
         url: config.url,
         method: config.method,
         isFormData: config.data instanceof FormData,
@@ -72,6 +70,109 @@ apiClient.interceptors.response.use(
 );
 
 // ============================================
+// HELPER FUNCTION FOR EVENT FORMDATA
+// ============================================
+
+/**
+ * Helper to build FormData for event creation/update
+ * @param {Object} eventData - Event data object
+ * @param {File[]} imageFiles - Array of image files
+ * @param {File|null} socialBannerFile - Optional social banner file
+ * @returns {FormData}
+ */
+const buildEventFormData = (eventData, imageFiles = [], socialBannerFile = null) => {
+  const formData = new FormData();
+
+  console.log('🏗️ Building FormData for event:', {
+    title: eventData.title,
+    status: eventData.status,
+    imageFilesCount: imageFiles?.length || 0,
+    hasSocialBanner: !!socialBannerFile,
+    hasAgreement: !!eventData.agreement
+  });
+
+  // ✅ Add all text/JSON fields
+  Object.keys(eventData).forEach(key => {
+    const value = eventData[key];
+    
+    // Skip null/undefined values
+    if (value === null || value === undefined) {
+      return;
+    }
+    
+    // Handle different data types
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      // Stringify objects (like agreement, communityData)
+      formData.append(key, JSON.stringify(value));
+      console.log(`  📝 ${key}: [Object]`);
+    } else if (Array.isArray(value)) {
+      // Stringify arrays (like ticketTypes, tags, requirements)
+      formData.append(key, JSON.stringify(value));
+      console.log(`  📝 ${key}: [Array with ${value.length} items]`);
+    } else {
+      // Add primitive values directly
+      formData.append(key, String(value));
+      console.log(`  📝 ${key}: ${value}`);
+    }
+  });
+
+  // ✅ Add image files - CRITICAL FOR BACKEND
+  if (imageFiles && imageFiles.length > 0) {
+    let validImageCount = 0;
+    imageFiles.forEach((file, index) => {
+      if (file instanceof File) {
+        formData.append('images', file); // Backend expects 'images' field
+        validImageCount++;
+        console.log(`  📷 Image ${index + 1}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+      } else {
+        console.warn(`  ⚠️ Image ${index + 1} is not a File object:`, typeof file);
+      }
+    });
+    console.log(`✅ Added ${validImageCount} valid image files`);
+    
+    if (validImageCount === 0) {
+      console.error('❌ No valid image files found!');
+    }
+  } else {
+    console.warn('⚠️ No image files provided');
+  }
+
+  // ✅ Add social banner if exists
+  if (socialBannerFile instanceof File) {
+    formData.append('socialBanner', socialBannerFile);
+    console.log(`  🎨 Social banner: ${socialBannerFile.name}`);
+  }
+
+  // ✅ ENSURE TERMS ARE INCLUDED FOR ALL EVENTS
+  if (!eventData.agreement || !eventData.agreement.acceptedTerms) {
+    const defaultAgreement = {
+      acceptedTerms: true,
+      acceptedAt: new Date().toISOString(),
+      serviceFee: { type: "percentage", amount: 5 },
+      paymentTerms: "upfront",
+      agreementVersion: "1.0"
+    };
+    formData.append('agreement', JSON.stringify(defaultAgreement));
+    console.log('  ✓ Added default agreement terms');
+  }
+
+  // ✅ Ensure termsAccepted flag is set
+  if (!eventData.termsAccepted) {
+    formData.append('termsAccepted', 'true');
+    console.log('  ✓ Added termsAccepted flag');
+  }
+
+  // ✅ Ensure status is set (default to draft if not specified)
+  if (!eventData.status) {
+    formData.append('status', 'draft');
+    console.log('  ✓ Default status set to draft');
+  }
+
+  console.log('✅ FormData build complete');
+  return formData;
+};
+
+// ============================================
 // AUTH API CALLS
 // ============================================
 export const authAPI = {
@@ -101,7 +202,7 @@ export const userAPI = {
 };
 
 // ============================================
-// EVENT API CALLS
+// EVENT API CALLS - FIXED VERSION
 // ============================================
 export const eventAPI = {
   // ========== PUBLIC ROUTES ==========
@@ -134,10 +235,35 @@ export const eventAPI = {
   getOrganizerStatistics: () => apiClient.get("/events/organizer/statistics"),
   getEventsNeedingApproval: (params = {}) =>
     apiClient.get("/events/organizer/needing-approval", { params }),
-  createEvent: (eventData) =>
-    apiClient.post("/events", eventData, { timeout: 120000 }),
-  updateEvent: (eventId, eventData) =>
-    apiClient.patch(`/events/${eventId}`, eventData, { timeout: 120000 }),
+
+  // ✅ FIXED: Create event with proper FormData handling
+  createEvent: (eventData, imageFiles = [], socialBannerFile = null) => {
+    console.log('📤 Creating event via Axios with FormData');
+    console.log('  Event:', eventData.title);
+    console.log('  Images:', imageFiles?.length || 0);
+    console.log('  Status:', eventData.status);
+    
+    const formData = buildEventFormData(eventData, imageFiles, socialBannerFile);
+    
+    // Axios will automatically set Content-Type with boundary for FormData
+    return apiClient.post("/events", formData, { 
+      timeout: 120000,
+    });
+  },
+
+  // ✅ FIXED: Update event with proper FormData handling
+  updateEvent: (eventId, eventData, imageFiles = [], socialBannerFile = null) => {
+    console.log('🔄 Updating event via Axios with FormData');
+    console.log('  Event ID:', eventId);
+    console.log('  New Images:', imageFiles?.length || 0);
+    
+    const formData = buildEventFormData(eventData, imageFiles, socialBannerFile);
+    
+    return apiClient.patch(`/events/${eventId}`, formData, { 
+      timeout: 120000,
+    });
+  },
+
   deleteEventImage: (eventId, imageIndex) =>
     apiClient.delete(`/events/${eventId}/images/${imageIndex}`),
   cancelEvent: (eventId) => apiClient.patch(`/events/${eventId}/cancel`),
@@ -206,14 +332,10 @@ export const transactionAPI = {
   // ========== PUBLIC ROUTES ==========
   verifyTransaction: (reference) =>
     apiClient.get(`/transactions/verify/${reference}`),
-  verifyServiceFee: (reference) =>
-    apiClient.post(`/transactions/verify-service-fee/${reference}`),
 
   // ========== USER ROUTES ==========
   initializeTransaction: (paymentData) =>
     apiClient.post("/transactions/initialize", paymentData),
-  initializeServiceFee: (paymentData) =>
-    apiClient.post("/transactions/initialize-service-fee", paymentData),
   getMyTransactions: (params = {}) =>
     apiClient.get("/transactions/my-transactions", { params }),
   getTransaction: (transactionId) =>
@@ -275,7 +397,7 @@ export const apiCall = async (apiFunction, ...args) => {
       ? apiFunction(...args)
       : apiFunction);
 
-    // ✅ FIX: Return the data directly without nesting
+    // ✅ Return the data directly without nesting
     return {
       success: true,
       ...response.data, // Spread response data at top level

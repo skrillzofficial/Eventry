@@ -1,16 +1,22 @@
 import React, { useState } from "react";
 import { Plus, Trash2, Shield, HelpCircle } from "lucide-react";
 
-const ApprovalQuestions = ({
-  questions = [],
-  onQuestionsChange,
-  disabled = false,
+const ApprovalQuestions = ({ 
+  questions = [], 
+  onQuestionsChange, 
+  disabled = false 
 }) => {
   const [newQuestion, setNewQuestion] = useState("");
 
   const addQuestion = () => {
     if (newQuestion.trim() && questions.length < 5) {
-      const updatedQuestions = [...questions, newQuestion.trim()];
+      // Convert to backend format: { question: string, required: boolean }
+      const formattedQuestion = {
+        question: newQuestion.trim(),
+        required: true
+      };
+      
+      const updatedQuestions = [...questions, formattedQuestion];
       onQuestionsChange(updatedQuestions);
       setNewQuestion("");
     }
@@ -26,6 +32,15 @@ const ApprovalQuestions = ({
       e.preventDefault();
       addQuestion();
     }
+  };
+
+  // Helper to get question text for display
+  const getQuestionText = (question) => {
+    if (typeof question === 'string') return question;
+    if (typeof question === 'object' && question.question) {
+      return question.question;
+    }
+    return String(question);
   };
 
   return (
@@ -71,7 +86,9 @@ const ApprovalQuestions = ({
               >
                 <div className="flex items-center gap-2">
                   <HelpCircle className="h-4 w-4 text-orange-500" />
-                  <span className="text-sm text-orange-900">{question}</span>
+                  <span className="text-sm text-orange-900">
+                    {getQuestionText(question)}
+                  </span>
                 </div>
                 <button
                   type="button"

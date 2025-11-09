@@ -133,7 +133,15 @@ const DiscoverEvents = () => {
     }
   }, [events]);
 
-  //  Helper function to get price display for ticket types
+  // Helper function to check if event is in the past
+  const isEventInPast = (eventDate) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of today
+    const eventDateObj = new Date(eventDate);
+    return eventDateObj < today;
+  };
+
+  // Helper function to get price display for ticket types
   const getPriceDisplay = (event) => {
     if (event.ticketTypes && event.ticketTypes.length > 0) {
       const prices = event.ticketTypes.map(t => t.price);
@@ -164,7 +172,7 @@ const DiscoverEvents = () => {
     };
   };
 
-  //  Helper to get minimum price for filtering
+  // Helper to get minimum price for filtering
   const getMinPrice = (event) => {
     if (event.ticketTypes && event.ticketTypes.length > 0) {
       return Math.min(...event.ticketTypes.map(t => t.price));
@@ -172,7 +180,7 @@ const DiscoverEvents = () => {
     return event.price || 0;
   };
 
-  //  Helper to get available tickets count
+  // Helper to get available tickets count
   const getAvailableTickets = (event) => {
     if (event.ticketTypes && event.ticketTypes.length > 0) {
       return event.ticketTypes.reduce((sum, tt) => sum + (tt.availableTickets || 0), 0);
@@ -180,67 +188,95 @@ const DiscoverEvents = () => {
     return event.availableTickets || event.capacity || 0;
   };
 
-  // Load all events from backend
+  // Load all events from backend - FIXED VERSION
   const loadEvents = async () => {
     try {
       setLoading(true);
       setError(null);
       const result = await apiCall(eventAPI.getAllEvents);
 
+      console.log("API Response:", result); // Debug log
+
       if (result.success) {
-        const eventsData = result.data.events || result.data || [];
+        // FIX: Handle different possible response structures
+        let eventsData = [];
+        
+        if (Array.isArray(result.data)) {
+          // Case 1: Data is directly an array
+          eventsData = result.data;
+        } else if (result.data && Array.isArray(result.data.events)) {
+          // Case 2: Data has events property
+          eventsData = result.data.events;
+        } else if (result.data && Array.isArray(result.data.data)) {
+          // Case 3: Data has data property (common in paginated responses)
+          eventsData = result.data.data;
+        } else if (result.events && Array.isArray(result.events)) {
+          // Case 4: Events is at root level
+          eventsData = result.events;
+        } else {
+          // Case 5: Fallback to empty array
+          console.warn("Unexpected API response structure:", result);
+          eventsData = [];
+        }
 
-        const processed = eventsData.map((event) => {
-          const rawImages = event.images || [];
-          let eventImage = eventOne;
+        console.log("Processed events data:", eventsData); // Debug log
 
-          if (rawImages.length > 0) {
-            const img = rawImages[0];
+        const processed = eventsData
+          .map((event) => {
+            const rawImages = event.images || [];
+            let eventImage = eventOne;
 
-            // If img is an object with url property (Cloudinary format)
-            if (img && typeof img === "object" && img.url) {
-              eventImage = img.url;
+            if (rawImages.length > 0) {
+              const img = rawImages[0];
+
+              // If img is an object with url property (Cloudinary format)
+              if (img && typeof img === "object" && img.url) {
+                eventImage = img.url;
+              }
+              // If img is already a string URL
+              else if (typeof img === "string") {
+                eventImage = img;
+              }
+              // Check if it matches a local image path
+              else {
+                eventImage = imageMap[img] || eventOne;
+              }
             }
-            // If img is already a string URL
-            else if (typeof img === "string") {
-              eventImage = img;
-            }
-            // Check if it matches a local image path
-            else {
-              eventImage = imageMap[img] || eventOne;
-            }
-          }
 
-          return {
-            id: event._id || event.id,
-            title: event.title || "Untitled Event",
-            description: event.description || "",
-            category: event.category || "General",
-            date: event.date,
-            time: event.time,
-            endTime: event.endTime,
-            venue: event.venue,
-            address: event.address,
-            city: event.city,
-            state: event.state,
-            price: event.price || 0,
-            capacity: event.capacity || 0,
-            ticketsSold: event.ticketsSold || 0,
-            availableTickets: event.availableTickets || 0,
-            image: eventImage,
-            images: event.images || [],
-            tags: event.tags || [event.category].filter(Boolean),
-            organizer: event.organizer || { name: "Unknown Organizer" },
-            rating: event.rating || 4.5,
-            attendees: event.totalAttendees || event.attendees || 0,
-            status: event.status || "active",
-            createdAt: event.createdAt,
-            ticketTypes: Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 
-              ? event.ticketTypes 
-              : null,
-            isFeatured: event.isFeatured || false,
-          };
-        });
+            return {
+              id: event._id || event.id,
+              title: event.title || "Untitled Event",
+              description: event.description || "",
+              category: event.category || "General",
+              date: event.date,
+              time: event.time,
+              endTime: event.endTime,
+              venue: event.venue,
+              address: event.address,
+              city: event.city,
+              state: event.state,
+              price: event.price || 0,
+              capacity: event.capacity || 0,
+              ticketsSold: event.ticketsSold || 0,
+              availableTickets: event.availableTickets || 0,
+              image: eventImage,
+              images: event.images || [],
+              tags: event.tags || [event.category].filter(Boolean),
+              organizer: event.organizer || { name: "Unknown Organizer" },
+              rating: event.rating || 4.5,
+              attendees: event.totalAttendees || event.attendees || 0,
+              status: event.status || "active",
+              createdAt: event.createdAt,
+              ticketTypes: Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 
+                ? event.ticketTypes 
+                : null,
+              isFeatured: event.isFeatured || false,
+            };
+          })
+          // FILTER OUT PAST EVENTS
+          .filter(event => !isEventInPast(event.date));
+
+        console.log("Events after filtering past events:", processed); // Debug log
 
         setEvents(processed);
         setFilteredEvents(processed);
@@ -283,7 +319,7 @@ const DiscoverEvents = () => {
         new Date(event.date).toDateString() ===
           new Date(filters.date).toDateString();
 
-      //  Price filtering with ticket types
+      // Price filtering with ticket types
       const minPrice = getMinPrice(event);
       const matchesPrice =
         !filters.priceRange ||
@@ -303,7 +339,7 @@ const DiscoverEvents = () => {
       );
     });
 
-    //  Sort results with ticket type price support
+    // Sort results with ticket type price support
     results.sort((a, b) => {
       switch (filters.sortBy) {
         case "date":
@@ -400,7 +436,7 @@ const DiscoverEvents = () => {
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Voice Search Notification */}
         {voiceSearchActive && (
-          <div className="mb-6 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white rounded-xl p-4 shadow-lg animate-slideDown">
+          <div className="mb-6 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white rounded-xl p-4 shadow-lg">
             <div className="flex items-center gap-3">
               <Mic className="h-5 w-5" />
               <div>
@@ -419,7 +455,7 @@ const DiscoverEvents = () => {
               Discover Events
             </h1>
             <p className="text-gray-600 mt-2">
-              {filteredEvents.length} event
+              {filteredEvents.length} upcoming event
               {filteredEvents.length !== 1 ? "s" : ""} found
               {searchTerm && (
                 <span className="ml-2 text-[#FF6B35]">
@@ -534,7 +570,7 @@ const DiscoverEvents = () => {
 
             <div className="flex justify-between items-center mt-4">
               <p className="text-sm text-gray-600">
-                Showing {filteredEvents.length} of {events.length} events
+                Showing {filteredEvents.length} of {events.length} upcoming events
               </p>
               <button
                 onClick={clearFilters}
@@ -578,7 +614,7 @@ const DiscoverEvents = () => {
                       loading="lazy"
                       decoding="async"
                     />
-                    {/*  Price badge with range support */}
+                    {/* Price badge with range support */}
                     <div className="absolute top-3 left-3">
                       <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
                         priceDisplay.text === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
@@ -658,14 +694,14 @@ const DiscoverEvents = () => {
           <div className="text-center py-12">
             <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No Events Found
+              No Upcoming Events Found
             </h3>
             <p className="text-gray-600 mb-4">
               {searchTerm 
-                ? `No events match "${searchTerm}". Try different search terms or filters.`
+                ? `No upcoming events match "${searchTerm}". Try different search terms or filters.`
                 : events.length > 0
-                ? "Try adjusting your filters to see more events."
-                : "No events available yet. Check back later!"}
+                ? "Try adjusting your filters to see more upcoming events."
+                : "No upcoming events available yet. Check back later!"}
             </p>
             {events.length === 0 && (
               <Link
@@ -682,23 +718,6 @@ const DiscoverEvents = () => {
       <div className="bg-black">
         <Footer />
       </div>
-      
-      <style jsx>{`
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 };

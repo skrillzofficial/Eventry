@@ -10,7 +10,6 @@ import {
   CreditCard,
   MapPin,
   Ticket,
-  Rocket,
   ArrowLeft
 } from 'lucide-react';
 
@@ -54,7 +53,7 @@ const PaymentVerification = () => {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/transactions/verify-${type === 'service_fee' ? 'service-fee' : type === 'free' ? 'booking' : 'payment'}/${reference}`,
+        `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/transactions/verify-${type === 'free' ? 'booking' : 'payment'}/${reference}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -108,15 +107,10 @@ const PaymentVerification = () => {
   };
 
   const handleRedirect = () => {
-    switch (paymentType) {
-      case 'service_fee':
-        navigate('/dashboard/organizer/events?published=success', { replace: true });
-        break;
-      case 'free':
-        navigate('/my-bookings?booking=success', { replace: true });
-        break;
-      default:
-        navigate('/my-tickets?payment=success', { replace: true });
+    if (paymentType === 'free') {
+      navigate('/my-bookings?booking=success', { replace: true });
+    } else {
+      navigate('/my-tickets?payment=success', { replace: true });
     }
   };
 
@@ -138,14 +132,6 @@ const PaymentVerification = () => {
 
   const getPaymentTypeConfig = () => {
     const configs = {
-      service_fee: {
-        title: 'Service Fee Payment',
-        successTitle: 'Event Published! 🎉',
-        successMessage: 'Your event is now live and ready for attendees',
-        icon: Rocket,
-        redirectTo: 'Events Dashboard',
-        color: 'purple'
-      },
       free: {
         title: 'Free Booking',
         successTitle: 'Booking Confirmed! 🎉',

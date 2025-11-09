@@ -9,6 +9,8 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
+  MapPin,
+  Users,
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
@@ -33,10 +35,36 @@ const imageMap = {
 const fallbackImage = eventOne;
 
 const Home = () => {
-  const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]); // Changed from events to allEvents
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
+
+  // Helper function to check if event is in the past
+  const isEventInPast = (eventDate) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of today
+    const eventDateObj = new Date(eventDate);
+    return eventDateObj < today;
+  };
+
+  // Helper function to get price display
+  const getPriceDisplay = (event) => {
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      const prices = event.ticketTypes.map(t => t.price);
+      const minPrice = Math.min(...prices);
+      return minPrice === 0 ? "Free" : `₦${minPrice.toLocaleString()}`;
+    }
+    return event.price === 0 ? "Free" : `₦${event.price.toLocaleString()}`;
+  };
+
+  // Helper to get available tickets count
+  const getAvailableTickets = (event) => {
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      return event.ticketTypes.reduce((sum, tt) => sum + (tt.availableTickets || 0), 0);
+    }
+    return event.availableTickets || event.capacity || 0;
+  };
 
   // FAQ data
   const faqs = [
@@ -82,7 +110,7 @@ const Home = () => {
     }
   ];
 
-  // Fetch all events from backend
+  // Fetch all events from backend - FIXED VERSION
   useEffect(() => {
     loadEvents();
   }, []);
@@ -93,8 +121,34 @@ const Home = () => {
       setError(null);
       const result = await apiCall(eventAPI.getAllEvents);
 
+      console.log("API Response:", result); // Debug log
+
       if (result.success) {
-        const eventsData = result.data.events || result.data || [];
+        // FIX: Handle different possible response structures
+        let eventsData = [];
+        
+        if (Array.isArray(result.data)) {
+          // Case 1: Data is directly an array
+          eventsData = result.data;
+        } else if (result.data && Array.isArray(result.data.events)) {
+          // Case 2: Data has events property
+          eventsData = result.data.events;
+        } else if (result.data && Array.isArray(result.data.data)) {
+          // Case 3: Data has data property (common in paginated responses)
+          eventsData = result.data.data;
+        } else if (result.events && Array.isArray(result.events)) {
+          // Case 4: Events is at root level
+          eventsData = result.events;
+        } else if (Array.isArray(result)) {
+          // Case 5: Result is directly the array
+          eventsData = result;
+        } else {
+          // Case 6: Fallback to empty array
+          console.warn("Unexpected API response structure:", result);
+          eventsData = [];
+        }
+
+        console.log("Processed events data:", eventsData); // Debug log
 
         const processed = eventsData.map((event) => {
           const rawImages = event.images || [];
@@ -128,24 +182,30 @@ const Home = () => {
             venue: event.venue,
             address: event.address,
             city: event.city,
+            state: event.state,
             price: event.price || 0,
             capacity: event.capacity || 0,
             ticketsSold: event.ticketsSold || 0,
+            availableTickets: event.availableTickets || 0,
             image: eventImage,
             images: event.images || [],
             tags: event.tags || [event.category].filter(Boolean),
             organizer: event.organizer || { name: "Unknown Organizer" },
             rating: event.rating || 4.5,
-            attendees: event.attendees || 0,
+            attendees: event.totalAttendees || event.attendees || 0,
             status: event.status || "active",
             createdAt: event.createdAt,
+            ticketTypes: Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 
+              ? event.ticketTypes 
+              : null,
+            isFeatured: event.isFeatured || false,
           };
         });
 
-        // Sort by date to show upcoming events first
-        processed.sort((a, b) => new Date(a.date) - new Date(b.date));
+        console.log("Final processed events:", processed); // Debug log
 
-        setEvents(processed);
+        // REMOVED THE FILTER - store all events
+        setAllEvents(processed);
       } else {
         setError(result.error || "Failed to load events");
         console.error("API Error:", result.error);
@@ -190,17 +250,23 @@ const Home = () => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
 
-  // Past events for the slider 
-  const pastEvents = events
-    .filter(event => new Date(event.date) < new Date())
+  // Separate events into upcoming and past
+  const upcomingEvents = allEvents
+    .filter(event => !isEventInPast(event.date))
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 6);
+
+  const pastEvents = allEvents
+    .filter(event => isEventInPast(event.date))
     .map(event => ({
       id: event.id,
       title: event.title,
       date: event.date,
-      location: `${event.city}, ${event.venue}`,
+      location: `${event.city}${event.state ? `, ${event.state}` : ''}`,
       attendees: event.attendees || event.ticketsSold || Math.floor(Math.random() * 1000) + 100,
       image: event.image,
-      category: event.category
+      category: event.category,
+      venue: event.venue
     }));
 
   return (
@@ -273,16 +339,21 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Trending Events Section */}
+      {/* Trending Events Section - FIXED */}
       <section className="bg-white py-20">
         <div className="w-11/12 mx-auto container">
           <div className="flex justify-between items-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Trending <span className="text-[#FF6B35]">Events</span>
-            </h2>
+            <div>
+              <h2 className="text-4xl font-bold text-gray-900 mb-2">
+                Trending <span className="text-[#FF6B35]">Events</span>
+              </h2>
+              <p className="text-gray-600">
+                Discover upcoming events that are creating buzz
+              </p>
+            </div>
             <Link
               to="/discover"
-              className="hidden md:flex items-center bg-[#FF6B35] px-4 py-2 rounded-full text-white font-semibold group"
+              className="hidden md:flex items-center bg-[#FF6B35] px-6 py-3 rounded-full text-white font-semibold hover:bg-[#FF8535] transition-colors group"
             >
               SEE ALL
               <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -290,7 +361,7 @@ const Home = () => {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
@@ -312,42 +383,89 @@ const Home = () => {
                 Try Again
               </button>
             </div>
-          ) : events.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-              {events.slice(0, 6).map((event) => (
-                <Link
-                  to={`/event/${event.id}`}
-                  key={event.id}
-                  className="relative group h-110 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow"
-                >
-                  <img
-                    src={event.image}
-                    alt={event.title}
-                    className="w-full h-90 object-center transform group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-4 py-6">
-                    <span className="inline-block bg-[#FF6B35] text-white px-3 py-1 rounded-full text-xs font-semibold mb-2">
-                      {event.category}
-                    </span>
-                    <h3 className="text-white font-semibold text-lg mb-1 line-clamp-2">
-                      {event.title}
-                    </h3>
-                    <p className="text-white/80 text-sm">
-                      {new Date(event.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}{" "}
-                      • {event.city}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+          ) : upcomingEvents.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {upcomingEvents.map((event) => {
+                const priceDisplay = getPriceDisplay(event);
+                const availableTickets = getAvailableTickets(event);
+                const isSoldOut = availableTickets === 0;
+                
+                return (
+                  <Link
+                    to={`/event/${event.id}`}
+                    key={event.id}
+                    className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden group"
+                  >
+                    <div className="relative overflow-hidden">
+                      <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {/* Price Badge */}
+                      <div className="absolute top-3 left-3">
+                        <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
+                          priceDisplay === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
+                        }`}>
+                          {priceDisplay}
+                        </span>
+                      </div>
+                      
+                      {/* Sold Out Overlay */}
+                      {isSoldOut && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">
+                            SOLD OUT
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
+                        {event.title}
+                      </h3>
+
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-[#FF6B35]" />
+                          <span>
+                            {new Date(event.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-[#FF6B35]" />
+                          <span className="truncate">
+                            {event.city}{event.state && `, ${event.state}`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-[#FF6B35]" />
+                          <span>{event.attendees} attending</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full font-medium">
+                          {event.category}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-12">
               <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No Events Available
+                No Upcoming Events
               </h3>
               <p className="text-gray-600 mb-4">
                 Check back later for new events or create one yourself!
@@ -387,13 +505,13 @@ const Home = () => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/signup"
-              className="bg-[#FF6B35] text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 hover:text-[#FF6B35] transition-colors transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="bg-[#FF6B35] text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#FF8535] transition-colors transform hover:scale-105 shadow-lg hover:shadow-xl"
             >
               Get Started Free
             </Link>
             <Link
               to="/team"
-              className="border-2 border-white bg-[#FF6B35] text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-[#FF6B35] transition-colors transform hover:scale-105"
+              className="border-2 border-[#FF6B35] text-[#FF6B35] px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#FF6B35] hover:text-white transition-colors transform hover:scale-105"
             >
               Meet Our Team
             </Link>
@@ -402,20 +520,22 @@ const Home = () => {
       </section>
 
       {/* Past Events Slider Section */}
-      <section className="bg-white py-20">
-        <div className="w-11/12 mx-auto container">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Past <span className="text-[#FF6B35]">Events</span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Relive the amazing moments from our successfully hosted events across Africa
-            </p>
+      {pastEvents.length > 0 && (
+        <section className="bg-white py-20">
+          <div className="w-11/12 mx-auto container">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                Past <span className="text-[#FF6B35]">Events</span>
+              </h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Relive the amazing moments from our successfully hosted events across Africa
+              </p>
+            </div>
+            
+            <EventSlider events={pastEvents} />
           </div>
-          
-          <EventSlider events={pastEvents} />
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* FAQ Section */}
       <section className="bg-white py-20">

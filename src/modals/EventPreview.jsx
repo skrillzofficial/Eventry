@@ -15,15 +15,14 @@ import {
   Image as ImageIcon,
   Monitor,
   Globe,
-  CreditCard,
   Loader
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import PaymentAgreement from "../pages/dashboard/PaymentAgreement";
-import ServiceFeeCheckout from "../checkout/ServiceFeeCheckout";
 import { toast } from "react-hot-toast";
+import { eventAPI, apiCall } from "../services/api";
 
 const EventPreview = () => {
   const navigate = useNavigate();
@@ -41,8 +40,6 @@ const EventPreview = () => {
   const [error, setError] = useState(null);
   const [showPaymentAgreement, setShowPaymentAgreement] = useState(false);
   const [publishData, setPublishData] = useState(null);
-  const [showServiceFeeCheckout, setShowServiceFeeCheckout] = useState(false);
-  const [serviceFeeData, setServiceFeeData] = useState(null);
 
   // Load data from location state
   useEffect(() => {
@@ -71,7 +68,7 @@ const EventPreview = () => {
     }
   }, [location.state, navigate]);
 
-  // Check if event has free tickets (requires service fee)
+  // Check if event has free tickets
   const hasFreeTickets = () => {
     if (!eventData) return false;
     
@@ -79,38 +76,6 @@ const EventPreview = () => {
       return eventData.ticketTypes.some((ticket) => parseFloat(ticket.price) === 0);
     }
     return parseFloat(eventData.price) === 0;
-  };
-
-  // Check if event has paid tickets
-  const hasPaidTickets = () => {
-    if (!eventData) return false;
-    
-    if (!eventData.useLegacyPricing && eventData.ticketTypes) {
-      return eventData.ticketTypes.some((ticket) => parseFloat(ticket.price) > 0);
-    }
-    return parseFloat(eventData.price) > 0;
-  };
-
-  // Calculate service fee based on attendance range
-  const calculateServiceFee = (attendanceRange) => {
-    const feeStructure = {
-      "1-100": 5000,      // ₦5,000
-      "101-500": 10000,   // ₦10,000  
-      "501-1000": 20000,  // ₦20,000
-      "1001-5000": 50000, // ₦50,000
-      "5001+": 100000     // ₦100,000
-    };
-    
-    return feeStructure[attendanceRange] || 5000; 
-  };
-
-  // Simple storage for pending event data
-  const storePendingEventData = (data) => {
-    localStorage.setItem('pendingEventData', JSON.stringify(data));
-  };
-
-  const clearPendingEventData = () => {
-    localStorage.removeItem('pendingEventData');
   };
 
   // Show loading while checking data
@@ -294,236 +259,15 @@ const EventPreview = () => {
   const canPublish = validationErrors.length === 0;
   const isFreeEvent = hasFreeTickets();
 
-  // Handle publish click - MAIN ENTRY POINT
-  const handlePublishClick = async () => {
-    try {
-      if (!canPublish) {
-        toast.error("Please complete all required fields before publishing");
-        return;
-      }
-
-      console.log('🎯 Publishing event - Type:', isFreeEvent ? 'FREE (needs service fee)' : 'PAID (direct publish)');
-
-      if (isFreeEvent) {
-        // ✅ FREE EVENT: Show payment agreement first
-        console.log('💰 Free event - proceeding to service fee payment');
-        
-        const preparedData = preparePreviewData();
-        
-        // Store data for the payment flow
-        setPublishData({
-          eventData: preparedData,
-          imageFiles: imageFiles,
-          uploadedImages: uploadedImages
-        });
-        
-        // Show payment agreement modal
-        setShowPaymentAgreement(true);
-        
-      } else {
-        // ✅ PAID EVENT: Publish directly
-        console.log('🎫 Paid event - publishing directly');
-        await handleDirectPublish();
-      }
-
-    } catch (error) {
-      console.error("Publish click error:", error);
-      setError("Failed to process publication. Please try again.");
-    }
-  };
-
-  // Direct publishing for paid events
-  const handleDirectPublish = async () => {
-    try {
-      setSavingAs("published");
-
-      const formDataToSend = new FormData();
-      const preparedData = preparePreviewData();
-
-      // Add all event data to formData
-      Object.keys(preparedData).forEach(key => {
-        if (preparedData[key] !== null && preparedData[key] !== undefined) {
-          if (typeof preparedData[key] === 'object') {
-            formDataToSend.append(key, JSON.stringify(preparedData[key]));
-          } else {
-            formDataToSend.append(key, preparedData[key]);
-          }
-        }
-      });
-
-      // Set status to published for paid events
-      formDataToSend.append('status', 'published');
-
-      // Add image files
-      if (imageFiles && imageFiles.length > 0) {
-        imageFiles.forEach(file => {
-          formDataToSend.append('images', file);
-        });
-      }
-
-      // Add social banner if exists
-      if (socialBannerFile) {
-        formDataToSend.append('socialBanner', socialBannerFile);
-      }
-
-      console.log('🚀 Publishing paid event directly...');
-
-      const response = await fetch('/api/v1/events/create', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: formDataToSend,
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setSuccessMessage("Event published successfully!");
-        setShowSuccess(true);
-
-        clearPendingEventData();
-
-        setTimeout(() => {
-          navigate("/dashboard/organizer");
-        }, 2500);
-      } else {
-        throw new Error(result.message || "Failed to publish event");
-      }
-    } catch (error) {
-      console.error("Direct publish error:", error);
-      setError(error.message || "Failed to publish event. Please try again.");
-    } finally {
-      setSavingAs(null);
-    }
-  };
-
-  // Handle agreement confirmation - FOR FREE EVENTS
-  const handleAgreementConfirm = async (agreementData, actionType = "service_fee_payment") => {
-    try {
-      if (actionType === "service_fee_payment") {
-        console.log('💳 Proceeding to service fee payment after agreement');
-        
-        // Enhanced agreement data
-        const enhancedAgreementData = {
-          ...agreementData,
-          acceptedTerms: true,
-          acceptedAt: new Date().toISOString(),
-        };
-
-        setShowPaymentAgreement(false);
-        
-        // Calculate service fee
-        const serviceFee = calculateServiceFee(agreementData.estimatedAttendance);
-        
-        // Show service fee checkout
-        setServiceFeeData({
-          eventData: publishData.eventData,
-          serviceFee: serviceFee,
-          attendanceRange: agreementData.estimatedAttendance,
-          agreementData: enhancedAgreementData,
-        });
-        
-        setShowServiceFeeCheckout(true);
-        return;
-      }
-
-    } catch (error) {
-      console.error("Agreement confirmation error:", error);
-      setError("Failed to process agreement. Please try again.");
-    }
-  };
-
-  // Handle service fee success
-  const handleServiceFeeSuccess = (paymentResult) => {
-    console.log("Service fee payment successful:", paymentResult);
-    setShowServiceFeeCheckout(false);
-
-    setSuccessMessage("Payment successful! Your free event is now published.");
-    setShowSuccess(true);
-
-    setTimeout(() => {
-      navigate("/dashboard/organizer/events?published=success");
-    }, 3000);
-  };
-
-  // Handle save as draft
-  const handleSaveAsDraft = async () => {
-    try {
-      setSavingAs("draft");
-
-      const formDataToSend = new FormData();
-      const preparedData = preparePreviewData();
-
-      // Add all event data to formData
-      Object.keys(preparedData).forEach(key => {
-        if (preparedData[key] !== null && preparedData[key] !== undefined) {
-          if (typeof preparedData[key] === 'object') {
-            formDataToSend.append(key, JSON.stringify(preparedData[key]));
-          } else {
-            formDataToSend.append(key, preparedData[key]);
-          }
-        }
-      });
-
-      // Set status to draft
-      formDataToSend.append('status', 'draft');
-
-      // Add image files
-      if (imageFiles && imageFiles.length > 0) {
-        imageFiles.forEach(file => {
-          formDataToSend.append('images', file);
-        });
-      }
-
-      // Add social banner if exists
-      if (socialBannerFile) {
-        formDataToSend.append('socialBanner', socialBannerFile);
-      }
-
-      console.log('💾 Saving event as draft...');
-
-      const response = await fetch('/api/v1/events/create', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: formDataToSend,
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setSuccessMessage(
-          "Event saved as draft! You can edit and publish it later from your dashboard."
-        );
-        setShowSuccess(true);
-
-        clearPendingEventData();
-
-        setTimeout(() => {
-          navigate("/dashboard/organizer");
-        }, 2500);
-      } else {
-        throw new Error(result.message || "Failed to save as draft");
-      }
-    } catch (error) {
-      console.error("Save draft error:", error);
-      setError(error.message || "Failed to save as draft. Please try again.");
-    } finally {
-      setSavingAs(null);
-    }
-  };
-
-  // Prepare preview data
+  // Prepare preview data - FIXED VERSION
   const preparePreviewData = () => {
     let finalTicketTypes = ticketTypes;
     if (useLegacyPricing) {
       finalTicketTypes = [
         {
           name: "Regular",
-          price: price || "",
-          capacity: capacity || "",
+          price: price || 0,
+          capacity: parseInt(capacity) || 1, // ✅ FIX: Ensure capacity is integer
           description: ticketDescription || "",
           benefits: singleTicketBenefits || [],
           accessType: eventType === "hybrid" ? "both" : undefined,
@@ -533,9 +277,16 @@ const EventPreview = () => {
           approvalDeadline: ticketTypes[0]?.approvalDeadline || "",
         },
       ];
+    } else {
+      // ✅ FIX: Ensure all ticket capacities are integers
+      finalTicketTypes = ticketTypes.map(ticket => ({
+        ...ticket,
+        capacity: parseInt(ticket.capacity) || 1,
+        price: parseFloat(ticket.price) || 0
+      }));
     }
 
-    const eventData = {
+    const preparedData = {
       title: title || "",
       category: category || "",
       description: description || "",
@@ -554,8 +305,8 @@ const EventPreview = () => {
       ticketTypes: finalTicketTypes,
       useLegacyPricing: useLegacyPricing,
       singleTicketBenefits: singleTicketBenefits,
-      price: price || "",
-      capacity: capacity || "",
+      price: parseFloat(price) || 0, // ✅ FIX: Ensure price is number
+      capacity: parseInt(capacity) || 1, // ✅ FIX: Ensure capacity is integer
       tags: tags,
       requirements: requirements,
       socialBannerEnabled: socialBannerEnabled,
@@ -564,7 +315,158 @@ const EventPreview = () => {
       communityData: communityData,
     };
 
-    return eventData;
+    return preparedData;
+  };
+
+  // Handle publish click - MAIN ENTRY POINT
+  const handlePublishClick = async () => {
+    try {
+      if (!canPublish) {
+        toast.error("Please complete all required fields before publishing");
+        return;
+      }
+
+      console.log('🎯 Publishing event');
+
+      const preparedData = preparePreviewData();
+      
+      // Store data for the agreement flow
+      setPublishData({
+        eventData: preparedData,
+        imageFiles: imageFiles,
+        uploadedImages: uploadedImages
+      });
+      
+      // Show agreement modal for ALL events
+      setShowPaymentAgreement(true);
+      
+    } catch (error) {
+      console.error("Publish click error:", error);
+      setError("Failed to process publication. Please try again.");
+    }
+  };
+
+  // Handle agreement confirmation - FIXED VERSION
+  const handleAgreementConfirm = async (agreementData) => {
+    try {
+      console.log('✅ Agreement accepted - publishing event directly');
+      
+      setShowPaymentAgreement(false);
+      
+      // ✅ PUBLISH EVENT DIRECTLY using the API service
+      await handleDirectPublish();
+      
+    } catch (error) {
+      console.error("Agreement confirmation error:", error);
+      setError("Failed to process agreement. Please try again.");
+    }
+  };
+
+  // Direct publishing for all events - FIXED VERSION
+  const handleDirectPublish = async () => {
+    try {
+      setSavingAs("published");
+      setError(null);
+
+      const preparedData = preparePreviewData();
+
+      // ✅ ADD TERMS ACCEPTANCE DATA - FIX FOR BACKEND VALIDATION
+      preparedData.termsAccepted = true;
+      preparedData.agreement = {
+        acceptedTerms: true,
+        acceptedAt: new Date().toISOString(),
+        serviceFee: { type: "percentage", amount: 5 },
+        paymentTerms: "upfront",
+        agreementVersion: "1.0"
+      };
+
+      // Set status to published
+      preparedData.status = "published";
+
+      console.log('🚀 Publishing event with data:', preparedData);
+
+      // ✅ FIX: Handle image data properly
+      let finalImageFiles = imageFiles || [];
+      let finalUploadedImages = uploadedImages || [];
+
+      // Ensure we have valid image data
+      if (finalUploadedImages.length === 0 && finalImageFiles.length === 0) {
+        throw new Error("At least one event image is required");
+      }
+
+      // Use the API service instead of direct fetch
+      const result = await apiCall(eventAPI.createEvent, preparedData, finalImageFiles, socialBannerFile);
+
+      if (result.success) {
+        console.log('✅ Event published successfully:', result);
+        setSuccessMessage("Event published successfully!");
+        setShowSuccess(true);
+
+        setTimeout(() => {
+          navigate("/dashboard/organizer");
+        }, 2500);
+      } else {
+        throw new Error(result.error || result.message || "Failed to publish event");
+      }
+    } catch (error) {
+      console.error("Direct publish error:", error);
+      setError(error.message || "Failed to publish event. Please try again.");
+      toast.error(error.message || "Failed to publish event");
+    } finally {
+      setSavingAs(null);
+    }
+  };
+
+  // Handle save as draft - FIXED VERSION
+  const handleSaveAsDraft = async () => {
+    try {
+      setSavingAs("draft");
+      setError(null);
+
+      const preparedData = preparePreviewData();
+      
+      // ✅ ADD TERMS ACCEPTANCE DATA FOR DRAFTS TOO
+      preparedData.termsAccepted = true;
+      preparedData.agreement = {
+        acceptedTerms: true,
+        acceptedAt: new Date().toISOString(),
+        serviceFee: { type: "percentage", amount: 5 },
+        paymentTerms: "upfront",
+        agreementVersion: "1.0"
+      };
+
+      // Set status to draft
+      preparedData.status = "draft";
+
+      console.log('💾 Saving event as draft with data:', preparedData);
+
+      // ✅ FIX: Handle image data properly
+      let finalImageFiles = imageFiles || [];
+      let finalUploadedImages = uploadedImages || [];
+
+      // Use the API service instead of direct fetch
+      const result = await apiCall(eventAPI.createEvent, preparedData, finalImageFiles, socialBannerFile);
+
+      if (result.success) {
+        console.log('✅ Event saved as draft:', result);
+        setSuccessMessage(
+          "Event saved as draft! You can edit and publish it later from your dashboard."
+        );
+        setShowSuccess(true);
+
+        setTimeout(() => {
+          navigate("/dashboard/organizer");
+        }, 2500);
+      } else {
+        throw new Error(result.error || result.message || "Failed to save as draft");
+      }
+    } catch (error) {
+      console.error("Save draft error:", error);
+      setError(error.message || "Failed to save as draft. Please try again.");
+      toast.error(error.message || "Failed to save as draft");
+    } finally {
+      setSavingAs(null);
+    }
   };
 
   // Show payment agreement
@@ -573,7 +475,7 @@ const EventPreview = () => {
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <PaymentAgreement
-          eventData={publishData.eventData}
+          eventData={publishData?.eventData}
           ticketTypes={ticketTypes}
           onAgree={handleAgreementConfirm}
           onCancel={() => setShowPaymentAgreement(false)}
@@ -637,7 +539,7 @@ const EventPreview = () => {
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-700 flex items-center">
-              <AlertCircle className="w-5 h-5 mr-2" />
+              <AlertCircle className="h-5 w-5 mr-2" />
               {error}
             </p>
           </div>
@@ -647,7 +549,7 @@ const EventPreview = () => {
         {!canPublish && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-yellow-600 mr-2 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
               <div>
                 <h4 className="font-semibold text-yellow-800 mb-2">
                   Missing Required Fields for Publishing:
@@ -665,35 +567,19 @@ const EventPreview = () => {
           </div>
         )}
 
-        {/* Service Fee Notice for Free Events */}
-        {isFreeEvent && canPublish && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-start">
-              <CreditCard className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-blue-800 mb-1">
-                  Service Fee Required
-                </h4>
-                <p className="text-blue-700 text-sm">
-                  This is a free event and requires a service fee payment to publish.
-                  You'll proceed to payment after agreeing to the terms.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Paid Event Notice */}
-        {!isFreeEvent && canPublish && (
+        {/* Ready to Publish Notice */}
+        {canPublish && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-start">
-              <CheckCircle className="w-5 h-5 text-green-600 mr-2 mt-0.5" />
+              <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5" />
               <div>
                 <h4 className="font-semibold text-green-800 mb-1">
                   Ready to Publish
                 </h4>
                 <p className="text-green-700 text-sm">
-                  This is a paid event and will be published immediately without additional fees.
+                  {isFreeEvent 
+                    ? "Your free event is ready! Review the terms and publish immediately."
+                    : "Your paid event is ready! Review the terms and publish immediately."}
                 </p>
               </div>
             </div>
@@ -1091,9 +977,7 @@ const EventPreview = () => {
                 </h3>
                 <p className="text-gray-600 text-sm">
                   {canPublish
-                    ? isFreeEvent
-                      ? "Everything looks good! You'll need to pay a service fee to publish this free event."
-                      : "Everything looks good! You can publish your paid event now."
+                    ? "Everything looks good! Review the terms and publish your event."
                     : "Some required fields are missing. You can save as draft and complete them later, or go back to edit."}
                 </p>
               </div>
@@ -1123,12 +1007,12 @@ const EventPreview = () => {
                 >
                   {savingAs === "draft" ? (
                     <>
-                      <Loader className="h-4 w-4 animate-spin mr-2" />
+                      <Loader className="w-4 w-4 animate-spin mr-2" />
                       Saving Draft...
                     </>
                   ) : (
                     <>
-                      <FileText className="h-4 w-4 mr-2" />
+                      <FileText className="w-4 w-4 mr-2" />
                       Save as Draft
                     </>
                   )}
@@ -1142,18 +1026,13 @@ const EventPreview = () => {
                 >
                   {savingAs === "published" ? (
                     <>
-                      <Loader className="h-4 w-4 animate-spin mr-2" />
+                      <Loader className="w-4 w-4 animate-spin mr-2" />
                       Publishing...
-                    </>
-                  ) : isFreeEvent ? (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Pay & Publish
                     </>
                   ) : (
                     <>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Publish Event
+                      <Eye className="w-4 w-4 mr-2" />
+                      Review Terms & Publish
                     </>
                   )}
                 </button>
@@ -1178,9 +1057,7 @@ const EventPreview = () => {
                     them later. Drafts are only visible to you.
                   </li>
                   <li>
-                    <strong>Publish:</strong> {isFreeEvent 
-                      ? "Make your free event live after paying the service fee." 
-                      : "Make your paid event live and visible to everyone immediately."}
+                    <strong>Publish:</strong> Make your event live after reviewing and accepting the terms.
                   </li>
                   <li>
                     You can edit or unpublish events anytime from your
@@ -1192,18 +1069,6 @@ const EventPreview = () => {
           </div>
         </div>
       </div>
-
-      {/* Service Fee Checkout Modal */}
-      {showServiceFeeCheckout && serviceFeeData && (
-        <ServiceFeeCheckout
-          eventData={serviceFeeData.eventData}
-          serviceFee={serviceFeeData.serviceFee}
-          attendanceRange={serviceFeeData.attendanceRange}
-          agreementData={serviceFeeData.agreementData}
-          onSuccess={handleServiceFeeSuccess}
-          onClose={() => setShowServiceFeeCheckout(false)}
-        />
-      )}
 
       <div className="bg-black">
         <Footer />

@@ -192,10 +192,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     return ticketPrice * ticketQuantity;
   };
 
-  const calculateServiceFee = (total) => {
-    return Math.round(total * 0.025 + 100);
-  };
-
   const handlePayment = async () => {
     // Validate required fields
     if (!formData.fullName || !formData.email) {
@@ -334,8 +330,6 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
 
   // Calculate pricing
   const subtotal = calculateTotal();
-  const serviceFee = subtotal > 0 ? calculateServiceFee(subtotal) : 0;
-  const totalAmount = subtotal + serviceFee;
   const isFreeEvent = subtotal === 0;
   const requiresApproval = isApprovalEvent();
   const isRegularFree = isRegularFreeEvent();
@@ -516,19 +510,12 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                 </span>
               </div>
 
-              {!isFreeEvent && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Service Fee (2.5% + ₦100)</span>
-                  <span className="font-medium">₦{serviceFee.toLocaleString()}</span>
-                </div>
-              )}
-
               <div className="flex justify-between pt-2 border-t border-gray-200">
                 <span className="font-semibold text-gray-900">
                   {requiresApproval ? "Total" : "Total Amount"}
                 </span>
                 <span className="font-bold text-[#FF6B35] text-lg">
-                  {isFreeEvent ? "FREE" : `₦${totalAmount.toLocaleString()}`}
+                  {isFreeEvent ? "FREE" : `₦${subtotal.toLocaleString()}`}
                 </span>
               </div>
             </div>
@@ -558,7 +545,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
             ) : (
               <>
                 <CreditCard className="h-5 w-5 mr-2" />
-                Pay ₦{totalAmount.toLocaleString()}
+                Pay ₦{subtotal.toLocaleString()}
               </>
             )}
           </button>

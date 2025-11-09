@@ -9,25 +9,28 @@ import {
   Tag,
   FileText,
   Shield,
-  Eye,
   X,
   Loader,
   MapPin,
   Image as ImageIcon,
   Check,
-  Info,
   Ticket,
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
+import TicketManager from "../../../form/TicketManager/TicketManager";
 import SocialBannerUploader from "../../../form/SocialBannerUploader/SocialBannerUploader";
 import EventCommunity from "../../../form/EventCommunity/EventCommunity";
 import LocationSelector from "../../../form/LocationSelector/LocationSelector";
-import TicketManager from "../../../form/TicketManager/TicketManager";
-import  apiClient  from "../../services/api";
 import { toast } from "react-hot-toast";
+
+const CATEGORIES = [
+  "Technology", "Business", "Marketing", "Arts", "Health", 
+  "Education", "Music", "Food", "Sports", "Entertainment", 
+  "Networking", "Lifestyle", "Other",
+];
 
 const CreateEvent = () => {
   const { isAuthenticated, isOrganizer } = useAuth();
@@ -36,33 +39,24 @@ const CreateEvent = () => {
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 6;
-
-  // State management
-  const [uploadedImages, setUploadedImages] = useState([]);
-  const [imageFiles, setImageFiles] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [imageUploading, setImageUploading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState({});
 
-  // Event type and location states
-  const [eventType, setEventType] = useState("physical");
-  const [virtualEventLink, setVirtualEventLink] = useState("");
-  const [selectedState, setSelectedState] = useState("");
-  const [selectedCity, setSelectedCity] = useState("");
-  const [isMultiDay, setIsMultiDay] = useState(false);
-
-  // Social banner states
-  const [socialBannerFile, setSocialBannerFile] = useState(null);
-  const [socialBannerEnabled, setSocialBannerEnabled] = useState(false);
-
-  // Community states
-  const [communityData, setCommunityData] = useState(null);
-  const [communityEnabled, setCommunityEnabled] = useState(false);
-
-  // Form and data management
-  const [ticketTypes, setTicketTypes] = useState([
-    {
+  // Form state
+  const [formState, setFormState] = useState({
+    uploadedImages: [],
+    imageFiles: [],
+    eventType: "physical",
+    virtualEventLink: "",
+    selectedState: "",
+    selectedCity: "",
+    isMultiDay: false,
+    socialBannerFile: null,
+    socialBannerEnabled: false,
+    communityData: null,
+    communityEnabled: false,
+    ticketTypes: [{
       name: "Regular",
       price: "",
       capacity: "",
@@ -73,18 +67,14 @@ const CreateEvent = () => {
       approvalQuestions: [],
       maxAttendees: "",
       approvalDeadline: "",
-    },
-  ]);
-  const [useLegacyPricing, setUseLegacyPricing] = useState(false);
-  const [singleTicketBenefits, setSingleTicketBenefits] = useState([]);
-  const [tags, setTags] = useState([]);
-  const [tagInput, setTagInput] = useState("");
-  const [requirements, setRequirements] = useState([]);
-  const [requirementInput, setRequirementInput] = useState("");
+    }],
+    useLegacyPricing: false,
+    singleTicketBenefits: [],
+    tags: [],
+    requirements: [],
+  });
 
-  // Step completion tracking
-  const [completedSteps, setCompletedSteps] = useState({});
-
+  // React Hook Form
   const {
     register,
     handleSubmit,
@@ -96,296 +86,84 @@ const CreateEvent = () => {
   } = useForm({
     mode: "onChange",
     defaultValues: {
+      title: "",
+      category: "",
+      description: "",
+      longDescription: "",
       startDate: "",
+      endDate: "",
       time: "",
       endTime: "",
+      venue: "",
+      address: "",
       state: "",
       city: "",
+      price: "",
+      capacity: "",
+      ticketDescription: "",
     },
   });
 
-  // Constants
-  const CATEGORIES = [
-    "Technology",
-    "Business",
-    "Marketing",
-    "Arts",
-    "Health",
-    "Education",
-    "Music",
-    "Food",
-    "Sports",
-    "Entertainment",
-    "Networking",
-    "Lifestyle",
-    "Other",
-  ];
-
   const steps = [
-    {
-      number: 1,
-      title: "Basic Info",
-      icon: FileText,
-      description: "Event details",
-    },
-    {
-      number: 2,
-      title: "Date & Time",
-      icon: Calendar,
-      description: "Schedule",
-    },
-    {
-      number: 3,
-      title: "Location",
-      icon: MapPin,
-      description: "Venue details",
-    },
+    { number: 1, title: "Basic Info", icon: FileText, description: "Event details" },
+    { number: 2, title: "Date & Time", icon: Calendar, description: "Schedule" },
+    { number: 3, title: "Location", icon: MapPin, description: "Venue details" },
     { number: 4, title: "Tickets", icon: Ticket, description: "Pricing" },
     { number: 5, title: "Additional", icon: Tag, description: "Tags & more" },
-    {
-      number: 6,
-      title: "Media",
-      icon: ImageIcon,
-      description: "Images & social",
-    },
+    { number: 6, title: "Media", icon: ImageIcon, description: "Images & social" },
   ];
+
+  const totalSteps = steps.length;
 
   // Effects
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPageLoading(false);
-    }, 1000);
+    const timer = setTimeout(() => setPageLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Restore state from location 
   useEffect(() => {
     if (location.state?.eventData) {
-      const {
-        eventData,
-        imageFiles: prevImageFiles,
-        uploadedImages: prevUploadedImages,
-      } = location.state;
-
-      // Set form values
+      const { eventData, imageFiles, uploadedImages } = location.state;
+      
       Object.keys(eventData).forEach((key) => {
-        if (eventData[key] !== undefined && eventData[key] !== null) {
+        if (eventData[key] != null && getValues()[key] !== undefined) {
           setValue(key, eventData[key]);
         }
       });
 
-      // Set component state
-      if (eventData.eventType) setEventType(eventData.eventType);
-      if (eventData.virtualEventLink)
-        setVirtualEventLink(eventData.virtualEventLink);
-      if (eventData.state) setSelectedState(eventData.state);
-      if (eventData.city) setSelectedCity(eventData.city);
-      if (eventData.isMultiDay !== undefined)
-        setIsMultiDay(eventData.isMultiDay);
-      if (eventData.socialBannerEnabled !== undefined)
-        setSocialBannerEnabled(eventData.socialBannerEnabled);
-      if (eventData.socialBannerFile)
-        setSocialBannerFile(eventData.socialBannerFile);
-      if (eventData.communityEnabled !== undefined)
-        setCommunityEnabled(eventData.communityEnabled);
-      if (eventData.communityData) setCommunityData(eventData.communityData);
-      if (eventData.ticketTypes) setTicketTypes(eventData.ticketTypes);
-      if (eventData.useLegacyPricing !== undefined)
-        setUseLegacyPricing(eventData.useLegacyPricing);
-      if (eventData.singleTicketBenefits)
-        setSingleTicketBenefits(eventData.singleTicketBenefits);
-      if (eventData.tags) setTags(eventData.tags);
-      if (eventData.requirements) setRequirements(eventData.requirements);
-      if (prevImageFiles) setImageFiles(prevImageFiles);
-      if (prevUploadedImages) setUploadedImages(prevUploadedImages);
-    }
-  }, [location.state, setValue]);
+      const stateUpdates = {};
+      [
+        'eventType', 'virtualEventLink', 'isMultiDay', 'socialBannerFile',
+        'socialBannerEnabled', 'communityData', 'communityEnabled',
+        'ticketTypes', 'useLegacyPricing', 'singleTicketBenefits', 'tags', 'requirements'
+      ].forEach(key => {
+        if (eventData[key] != null) stateUpdates[key] = eventData[key];
+      });
 
-  // Update form values when state/city changes
+      if (eventData.state) stateUpdates.selectedState = eventData.state;
+      if (eventData.city) stateUpdates.selectedCity = eventData.city;
+      if (imageFiles) stateUpdates.imageFiles = imageFiles;
+      if (uploadedImages) stateUpdates.uploadedImages = uploadedImages;
+
+      setFormState(prev => ({ ...prev, ...stateUpdates }));
+    }
+  }, [location.state, setValue, getValues]);
+
   useEffect(() => {
-    if (selectedState) {
-      setValue("state", selectedState, { shouldValidate: true });
-    }
-    if (selectedCity) {
-      setValue("city", selectedCity, { shouldValidate: true });
-    }
-  }, [selectedState, selectedCity, setValue]);
+    if (formState.selectedState) setValue("state", formState.selectedState, { shouldValidate: true });
+    if (formState.selectedCity) setValue("city", formState.selectedCity, { shouldValidate: true });
+  }, [formState.selectedState, formState.selectedCity, setValue]);
 
-  // Ensure date fields are properly set
-  useEffect(() => {
-    const startDate = watch("startDate");
-    const time = watch("time");
-    const endTime = watch("endTime");
-
-    if (startDate) {
-      setValue("startDate", startDate, { shouldValidate: true });
-    }
-    if (time) {
-      setValue("time", time, { shouldValidate: true });
-    }
-    if (endTime) {
-      setValue("endTime", endTime, { shouldValidate: true });
-    }
-  }, [watch("startDate"), watch("time"), watch("endTime"), setValue]);
-
-  // Social Banner handler
-  const handleBannerChange = (file, enabled) => {
-    setSocialBannerFile(file);
-    setSocialBannerEnabled(enabled);
-  };
-
-  // Community handler
-  const handleCommunityChange = (data, enabled) => {
-    setCommunityData(data);
-    setCommunityEnabled(enabled);
-  };
-
-  // Single ticket benefits management
-  const addSingleTicketBenefit = (benefit) => {
-    if (benefit.trim() && singleTicketBenefits.length < 10) {
-      setSingleTicketBenefits([...singleTicketBenefits, benefit.trim()]);
-    }
-  };
-
-  const removeSingleTicketBenefit = (index) => {
-    setSingleTicketBenefits(singleTicketBenefits.filter((_, i) => i !== index));
-  };
-
-  // Ticket type management
-  const addTicketType = () => {
-    if (ticketTypes.length < 3) {
-      const availableTypes = ["Regular", "VIP", "VVIP"].filter(
-        (type) => !ticketTypes.find((t) => t.name === type)
-      );
-      if (availableTypes.length > 0) {
-        setTicketTypes([
-          ...ticketTypes,
-          {
-            name: availableTypes[0],
-            price: "",
-            capacity: "",
-            description: "",
-            benefits: [],
-            accessType: eventType === "hybrid" ? "both" : undefined,
-            requiresApproval: false,
-            approvalQuestions: [],
-            maxAttendees: "",
-            approvalDeadline: "",
-          },
-        ]);
-      }
-    }
-  };
-
-  const removeTicketType = (index) => {
-    if (ticketTypes.length > 1) {
-      setTicketTypes(ticketTypes.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateTicketType = (index, field, value) => {
-    const updated = [...ticketTypes];
-    updated[index] = { ...updated[index], [field]: value };
-    setTicketTypes(updated);
-  };
-
-  const addTicketBenefit = (ticketIndex, benefit) => {
-    if (benefit.trim()) {
-      const updated = [...ticketTypes];
-      updated[ticketIndex].benefits = [
-        ...updated[ticketIndex].benefits,
-        benefit.trim(),
-      ];
-      setTicketTypes(updated);
-    }
-  };
-
-  const removeTicketBenefit = (ticketIndex, benefitIndex) => {
-    const updated = [...ticketTypes];
-    updated[ticketIndex].benefits = updated[ticketIndex].benefits.filter(
-      (_, i) => i !== benefitIndex
-    );
-    setTicketTypes(updated);
-  };
-
-  // Handle pricing mode toggle
-  const handleTogglePricing = (newValue) => {
-    setUseLegacyPricing(newValue);
-    setTicketTypes([
-      {
-        name: "Regular",
-        price: "",
-        capacity: "",
-        description: "",
-        benefits: [],
-        accessType: eventType === "hybrid" ? "both" : undefined,
-        requiresApproval: false,
-        approvalQuestions: [],
-        maxAttendees: "",
-        approvalDeadline: "",
-      },
-    ]);
-    setSingleTicketBenefits([]);
-  };
-
-  // Handle event type change
-  const handleEventTypeChange = (newType) => {
-    setEventType(newType);
-
-    if (newType === "physical") {
-      setVirtualEventLink("");
-    }
-
-    if (newType === "hybrid") {
-      setTicketTypes(
-        ticketTypes.map((ticket) => ({
-          ...ticket,
-          accessType: ticket.accessType || "both",
-        }))
-      );
-    } else {
-      setTicketTypes(
-        ticketTypes.map((ticket) => ({
-          ...ticket,
-          accessType: undefined,
-        }))
-      );
-    }
-  };
-
-  // Tag management
-  const addTag = () => {
-    if (
-      tagInput.trim() &&
-      !tags.includes(tagInput.trim()) &&
-      tags.length < 10
-    ) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput("");
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    setTags(tags.filter((tag) => tag !== tagToRemove));
-  };
-
-  // Requirements management
-  const addRequirement = () => {
-    if (requirementInput.trim() && requirements.length < 10) {
-      setRequirements([...requirements, requirementInput.trim()]);
-      setRequirementInput("");
-    }
-  };
-
-  const removeRequirement = (index) => {
-    setRequirements(requirements.filter((_, i) => i !== index));
+  // State management
+  const updateFormState = (updates) => {
+    setFormState(prev => ({ ...prev, ...updates }));
   };
 
   // Image handling
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
 
-    if (files.length + uploadedImages.length > 3) {
+    if (files.length + formState.uploadedImages.length > 3) {
       toast.error("Maximum 3 images allowed");
       return;
     }
@@ -393,8 +171,8 @@ const CreateEvent = () => {
     setImageUploading(true);
 
     try {
-      const newImageFiles = [...imageFiles];
-      const newUploadedImages = [...uploadedImages];
+      const newImageFiles = [...formState.imageFiles];
+      const newUploadedImages = [...formState.uploadedImages];
 
       for (const file of files) {
         if (!file.type.startsWith("image/")) {
@@ -412,12 +190,12 @@ const CreateEvent = () => {
         const reader = new FileReader();
         reader.onload = (e) => {
           newUploadedImages.push(e.target.result);
-          setUploadedImages([...newUploadedImages]);
+          updateFormState({ uploadedImages: [...newUploadedImages] });
         };
         reader.readAsDataURL(file);
       }
 
-      setImageFiles(newImageFiles);
+      updateFormState({ imageFiles: newImageFiles });
       toast.success("Images uploaded successfully");
     } catch (error) {
       console.error("Failed to upload images");
@@ -427,12 +205,113 @@ const CreateEvent = () => {
     }
   };
 
-  const removeImage = (indexToRemove) => {
-    setUploadedImages((prev) =>
-      prev.filter((_, index) => index !== indexToRemove)
-    );
-    setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+  const removeImage = (index) => {
+    updateFormState({
+      uploadedImages: formState.uploadedImages.filter((_, i) => i !== index),
+      imageFiles: formState.imageFiles.filter((_, i) => i !== index),
+    });
     toast.success("Image removed");
+  };
+
+  // Ticket management
+  const addTicketType = () => {
+    if (formState.ticketTypes.length < 3) {
+      const availableTypes = ["Regular", "VIP", "VVIP"].filter(
+        type => !formState.ticketTypes.find(t => t.name === type)
+      );
+      if (availableTypes.length > 0) {
+        updateFormState({
+          ticketTypes: [
+            ...formState.ticketTypes,
+            {
+              name: availableTypes[0],
+              price: "",
+              capacity: "",
+              description: "",
+              benefits: [],
+              accessType: formState.eventType === "hybrid" ? "both" : undefined,
+              requiresApproval: false,
+              approvalQuestions: [],
+              maxAttendees: "",
+              approvalDeadline: "",
+            }
+          ]
+        });
+      }
+    }
+  };
+
+  const removeTicketType = (index) => {
+    if (formState.ticketTypes.length > 1) {
+      updateFormState({
+        ticketTypes: formState.ticketTypes.filter((_, i) => i !== index)
+      });
+    }
+  };
+
+  const updateTicketType = (index, field, value) => {
+    const updatedTickets = [...formState.ticketTypes];
+    
+    if (field === "capacity") {
+      const numValue = parseInt(value) || 1;
+      updatedTickets[index] = { ...updatedTickets[index], [field]: Math.max(1, numValue) };
+    } else {
+      updatedTickets[index] = { ...updatedTickets[index], [field]: value };
+    }
+    
+    updateFormState({ ticketTypes: updatedTickets });
+  };
+
+  const handleTogglePricing = (newValue) => {
+    updateFormState({ 
+      useLegacyPricing: newValue,
+      ticketTypes: [{
+        name: "Regular",
+        price: "",
+        capacity: "",
+        description: "",
+        benefits: [],
+        accessType: formState.eventType === "hybrid" ? "both" : undefined,
+        requiresApproval: false,
+        approvalQuestions: [],
+        maxAttendees: "",
+        approvalDeadline: "",
+      }],
+      singleTicketBenefits: [],
+    });
+  };
+
+  // Tag and requirement management
+  const addTag = () => {
+    const tagInput = document.querySelector('input[placeholder*="startup"]')?.value || "";
+    if (tagInput.trim() && !formState.tags.includes(tagInput.trim()) && formState.tags.length < 10) {
+      updateFormState({
+        tags: [...formState.tags, tagInput.trim()]
+      });
+      document.querySelector('input[placeholder*="startup"]').value = "";
+    }
+  };
+
+  const removeTag = (index) => {
+    updateFormState({
+      tags: formState.tags.filter((_, i) => i !== index)
+    });
+  };
+
+  const addRequirement = () => {
+    const requirementInput = document.querySelector('input[placeholder*="Valid government"]')?.value || "";
+    if (requirementInput.trim() && formState.requirements.length < 10) {
+      updateFormState({
+        requirements: [...formState.requirements, requirementInput.trim()]
+      });
+      document.querySelector('input[placeholder*="Valid government"]').value = "";
+    }
+  };
+
+  const removeRequirement = (index) => {
+    updateFormState({
+      requirements: formState.requirements.filter((_, i) => i !== index)
+    });
   };
 
   // Step validation
@@ -446,51 +325,35 @@ const CreateEvent = () => {
         break;
       case 2:
         isValid = await trigger(["startDate", "time", "endTime"]);
-
-        if (!values.startDate) {
-          isValid = false;
+        if (!values.startDate || !values.time || !values.endTime) isValid = false;
+        
+        // Auto-set endDate if not set
+        if (!values.endDate && values.startDate) {
+          setValue("endDate", values.startDate);
         }
-        if (!values.time) {
-          isValid = false;
-        }
-        if (!values.endTime) {
-          isValid = false;
-        }
-
-        if (isMultiDay && values.endDate) {
+        
+        if (formState.isMultiDay && values.endDate) {
           const start = new Date(values.startDate);
           const end = new Date(values.endDate);
-          if (end < start) {
-            isValid = false;
-          }
+          if (end < start) isValid = false;
         }
         break;
       case 3:
-        if (eventType === "physical" || eventType === "hybrid") {
+        if (formState.eventType === "physical" || formState.eventType === "hybrid") {
           isValid = await trigger(["venue", "address", "state", "city"]);
-          isValid = isValid && selectedState && selectedCity;
-
-          if (!values.state || !values.city) {
-            isValid = false;
-          }
-        } else if (eventType === "virtual") {
-          isValid = !!virtualEventLink;
+          isValid = isValid && formState.selectedState && formState.selectedCity;
+        } else if (formState.eventType === "virtual") {
+          isValid = !!formState.virtualEventLink;
         }
         break;
       case 4:
-        if (!useLegacyPricing) {
-          const validTickets = ticketTypes.filter(
-            (t) =>
-              t.price !== "" && t.capacity !== "" && parseFloat(t.price) >= 0
-          );
-          isValid = validTickets.length > 0;
+        if (!formState.useLegacyPricing) {
+          isValid = formState.ticketTypes.some(t => t.price !== "" && t.capacity !== "" && parseFloat(t.price) >= 0);
         } else {
           isValid = await trigger(["price", "capacity"]);
         }
         break;
       case 5:
-        isValid = true;
-        break;
       case 6:
         isValid = true;
         break;
@@ -501,79 +364,83 @@ const CreateEvent = () => {
     return isValid;
   };
 
-  // Handle next step
+  // Navigation
   const handleNext = async () => {
     const isValid = await validateStep(currentStep);
+    
+    // Auto-set endDate for single-day events
+    if (currentStep === 2 && !formState.isMultiDay && !getValues("endDate")) {
+      setValue("endDate", getValues("startDate"));
+    }
+    
     if (isValid) {
-      setCompletedSteps({ ...completedSteps, [currentStep]: true });
-      setCurrentStep(currentStep + 1);
+      setCompletedSteps(prev => ({ ...prev, [currentStep]: true }));
+      setCurrentStep(prev => prev + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
       toast.error("Please complete all required fields before proceeding");
     }
   };
 
-  // Handle previous step
   const handlePrevious = () => {
-    setCurrentStep(currentStep - 1);
+    setCurrentStep(prev => prev - 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Prepare preview data
+  // Prepare data for preview
   const preparePreviewData = () => {
-    const formData = getValues();
+    const formValues = getValues();
 
-    let finalTicketTypes = ticketTypes;
-    if (useLegacyPricing) {
-      finalTicketTypes = [
-        {
-          name: "Regular",
-          price: formData.price || "",
-          capacity: formData.capacity || "",
-          description: formData.ticketDescription || "",
-          benefits: singleTicketBenefits || [],
-          accessType: eventType === "hybrid" ? "both" : undefined,
-          requiresApproval: ticketTypes[0]?.requiresApproval || false,
-          approvalQuestions: ticketTypes[0]?.approvalQuestions || [],
-          maxAttendees: ticketTypes[0]?.maxAttendees || "",
-          approvalDeadline: ticketTypes[0]?.approvalDeadline || "",
-        },
-      ];
+    // Ensure endDate is set
+    if (!formValues.endDate && formValues.startDate) {
+      formValues.endDate = formValues.startDate;
+    }
+
+    // Ensure capacity is valid
+    if (formState.useLegacyPricing) {
+      formValues.capacity = parseInt(formValues.capacity) || 1;
+    }
+
+    let finalTicketTypes = formState.ticketTypes;
+    if (formState.useLegacyPricing) {
+      finalTicketTypes = [{
+        name: "Regular",
+        price: parseFloat(formValues.price) || 0,
+        capacity: parseInt(formValues.capacity) || 1,
+        description: formValues.ticketDescription || "",
+        benefits: formState.singleTicketBenefits || [],
+        accessType: formState.eventType === "hybrid" ? "both" : undefined,
+        requiresApproval: formState.ticketTypes[0]?.requiresApproval || false,
+        approvalQuestions: formState.ticketTypes[0]?.approvalQuestions || [],
+        maxAttendees: formState.ticketTypes[0]?.maxAttendees || "",
+        approvalDeadline: formState.ticketTypes[0]?.approvalDeadline || "",
+      }];
     }
 
     const eventData = {
-      title: formData.title || "",
-      category: formData.category || "",
-      description: formData.description || "",
-      longDescription: formData.longDescription || "",
-      startDate: formData.startDate || "",
-      endDate: formData.endDate || "",
-      time: formData.time || "",
-      endTime: formData.endTime || "",
-      isMultiDay: isMultiDay,
-      eventType: eventType,
-      virtualEventLink: virtualEventLink || "",
-      venue: formData.venue || "",
-      address: formData.address || "",
-      state: selectedState || formData.state || "",
-      city: selectedCity || formData.city || "",
+      // From react-hook-form
+      ...formValues,
+      
+      // From formState
+      isMultiDay: formState.isMultiDay,
+      eventType: formState.eventType,
+      virtualEventLink: formState.virtualEventLink,
+      state: formState.selectedState,
+      city: formState.selectedCity,
       ticketTypes: finalTicketTypes,
-      useLegacyPricing: useLegacyPricing,
-      singleTicketBenefits: singleTicketBenefits,
-      price: formData.price || "",
-      capacity: formData.capacity || "",
-      tags: tags,
-      requirements: requirements,
-      socialBannerEnabled: socialBannerEnabled,
-      socialBannerFile: socialBannerFile,
-      communityEnabled: communityEnabled,
-      communityData: communityData,
+      useLegacyPricing: formState.useLegacyPricing,
+      singleTicketBenefits: formState.singleTicketBenefits,
+      tags: formState.tags,
+      requirements: formState.requirements,
+      socialBannerEnabled: formState.socialBannerEnabled,
+      socialBannerFile: formState.socialBannerFile,
+      communityEnabled: formState.communityEnabled,
+      communityData: formState.communityData,
     };
 
     return eventData;
   };
 
-  // Handle preview - NO API CALL
   const handlePreview = async () => {
     const isValid = await validateStep(currentStep);
     if (!isValid) {
@@ -581,114 +448,53 @@ const CreateEvent = () => {
       return;
     }
 
+    // Validate required images
+    if (formState.uploadedImages.length === 0) {
+      toast.error("At least one event image is required");
+      return;
+    }
+
     const eventData = preparePreviewData();
 
     console.log("📦 Navigating to preview with data:", {
       eventData,
-      imageFilesCount: imageFiles.length,
-      uploadedImagesCount: uploadedImages.length,
+      imageFilesCount: formState.imageFiles.length,
+      uploadedImagesCount: formState.uploadedImages.length,
     });
 
-    // Navigate directly to preview without API validation
+    // ✅ Store form data temporarily for the preview and agreement flow
+    localStorage.setItem('draftEventData', JSON.stringify({
+      eventData,
+      imageFiles: formState.imageFiles,
+      uploadedImages: formState.uploadedImages,
+    }));
+
     navigate("/events/preview", {
       state: {
-        eventData: eventData,
-        imageFiles: imageFiles,
-        uploadedImages: uploadedImages,
+        eventData,
+        imageFiles: formState.imageFiles,
+        uploadedImages: formState.uploadedImages,
       },
     });
   };
 
-  // Loading screen
+  // Add cleanup effect to remove draft data when leaving create event
+  useEffect(() => {
+    return () => {
+      // Clean up draft data when component unmounts (user leaves create flow)
+      if (!location.pathname.includes('/preview') && !location.pathname.includes('/agreement')) {
+        localStorage.removeItem('draftEventData');
+      }
+    };
+  }, [location.pathname]);
+
+  // Loading and auth screens
   if (pageLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="w-11/12 mx-auto container py-8">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35] mx-auto mb-4"></div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Loading Event Creator
-              </h3>
-              <p className="text-gray-600">
-                Preparing your event creation workspace...
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-black">
-          <Footer />
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
-  // Not authenticated screen
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="w-11/12 mx-auto container py-16">
-          <div className="text-center">
-            <p className="text-xl text-gray-900 mb-8">
-              You need to be logged in as an organizer to create events.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/login"
-                className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link
-                to="/signup"
-                className="border-2 border-[#FF6B35] text-[#FF6B35] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B35] hover:text-white transition-colors"
-              >
-                Create Account
-              </Link>
-            </div>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  // Not organizer screen
-  if (!isOrganizer) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="w-11/12 mx-auto container py-16">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Organizer Account Required
-            </h2>
-            <p className="text-lg text-gray-600 mb-8">
-              You need an organizer account to create events.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/dashboard"
-                className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
-              >
-                Back to Dashboard
-              </Link>
-              <button
-                onClick={() => navigate("/signup?type=organizer")}
-                className="border-2 border-[#FF6B35] text-[#FF6B35] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B35] hover:text-white transition-colors"
-              >
-                Create Organizer Account
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="bg-black">
-          <Footer />
-        </div>
-      </div>
-    );
+  if (!isAuthenticated || !isOrganizer) {
+    return <AuthScreen isAuthenticated={isAuthenticated} isOrganizer={isOrganizer} />;
   }
 
   // Main form
@@ -697,11 +503,9 @@ const CreateEvent = () => {
       <Navbar />
 
       <div className="w-11/12 mx-auto container py-8">
+        {/* Header */}
         <div className="mb-8">
-          <Link
-            to="/dashboard/organizer"
-            className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] mb-4 transition-colors"
-          >
+          <Link to="/dashboard/organizer" className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] mb-4 transition-colors">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Link>
@@ -709,8 +513,7 @@ const CreateEvent = () => {
             Create New <span className="text-[#FF6B35]">Event</span>
           </h1>
           <p className="text-gray-600 mt-2">
-            Step {currentStep} of {totalSteps}:{" "}
-            {steps[currentStep - 1].description}
+            Step {currentStep} of {totalSteps}: {steps[currentStep - 1].description}
           </p>
         </div>
 
@@ -726,35 +529,22 @@ const CreateEvent = () => {
               return (
                 <React.Fragment key={step.number}>
                   <div className="flex flex-col items-center flex-1">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
-                        isCompleted || isPast
-                          ? "bg-green-500 text-white"
-                          : isCurrent
-                          ? "bg-[#FF6B35] text-white"
-                          : "bg-gray-200 text-gray-500"
-                      }`}
-                    >
-                      {isCompleted || isPast ? (
-                        <Check className="h-6 w-6" />
-                      ) : (
-                        <StepIcon className="h-6 w-6" />
-                      )}
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
+                      isCompleted || isPast ? "bg-green-500 text-white" : 
+                      isCurrent ? "bg-[#FF6B35] text-white" : "bg-gray-200 text-gray-500"
+                    }`}>
+                      {isCompleted || isPast ? <Check className="h-6 w-6" /> : <StepIcon className="h-6 w-6" />}
                     </div>
-                    <p
-                      className={`text-sm font-medium text-center hidden md:block ${
-                        isCurrent ? "text-[#FF6B35]" : "text-gray-600"
-                      }`}
-                    >
+                    <p className={`text-sm font-medium text-center hidden md:block ${
+                      isCurrent ? "text-[#FF6B35]" : "text-gray-600"
+                    }`}>
                       {step.title}
                     </p>
                   </div>
                   {index < steps.length - 1 && (
-                    <div
-                      className={`h-1 flex-1 mx-2 transition-all ${
-                        isPast ? "bg-green-500" : "bg-gray-200"
-                      }`}
-                    />
+                    <div className={`h-1 flex-1 mx-2 transition-all ${
+                      isPast ? "bg-green-500" : "bg-gray-200"
+                    }`} />
                   )}
                 </React.Fragment>
               );
@@ -768,113 +558,66 @@ const CreateEvent = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <FileText className="h-6 w-6 text-[#FF6B35]" />
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Basic Information
-                </h3>
+                <h3 className="text-xl font-semibold text-gray-900">Basic Information</h3>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Title *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Event Title *</label>
                   <input
                     type="text"
                     {...register("title", {
                       required: "Event title is required",
-                      minLength: {
-                        value: 5,
-                        message: "Title must be at least 5 characters",
-                      },
-                      maxLength: {
-                        value: 100,
-                        message: "Title must be less than 100 characters",
-                      },
+                      minLength: { value: 5, message: "Title must be at least 5 characters" },
+                      maxLength: { value: 100, message: "Title must be less than 100 characters" },
                     })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     placeholder="Enter event title"
                   />
-                  {errors.title && (
-                    <p className="text-red-600 text-sm mt-1">
-                      {errors.title.message}
-                    </p>
-                  )}
+                  {errors.title && <p className="text-red-600 text-sm mt-1">{errors.title.message}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
                   <select
-                    {...register("category", {
-                      required: "Category is required",
-                    })}
+                    {...register("category", { required: "Category is required" })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                   >
                     <option value="">Select category</option>
                     {CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
+                      <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
-                  {errors.category && (
-                    <p className="text-red-600 text-sm mt-1">
-                      {errors.category.message}
-                    </p>
-                  )}
+                  {errors.category && <p className="text-red-600 text-sm mt-1">{errors.category.message}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Short Description *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Short Description *</label>
                   <textarea
                     {...register("description", {
                       required: "Description is required",
-                      minLength: {
-                        value: 50,
-                        message: "Description must be at least 50 characters",
-                      },
-                      maxLength: {
-                        value: 2000,
-                        message:
-                          "Description must be less than 2000 characters",
-                      },
+                      minLength: { value: 50, message: "Description must be at least 50 characters" },
+                      maxLength: { value: 2000, message: "Description must be less than 2000 characters" },
                     })}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     placeholder="Brief description of your event (50-2000 characters)"
                   />
-                  {errors.description && (
-                    <p className="text-red-600 text-sm mt-1">
-                      {errors.description.message}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    {watch("description")?.length || 0}/2000 characters
-                  </p>
+                  {errors.description && <p className="text-red-600 text-sm mt-1">{errors.description.message}</p>}
+                  <p className="text-xs text-gray-500 mt-1">{watch("description")?.length || 0}/2000 characters</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Detailed Description (Optional)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Detailed Description (Optional)</label>
                   <textarea
                     {...register("longDescription", {
-                      maxLength: {
-                        value: 5000,
-                        message:
-                          "Long description must be less than 5000 characters",
-                      },
+                      maxLength: { value: 5000, message: "Long description must be less than 5000 characters" },
                     })}
                     rows={6}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     placeholder="Provide a more detailed description of your event, including agenda, speakers, activities, etc."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This will be displayed in the "About this event" section
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">This will be displayed in the "About this event" section</p>
                 </div>
               </div>
             </div>
@@ -885,9 +628,7 @@ const CreateEvent = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Calendar className="h-6 w-6 text-[#FF6B35]" />
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Date & Time
-                </h3>
+                <h3 className="text-xl font-semibold text-gray-900">Date & Time</h3>
               </div>
 
               <div className="space-y-6">
@@ -895,14 +636,11 @@ const CreateEvent = () => {
                   <input
                     type="checkbox"
                     id="multiDay"
-                    checked={isMultiDay}
-                    onChange={(e) => setIsMultiDay(e.target.checked)}
+                    checked={formState.isMultiDay}
+                    onChange={(e) => updateFormState({ isMultiDay: e.target.checked })}
                     className="w-4 h-4 text-[#FF6B35] border-gray-300 rounded focus:ring-[#FF6B35]"
                   />
-                  <label
-                    htmlFor="multiDay"
-                    className="text-sm font-medium text-gray-700"
-                  >
+                  <label htmlFor="multiDay" className="text-sm font-medium text-gray-700">
                     This is a multi-day event
                   </label>
                 </div>
@@ -910,85 +648,57 @@ const CreateEvent = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {isMultiDay ? "Start Date" : "Event Date"} *
+                      {formState.isMultiDay ? "Start Date" : "Event Date"} *
                     </label>
                     <input
                       type="date"
-                      {...register("startDate", {
-                        required: "Start date is required",
-                      })}
+                      {...register("startDate", { required: "Start date is required" })}
                       min={new Date().toISOString().split("T")[0]}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     />
-                    {errors.startDate && (
-                      <p className="text-red-600 text-sm mt-1">
-                        {errors.startDate.message}
+                    {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {formState.isMultiDay ? "End Date *" : "End Date"}
+                    </label>
+                    <input
+                      type="date"
+                      {...register("endDate", { 
+                        required: formState.isMultiDay ? "End date is required for multi-day events" : false 
+                      })}
+                      min={watch("startDate") || new Date().toISOString().split("T")[0]}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    />
+                    {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate.message}</p>}
+                    {!formState.isMultiDay && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Will be automatically set to the same as start date if left empty
                       </p>
                     )}
                   </div>
-
-                  {isMultiDay && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        End Date *
-                      </label>
-                      <input
-                        type="date"
-                        {...register("endDate", {
-                          required: isMultiDay
-                            ? "End date is required for multi-day events"
-                            : false,
-                        })}
-                        min={
-                          watch("startDate") ||
-                          new Date().toISOString().split("T")[0]
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                      />
-                      {errors.endDate && (
-                        <p className="text-red-600 text-sm mt-1">
-                          {errors.endDate.message}
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Time *
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Start Time *</label>
                     <input
                       type="time"
-                      {...register("time", {
-                        required: "Start time is required",
-                      })}
+                      {...register("time", { required: "Start time is required" })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     />
-                    {errors.time && (
-                      <p className="text-red-600 text-sm mt-1">
-                        {errors.time.message}
-                      </p>
-                    )}
+                    {errors.time && <p className="text-red-600 text-sm mt-1">{errors.time.message}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Time *
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">End Time *</label>
                     <input
                       type="time"
-                      {...register("endTime", {
-                        required: "End time is required",
-                      })}
+                      {...register("endTime", { required: "End time is required" })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     />
-                    {errors.endTime && (
-                      <p className="text-red-600 text-sm mt-1">
-                        {errors.endTime.message}
-                      </p>
-                    )}
+                    {errors.endTime && <p className="text-red-600 text-sm mt-1">{errors.endTime.message}</p>}
                   </div>
                 </div>
               </div>
@@ -999,17 +709,17 @@ const CreateEvent = () => {
           {currentStep === 3 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <LocationSelector
-                selectedState={selectedState}
-                selectedCity={selectedCity}
-                onStateChange={setSelectedState}
-                onCityChange={setSelectedCity}
+                selectedState={formState.selectedState}
+                selectedCity={formState.selectedCity}
+                onStateChange={(state) => updateFormState({ selectedState: state })}
+                onCityChange={(city) => updateFormState({ selectedCity: city })}
                 disabled={false}
                 errors={errors}
                 register={register}
-                eventType={eventType}
-                onEventTypeChange={handleEventTypeChange}
-                virtualEventLink={virtualEventLink}
-                onVirtualEventLinkChange={setVirtualEventLink}
+                eventType={formState.eventType}
+                onEventTypeChange={(type) => updateFormState({ eventType: type })}
+                virtualEventLink={formState.virtualEventLink}
+                onVirtualEventLinkChange={(link) => updateFormState({ virtualEventLink: link })}
               />
             </div>
           )}
@@ -1017,21 +727,39 @@ const CreateEvent = () => {
           {/* Step 4: Tickets */}
           {currentStep === 4 && (
             <TicketManager
-              useLegacyPricing={useLegacyPricing}
+              useLegacyPricing={formState.useLegacyPricing}
               onTogglePricing={handleTogglePricing}
-              ticketTypes={ticketTypes}
+              ticketTypes={formState.ticketTypes}
               onAddTicket={addTicketType}
               onRemoveTicket={removeTicketType}
               onUpdateTicket={updateTicketType}
-              onAddTicketBenefit={addTicketBenefit}
-              onRemoveTicketBenefit={removeTicketBenefit}
-              singleTicketBenefits={singleTicketBenefits}
-              onAddSingleBenefit={addSingleTicketBenefit}
-              onRemoveSingleBenefit={removeSingleTicketBenefit}
-              eventType={eventType}
-              onEventTypeChange={handleEventTypeChange}
-              virtualEventLink={virtualEventLink}
-              onVirtualEventLinkChange={setVirtualEventLink}
+              onAddTicketBenefit={(ticketIndex, benefit) => {
+                const updatedTickets = [...formState.ticketTypes];
+                updatedTickets[ticketIndex].benefits = [...updatedTickets[ticketIndex].benefits, benefit];
+                updateFormState({ ticketTypes: updatedTickets });
+              }}
+              onRemoveTicketBenefit={(ticketIndex, benefitIndex) => {
+                const updatedTickets = [...formState.ticketTypes];
+                updatedTickets[ticketIndex].benefits = updatedTickets[ticketIndex].benefits.filter((_, i) => i !== benefitIndex);
+                updateFormState({ ticketTypes: updatedTickets });
+              }}
+              singleTicketBenefits={formState.singleTicketBenefits}
+              onAddSingleBenefit={(benefit) => {
+                if (benefit.trim() && formState.singleTicketBenefits.length < 10) {
+                  updateFormState({
+                    singleTicketBenefits: [...formState.singleTicketBenefits, benefit.trim()]
+                  });
+                }
+              }}
+              onRemoveSingleBenefit={(index) => {
+                updateFormState({
+                  singleTicketBenefits: formState.singleTicketBenefits.filter((_, i) => i !== index)
+                });
+              }}
+              eventType={formState.eventType}
+              onEventTypeChange={(type) => updateFormState({ eventType: type })}
+              virtualEventLink={formState.virtualEventLink}
+              onVirtualEventLinkChange={(link) => updateFormState({ virtualEventLink: link })}
               register={register}
               savingAs={null}
               watch={watch}
@@ -1042,32 +770,25 @@ const CreateEvent = () => {
           {/* Step 5: Additional Information */}
           {currentStep === 5 && (
             <div className="space-y-8">
+              {/* Tags */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Tag className="h-5 w-5 text-[#FF6B35]" />
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Event Tags (Optional)
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Event Tags (Optional)</h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-4">
-                  Add tags to help people discover your event (max 10 tags)
-                </p>
+                <p className="text-sm text-gray-600 mb-4">Add tags to help people discover your event (max 10 tags)</p>
 
                 <div className="flex gap-2 mb-4">
                   <input
                     type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), addTag())
-                    }
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     placeholder="e.g., startup, innovation, AI"
+                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                   />
                   <button
                     type="button"
                     onClick={addTag}
-                    disabled={tags.length >= 10}
+                    disabled={formState.tags.length >= 10}
                     className="px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#FF8535] transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
                     <Plus className="h-4 w-4" />
@@ -1075,52 +796,35 @@ const CreateEvent = () => {
                   </button>
                 </div>
 
-                {tags.length > 0 && (
+                {formState.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-2 bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm"
-                      >
+                    {formState.tags.map((tag, index) => (
+                      <span key={index} className="inline-flex items-center gap-2 bg-[#FF6B35] text-white px-3 py-1 rounded-full text-sm">
                         {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="hover:bg-white/20 rounded-full p-0.5"
-                        >
+                        <button type="button" onClick={() => removeTag(index)} className="hover:bg-white/20 rounded-full p-0.5">
                           <X className="h-3 w-3" />
                         </button>
                       </span>
                     ))}
                   </div>
                 )}
-                <p className="text-xs text-gray-500 mt-2">
-                  {tags.length}/10 tags added
-                </p>
+                <p className="text-xs text-gray-500 mt-2">{formState.tags.length}/10 tags added</p>
               </div>
 
+              {/* Requirements */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Shield className="h-5 w-5 text-[#FF6B35]" />
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Requirements (Optional)
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Requirements (Optional)</h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-4">
-                  List what attendees need to bring or have
-                </p>
+                <p className="text-sm text-gray-600 mb-4">List what attendees need to bring or have</p>
 
                 <div className="flex gap-2 mb-4">
                   <input
                     type="text"
-                    value={requirementInput}
-                    onChange={(e) => setRequirementInput(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" &&
-                      (e.preventDefault(), addRequirement())
-                    }
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                     placeholder="e.g., Valid government-issued ID"
+                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addRequirement())}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                   />
                   <button
                     type="button"
@@ -1132,19 +836,12 @@ const CreateEvent = () => {
                   </button>
                 </div>
 
-                {requirements.length > 0 && (
+                {formState.requirements.length > 0 && (
                   <div className="space-y-2">
-                    {requirements.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg"
-                      >
+                    {formState.requirements.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
                         <span className="text-gray-700">{item}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeRequirement(index)}
-                          className="text-red-500 hover:text-red-700"
-                        >
+                        <button type="button" onClick={() => removeRequirement(index)} className="text-red-500 hover:text-red-700">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -1158,25 +855,26 @@ const CreateEvent = () => {
           {/* Step 6: Media */}
           {currentStep === 6 && (
             <div className="space-y-8">
+              {/* Event Images */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Event Images (Optional - Max 3)
+                  Event Images {formState.uploadedImages.length === 0 && (
+                    <span className="text-red-500">* (Required to publish)</span>
+                  )}
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Upload Event Images
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Upload Event Images *</label>
                     <input
                       type="file"
                       accept="image/*"
                       multiple
                       onChange={handleImageUpload}
-                      disabled={imageUploading || uploadedImages.length >= 3}
+                      disabled={imageUploading || formState.uploadedImages.length >= 3}
                       className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF6B35] file:text-white hover:file:bg-[#FF8535] disabled:opacity-50"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB per image.
+                      At least 1 image is required. Recommended: 1200x600 pixels, JPEG or PNG format. Max 5MB per image.
                     </p>
                     {imageUploading && (
                       <div className="flex items-center gap-2 text-blue-600 text-sm mt-2">
@@ -1185,37 +883,38 @@ const CreateEvent = () => {
                       </div>
                     )}
                   </div>
-                  {uploadedImages.length > 0 && (
+                  {formState.uploadedImages.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {uploadedImages.map((image, index) => (
+                      {formState.uploadedImages.map((image, index) => (
                         <div key={index} className="relative">
-                          <img
-                            src={image}
-                            alt={`Event preview ${index + 1}`}
-                            className="h-32 w-full object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                          >
+                          <img src={image} alt={`Event preview ${index + 1}`} className="h-32 w-full object-cover rounded-lg" />
+                          <button type="button" onClick={() => removeImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
                             <X className="h-3 w-3" />
                           </button>
                         </div>
                       ))}
                     </div>
                   )}
+                  {formState.uploadedImages.length === 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-700 text-sm">
+                        ⚠️ At least one event image is required to publish your event.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <SocialBannerUploader
-                onBannerChange={handleBannerChange}
+              {/* Social Banner */}
+              <SocialBannerUploader 
+                onBannerChange={(file, enabled) => updateFormState({ socialBannerFile: file, socialBannerEnabled: enabled })}
                 disabled={false}
               />
 
-              <EventCommunity
-                onCommunityChange={handleCommunityChange}
-                initialCommunity={communityData}
+              {/* Community */}
+              <EventCommunity 
+                onCommunityChange={(data, enabled) => updateFormState({ communityData: data, communityEnabled: enabled })}
+                initialCommunity={formState.communityData}
                 disabled={false}
               />
             </div>
@@ -1223,99 +922,78 @@ const CreateEvent = () => {
 
           {/* Navigation Buttons */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between">
-              <div className="flex gap-4">
-                {currentStep > 1 && (
-                  <button
-                    type="button"
-                    onClick={handlePrevious}
-                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Previous
-                  </button>
-                )}
-              </div>
-
-              <div className="flex gap-4">
-                {currentStep < totalSteps ? (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="px-6 py-3 bg-[#FF6B35] text-white rounded-lg font-semibold hover:bg-[#FF8535] transition-colors flex items-center gap-2"
-                  >
-                    Next Step
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handlePreview}
-                    className="px-6 py-3 bg-[#FF6B35] text-white rounded-lg font-semibold hover:bg-[#FF8535] transition-colors flex items-center gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Preview Event
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
-                <p className="font-semibold mb-2"> Quick Tips:</p>
-                <ul className="space-y-1 list-disc list-inside">
-                  {currentStep === 1 && (
-                    <>
-                      <li>
-                        Choose a clear, descriptive title that captures your event
-                      </li>
-                      <li>
-                        Write a compelling description to attract attendees
-                      </li>
-                    </>
-                  )}
-                  {currentStep === 2 && (
-                    <>
-                      <li>Double-check your event date and time</li>
-                      <li>Consider your target audience's timezone</li>
-                    </>
-                  )}
-                  {currentStep === 3 && (
-                    <>
-                      <li>Provide accurate venue information</li>
-                      <li>Include landmarks or directions if needed</li>
-                    </>
-                  )}
-                  {currentStep === 4 && (
-                    <>
-                      <li>Set competitive ticket prices</li>
-                      <li>Consider offering early bird or group discounts</li>
-                    </>
-                  )}
-                  {currentStep === 5 && (
-                    <>
-                      <li>Tags help people discover your event</li>
-                      <li>Clear requirements help attendees prepare</li>
-                    </>
-                  )}
-                  {currentStep === 6 && (
-                    <>
-                      <li>High-quality images attract more attendees</li>
-                      <li>Social banners boost event visibility online</li>
-                    </>
-                  )}
-                </ul>
-              </div>
+            <div className="flex justify-between">
+              {currentStep > 1 && (
+                <button type="button" onClick={handlePrevious} className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+                  Previous
+                </button>
+              )}
+              
+              {currentStep < totalSteps ? (
+                <button type="button" onClick={handleNext} className="px-6 py-3 bg-[#FF6B35] text-white rounded-lg font-semibold hover:bg-[#FF8535] transition-colors ml-auto">
+                  Next Step
+                </button>
+              ) : (
+                <button type="button" onClick={handlePreview} className="px-6 py-3 bg-[#FF6B35] text-white rounded-lg font-semibold hover:bg-[#FF8535] transition-colors ml-auto">
+                  Preview Event
+                </button>
+              )}
             </div>
           </div>
         </form>
       </div>
 
-      <div className="bg-black">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 };
+
+// Helper components
+const LoadingScreen = () => (
+  <div className="min-h-screen bg-gray-50">
+    <Navbar />
+    <div className="w-11/12 mx-auto container py-8">
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35] mx-auto mb-4"></div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading Event Creator</h3>
+        </div>
+      </div>
+    </div>
+    <Footer />
+  </div>
+);
+
+const AuthScreen = ({ isAuthenticated, isOrganizer }) => (
+  <div className="min-h-screen bg-gray-50">
+    <Navbar />
+    <div className="w-11/12 mx-auto container py-16">
+      <div className="text-center">
+        {!isAuthenticated ? (
+          <>
+            <p className="text-xl text-gray-900 mb-8">You need to be logged in as an organizer to create events.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/login" className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors">
+                Sign In
+              </Link>
+              <Link to="/signup" className="border-2 border-[#FF6B35] text-[#FF6B35] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B35] hover:text-white transition-colors">
+                Create Account
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Organizer Account Required</h2>
+            <p className="text-lg text-gray-600 mb-8">You need an organizer account to create events.</p>
+            <Link to="/dashboard" className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors">
+              Back to Dashboard
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
+    <Footer />
+  </div>
+);
 
 export default CreateEvent;
