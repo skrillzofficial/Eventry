@@ -62,6 +62,7 @@ const DiscoverEvents = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [voiceSearchActive, setVoiceSearchActive] = useState(false);
+  const [showPastEvents, setShowPastEvents] = useState(false); // ✅ NEW: Toggle for past events
 
   // Handle URL search parameters (including voice search)
   useEffect(() => {
@@ -117,9 +118,10 @@ const DiscoverEvents = () => {
     }
   };
 
+  // ✅ FIXED: Load events when component mounts or when showPastEvents changes
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [showPastEvents]);
 
   useEffect(() => {
     filterEvents();
@@ -132,14 +134,6 @@ const DiscoverEvents = () => {
       parseVoiceSearchForFilters(searchTerm);
     }
   }, [events]);
-
-  // Helper function to check if event is in the past
-  const isEventInPast = (eventDate) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of today
-    const eventDateObj = new Date(eventDate);
-    return eventDateObj < today;
-  };
 
   // Helper function to get price display for ticket types
   const getPriceDisplay = (event) => {
@@ -188,95 +182,95 @@ const DiscoverEvents = () => {
     return event.availableTickets || event.capacity || 0;
   };
 
-  // Load all events from backend - FIXED VERSION
+  // ✅ FIXED: Load events from backend - removed frontend date filtering
   const loadEvents = async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiCall(eventAPI.getAllEvents);
+      
+      // ✅ FIX: Let backend handle time filtering
+      const params = {
+        limit: 50, // Get more events per page
+        timeFilter: showPastEvents ? 'past' : 'upcoming', // Backend filters by date
+      };
 
-      console.log("API Response:", result); // Debug log
+      const result = await apiCall(() => eventAPI.getAllEvents(params));
+
+      console.log("API Response:", result);
 
       if (result.success) {
-        // FIX: Handle different possible response structures
+        // Handle different possible response structures
         let eventsData = [];
         
         if (Array.isArray(result.data)) {
-          // Case 1: Data is directly an array
           eventsData = result.data;
         } else if (result.data && Array.isArray(result.data.events)) {
-          // Case 2: Data has events property
           eventsData = result.data.events;
         } else if (result.data && Array.isArray(result.data.data)) {
-          // Case 3: Data has data property (common in paginated responses)
           eventsData = result.data.data;
         } else if (result.events && Array.isArray(result.events)) {
-          // Case 4: Events is at root level
           eventsData = result.events;
         } else {
-          // Case 5: Fallback to empty array
           console.warn("Unexpected API response structure:", result);
           eventsData = [];
         }
 
-        console.log("Processed events data:", eventsData); // Debug log
+        console.log("Processed events data:", eventsData);
 
-        const processed = eventsData
-          .map((event) => {
-            const rawImages = event.images || [];
-            let eventImage = eventOne;
+        const processed = eventsData.map((event) => {
+          const rawImages = event.images || [];
+          let eventImage = eventOne;
 
-            if (rawImages.length > 0) {
-              const img = rawImages[0];
+          if (rawImages.length > 0) {
+            const img = rawImages[0];
 
-              // If img is an object with url property (Cloudinary format)
-              if (img && typeof img === "object" && img.url) {
-                eventImage = img.url;
-              }
-              // If img is already a string URL
-              else if (typeof img === "string") {
-                eventImage = img;
-              }
-              // Check if it matches a local image path
-              else {
-                eventImage = imageMap[img] || eventOne;
-              }
+            // If img is an object with url property (Cloudinary format)
+            if (img && typeof img === "object" && img.url) {
+              eventImage = img.url;
             }
+            // If img is already a string URL
+            else if (typeof img === "string") {
+              eventImage = img;
+            }
+            // Check if it matches a local image path
+            else {
+              eventImage = imageMap[img] || eventOne;
+            }
+          }
 
-            return {
-              id: event._id || event.id,
-              title: event.title || "Untitled Event",
-              description: event.description || "",
-              category: event.category || "General",
-              date: event.date,
-              time: event.time,
-              endTime: event.endTime,
-              venue: event.venue,
-              address: event.address,
-              city: event.city,
-              state: event.state,
-              price: event.price || 0,
-              capacity: event.capacity || 0,
-              ticketsSold: event.ticketsSold || 0,
-              availableTickets: event.availableTickets || 0,
-              image: eventImage,
-              images: event.images || [],
-              tags: event.tags || [event.category].filter(Boolean),
-              organizer: event.organizer || { name: "Unknown Organizer" },
-              rating: event.rating || 4.5,
-              attendees: event.totalAttendees || event.attendees || 0,
-              status: event.status || "active",
-              createdAt: event.createdAt,
-              ticketTypes: Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 
-                ? event.ticketTypes 
-                : null,
-              isFeatured: event.isFeatured || false,
-            };
-          })
-          // FILTER OUT PAST EVENTS
-          .filter(event => !isEventInPast(event.date));
+          return {
+            id: event._id || event.id,
+            title: event.title || "Untitled Event",
+            description: event.description || "",
+            category: event.category || "General",
+            date: event.startDate || event.date, // ✅ Use startDate first
+            time: event.time,
+            endTime: event.endTime,
+            venue: event.venue,
+            address: event.address,
+            city: event.city,
+            state: event.state,
+            price: event.price || 0,
+            capacity: event.capacity || 0,
+            ticketsSold: event.ticketsSold || 0,
+            availableTickets: event.availableTickets || 0,
+            image: eventImage,
+            images: event.images || [],
+            tags: event.tags || [event.category].filter(Boolean),
+            organizer: event.organizer || { name: "Unknown Organizer" },
+            rating: event.rating || 4.5,
+            attendees: event.totalAttendees || event.attendees || 0,
+            status: event.status || "active",
+            createdAt: event.createdAt,
+            ticketTypes: Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 
+              ? event.ticketTypes 
+              : null,
+            isFeatured: event.isFeatured || false,
+          };
+        });
+        // ✅ REMOVED: Frontend date filtering - backend handles it now
 
-        console.log("Events after filtering past events:", processed); // Debug log
+        console.log("Total events loaded:", processed.length);
 
         setEvents(processed);
         setFilteredEvents(processed);
@@ -455,7 +449,7 @@ const DiscoverEvents = () => {
               Discover Events
             </h1>
             <p className="text-gray-600 mt-2">
-              {filteredEvents.length} upcoming event
+              {filteredEvents.length} {showPastEvents ? 'past' : 'upcoming'} event
               {filteredEvents.length !== 1 ? "s" : ""} found
               {searchTerm && (
                 <span className="ml-2 text-[#FF6B35]">
@@ -465,7 +459,31 @@ const DiscoverEvents = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 mt-4 md:mt-0">
+          <div className="flex items-center gap-3 mt-4 md:mt-0 flex-wrap">
+            {/* ✅ NEW: Past/Upcoming Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => setShowPastEvents(false)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  !showPastEvents
+                    ? 'bg-white text-[#FF6B35] shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Upcoming
+              </button>
+              <button
+                onClick={() => setShowPastEvents(true)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showPastEvents
+                    ? 'bg-white text-[#FF6B35] shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Past
+              </button>
+            </div>
+
             <div className="relative w-full md:w-64">
               <Search className="absolute left-3 top-2.5 text-gray-400 h-5 w-5" />
               <input
@@ -570,7 +588,7 @@ const DiscoverEvents = () => {
 
             <div className="flex justify-between items-center mt-4">
               <p className="text-sm text-gray-600">
-                Showing {filteredEvents.length} of {events.length} upcoming events
+                Showing {filteredEvents.length} of {events.length} {showPastEvents ? 'past' : 'upcoming'} events
               </p>
               <button
                 onClick={clearFilters}
@@ -666,12 +684,14 @@ const DiscoverEvents = () => {
                       </div>
 
                       {/* Available tickets display */}
-                      <div className="flex items-center gap-2">
-                        <Ticket className="h-4 w-4 text-[#FF6B35]" />
-                        <span className={availableTickets <= 10 && availableTickets > 0 ? "text-orange-600 font-medium" : ""}>
-                          {isSoldOut ? "Sold out" : `${availableTickets} tickets left`}
-                        </span>
-                      </div>
+                      {!showPastEvents && (
+                        <div className="flex items-center gap-2">
+                          <Ticket className="h-4 w-4 text-[#FF6B35]" />
+                          <span className={availableTickets <= 10 && availableTickets > 0 ? "text-orange-600 font-medium" : ""}>
+                            {isSoldOut ? "Sold out" : `${availableTickets} tickets left`}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
@@ -694,16 +714,16 @@ const DiscoverEvents = () => {
           <div className="text-center py-12">
             <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No Upcoming Events Found
+              No {showPastEvents ? 'Past' : 'Upcoming'} Events Found
             </h3>
             <p className="text-gray-600 mb-4">
               {searchTerm 
-                ? `No upcoming events match "${searchTerm}". Try different search terms or filters.`
+                ? `No ${showPastEvents ? 'past' : 'upcoming'} events match "${searchTerm}". Try different search terms or filters.`
                 : events.length > 0
-                ? "Try adjusting your filters to see more upcoming events."
-                : "No upcoming events available yet. Check back later!"}
+                ? `Try adjusting your filters to see more ${showPastEvents ? 'past' : 'upcoming'} events.`
+                : `No ${showPastEvents ? 'past' : 'upcoming'} events available yet. Check back later!`}
             </p>
-            {events.length === 0 && (
+            {!showPastEvents && events.length === 0 && (
               <Link
                 to="/create-event"
                 className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] font-semibold"
