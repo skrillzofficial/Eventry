@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Mail, Phone, MapPin, Send, Loader } from "lucide-react";
+import { Mail, Phone, MapPin, Send, Loader, ChevronDown, ChevronUp } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 
@@ -13,6 +13,51 @@ const Contact = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [openFaqIndex, setOpenFaqIndex] = useState(null);
+
+  // FAQ data
+  const faqs = [
+    {
+      question: "Who can use Eventry?",
+      answer: "Anyone! Eventry is built for event organizers, hosts, and attendees. Organizers can plan and manage events efficiently, while attendees can discover and book events that interest them. Our platform is designed to be user-friendly for all experience levels."
+    },
+    {
+      question: "How do I create an event on Eventry?",
+      answer: "Creating an event is simple! Click on 'Create Event' in the navigation menu, fill in your event details including title, date, venue, and ticket information. You can upload images, set ticket prices, and publish your event instantly. Our platform guides you through each step."
+    },
+    {
+      question: "Is my payment information secure?",
+      answer: "Absolutely! We use blockchain technology and industry-standard encryption to protect all transactions. Your payment information is never stored on our servers, and all transactions are processed through secure, verified payment gateways."
+    },
+    {
+      question: "Can I get a refund if I can't attend an event?",
+      answer: "Refund policies vary by event organizer. Each event page displays the specific refund policy. Generally, refunds are available up to 7 days before the event. For special circumstances, please contact the event organizer directly through the platform."
+    },
+    {
+      question: "How do I receive my tickets after purchase?",
+      answer: "After completing your purchase, you'll receive an instant confirmation email with your digital tickets. You can also access your tickets anytime from your account dashboard. Simply show the QR code on your phone at the event entrance."
+    },
+    {
+      question: "What types of events can I host on Eventry?",
+      answer: "Eventry supports all types of events including conferences, concerts, workshops, webinars, networking events, festivals, sports events, and more. Whether it's a small meetup or a large-scale conference, our platform scales to meet your needs."
+    },
+    {
+      question: "How much does it cost to use Eventry?",
+      answer: "Creating an account and browsing events is completely free! For event organizers, we charge a small service fee per ticket sold. There are no upfront costs or hidden fees. You only pay when you successfully sell tickets."
+    },
+    {
+      question: "What happens if an event is cancelled?",
+      answer: "If an event is cancelled by the organizer, all ticket holders are automatically notified via email. Refunds are processed within 5-7 business days. The organizer can also choose to reschedule the event and transfer existing tickets to the new date."
+    },
+    {
+      question: "How do I contact event organizers?",
+      answer: "Each event page has a 'Contact Organizer' button. You can send messages directly through the platform, and organizers typically respond within 24-48 hours. For urgent matters, check if the organizer has provided additional contact information on their event page."
+    },
+    {
+      question: "Can I track my event's performance?",
+      answer: "Yes! Our real-time analytics dashboard gives you insights into ticket sales, revenue, attendee demographics, and engagement metrics. You can track your event's performance and make data-driven decisions to improve attendance."
+    }
+  ];
 
   // Simulate page loading
   React.useEffect(() => {
@@ -53,6 +98,10 @@ const Contact = () => {
     }, 3000);
   };
 
+  const toggleFaq = (index) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
+
   // Page loading state
   if (pageLoading) {
     return (
@@ -86,7 +135,7 @@ const Contact = () => {
       </div>
 
       {/* Contact Section */}
-      <section className="py-20 bg-gray-50 flex-1">
+      <section className="py-20 bg-gray-50">
         <div className="w-11/12 mx-auto container">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Contact Info */}
@@ -266,6 +315,63 @@ const Contact = () => {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="bg-white py-20">
+        <div className="w-11/12 mx-auto container">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Frequently Asked <span className="text-[#FF6B35]">Questions</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Got questions? We've got answers. Find everything you need to know about using Eventry.
+            </p>
+          </div>
+
+          <div className="max-w-3xl mx-auto space-y-4">
+            {faqs.map((faq, index) => (
+              <div
+                key={index}
+                className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#FF6B35]/30 transition-colors"
+              >
+                <button
+                  onClick={() => toggleFaq(index)}
+                  className="w-full flex items-center justify-between p-6 text-left bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <h3 className="text-lg font-semibold text-gray-900 pr-8">
+                    {faq.question}
+                  </h3>
+                  {openFaqIndex === index ? (
+                    <ChevronUp className="h-5 w-5 text-[#FF6B35] flex-shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                  )}
+                </button>
+                
+                {openFaqIndex === index && (
+                  <div className="px-6 pb-6 bg-gray-50">
+                    <p className="text-gray-600 leading-relaxed">
+                      {faq.answer}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <p className="text-gray-600 mb-4">
+              Still have questions?
+            </p>
+            <a
+              href="mailto:support@eventry.com"
+              className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] font-semibold transition-colors"
+            >
+              Email our support team
+            </a>
           </div>
         </div>
       </section>
