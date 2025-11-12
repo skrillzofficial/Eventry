@@ -35,36 +35,10 @@ const imageMap = {
 const fallbackImage = eventOne;
 
 const Home = () => {
-  const [allEvents, setAllEvents] = useState([]); // Changed from events to allEvents
+  const [allEvents, setAllEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
-
-  // Helper function to check if event is in the past
-  const isEventInPast = (eventDate) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of today
-    const eventDateObj = new Date(eventDate);
-    return eventDateObj < today;
-  };
-
-  // Helper function to get price display
-  const getPriceDisplay = (event) => {
-    if (event.ticketTypes && event.ticketTypes.length > 0) {
-      const prices = event.ticketTypes.map(t => t.price);
-      const minPrice = Math.min(...prices);
-      return minPrice === 0 ? "Free" : `₦${minPrice.toLocaleString()}`;
-    }
-    return event.price === 0 ? "Free" : `₦${event.price.toLocaleString()}`;
-  };
-
-  // Helper to get available tickets count
-  const getAvailableTickets = (event) => {
-    if (event.ticketTypes && event.ticketTypes.length > 0) {
-      return event.ticketTypes.reduce((sum, tt) => sum + (tt.availableTickets || 0), 0);
-    }
-    return event.availableTickets || event.capacity || 0;
-  };
 
   // FAQ data
   const faqs = [
@@ -110,7 +84,7 @@ const Home = () => {
     }
   ];
 
-  // Fetch all events from backend - FIXED VERSION
+  // Fetch all events from backend
   useEffect(() => {
     loadEvents();
   }, []);
@@ -121,34 +95,23 @@ const Home = () => {
       setError(null);
       const result = await apiCall(eventAPI.getAllEvents);
 
-      console.log("API Response:", result); // Debug log
-
       if (result.success) {
-        // FIX: Handle different possible response structures
+        // Handle different possible response structures
         let eventsData = [];
         
         if (Array.isArray(result.data)) {
-          // Case 1: Data is directly an array
           eventsData = result.data;
         } else if (result.data && Array.isArray(result.data.events)) {
-          // Case 2: Data has events property
           eventsData = result.data.events;
         } else if (result.data && Array.isArray(result.data.data)) {
-          // Case 3: Data has data property (common in paginated responses)
           eventsData = result.data.data;
         } else if (result.events && Array.isArray(result.events)) {
-          // Case 4: Events is at root level
           eventsData = result.events;
         } else if (Array.isArray(result)) {
-          // Case 5: Result is directly the array
           eventsData = result;
         } else {
-          // Case 6: Fallback to empty array
-          console.warn("Unexpected API response structure:", result);
           eventsData = [];
         }
-
-        console.log("Processed events data:", eventsData); // Debug log
 
         const processed = eventsData.map((event) => {
           const rawImages = event.images || [];
@@ -157,16 +120,11 @@ const Home = () => {
           if (rawImages.length > 0) {
             const img = rawImages[0];
 
-            // If img is an object with url property (Cloudinary format)
             if (img && typeof img === "object" && img.url) {
               eventImage = img.url;
-            }
-            // If img is already a string URL
-            else if (typeof img === "string") {
+            } else if (typeof img === "string") {
               eventImage = img;
-            }
-            // Check if it matches a local image path
-            else {
+            } else {
               eventImage = imageMap[img] || fallbackImage;
             }
           }
@@ -202,16 +160,11 @@ const Home = () => {
           };
         });
 
-        console.log("Final processed events:", processed); // Debug log
-
-        // REMOVED THE FILTER - store all events
         setAllEvents(processed);
       } else {
         setError(result.error || "Failed to load events");
-        console.error("API Error:", result.error);
       }
     } catch (error) {
-      console.error("Error loading events:", error);
       setError("An unexpected error occurred while loading events");
     } finally {
       setLoading(false);
@@ -248,6 +201,14 @@ const Home = () => {
 
   const toggleFaq = (index) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
+
+  // Check if event is in the past
+  const isEventInPast = (eventDate) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDateObj = new Date(eventDate);
+    return eventDateObj < today;
   };
 
   // Separate events into upcoming and past
@@ -339,7 +300,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Trending Events Section - FIXED */}
+      {/* Trending Events Section */}
       <section className="bg-white py-20">
         <div className="w-11/12 mx-auto container">
           <div className="flex justify-between items-center mb-12">
@@ -386,8 +347,26 @@ const Home = () => {
           ) : upcomingEvents.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {upcomingEvents.map((event) => {
-                const priceDisplay = getPriceDisplay(event);
-                const availableTickets = getAvailableTickets(event);
+                // Get price display inline
+                const getPriceDisplay = () => {
+                  if (event.ticketTypes && event.ticketTypes.length > 0) {
+                    const prices = event.ticketTypes.map(t => t.price);
+                    const minPrice = Math.min(...prices);
+                    return minPrice === 0 ? "Free" : `₦${minPrice.toLocaleString()}`;
+                  }
+                  return event.price === 0 ? "Free" : `₦${event.price.toLocaleString()}`;
+                };
+
+                // Get available tickets inline
+                const getAvailableTickets = () => {
+                  if (event.ticketTypes && event.ticketTypes.length > 0) {
+                    return event.ticketTypes.reduce((sum, tt) => sum + (tt.availableTickets || 0), 0);
+                  }
+                  return event.availableTickets || event.capacity || 0;
+                };
+
+                const priceDisplay = getPriceDisplay();
+                const availableTickets = getAvailableTickets();
                 const isSoldOut = availableTickets === 0;
                 
                 return (
@@ -402,7 +381,6 @@ const Home = () => {
                         alt={event.title}
                         className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      {/* Price Badge */}
                       <div className="absolute top-3 left-3">
                         <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
                           priceDisplay === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
@@ -411,7 +389,6 @@ const Home = () => {
                         </span>
                       </div>
                       
-                      {/* Sold Out Overlay */}
                       {isSoldOut && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                           <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">

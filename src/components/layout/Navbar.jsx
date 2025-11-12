@@ -148,7 +148,7 @@ const Navbar = () => {
       setIsMenuOpen(false);
       navigate("/");
     } catch (error) {
-      console.error("Logout error:", error);
+      // Handle logout error silently or show user-friendly message
     } finally {
       setIsLoggingOut(false);
     }
@@ -312,7 +312,7 @@ const Navbar = () => {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <NavLink
-              to={isAuthenticated ? (user?.role === "organizer" ? "/dashboard/organizer" : "/dashboard") : "/"}
+              to="/"
               className="flex items-center group transition-transform hover:scale-105 duration-200"
             >
               <img 

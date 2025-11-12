@@ -110,7 +110,7 @@ const initialState = {
 export const NotificationProvider = ({ children }) => {
   const [state, dispatch] = useReducer(notificationReducer, initialState);
   
-  // Get auth context - this should now work properly
+  // Get auth context
   const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   // Fetch notifications using the unified apiCall wrapper
@@ -141,7 +141,6 @@ export const NotificationProvider = ({ children }) => {
         });
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
       dispatch({
         type: "SET_ERROR",
         payload: error.message || "Failed to fetch notifications",
@@ -162,7 +161,6 @@ export const NotificationProvider = ({ children }) => {
         throw new Error(result.error || 'Failed to mark as read');
       }
     } catch (error) {
-      console.error("Failed to mark notification as read:", error);
       throw error;
     }
   }, [user, isAuthenticated]);
@@ -180,7 +178,6 @@ export const NotificationProvider = ({ children }) => {
         throw new Error(result.error || 'Failed to mark all as read');
       }
     } catch (error) {
-      console.error("Failed to mark all notifications as read:", error);
       throw error;
     }
   }, [user, isAuthenticated]);
@@ -198,7 +195,6 @@ export const NotificationProvider = ({ children }) => {
         throw new Error(result.error || 'Failed to delete notification');
       }
     } catch (error) {
-      console.error("Failed to delete notification:", error);
       throw error;
     }
   }, [user, isAuthenticated]);
@@ -223,16 +219,14 @@ export const NotificationProvider = ({ children }) => {
         });
       }
     } catch (error) {
-      console.error("Failed to fetch unread count:", error);
+      // Silently handle unread count fetch errors
     }
   }, [user, isAuthenticated]);
 
   // Request browser notification permission
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().then(permission => {
-        console.log('Notification permission:', permission);
-      });
+      Notification.requestPermission();
     }
   }, []);
 

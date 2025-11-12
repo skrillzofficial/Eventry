@@ -645,7 +645,7 @@ const CreateEvent = () => {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className={`grid gap-6 ${formState.isMultiDay ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {formState.isMultiDay ? "Start Date" : "Event Date"} *
@@ -659,26 +659,29 @@ const CreateEvent = () => {
                     {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate.message}</p>}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {formState.isMultiDay ? "End Date *" : "End Date"}
-                    </label>
-                    <input
-                      type="date"
-                      {...register("endDate", { 
-                        required: formState.isMultiDay ? "End date is required for multi-day events" : false 
-                      })}
-                      min={watch("startDate") || new Date().toISOString().split("T")[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                    />
-                    {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate.message}</p>}
-                    {!formState.isMultiDay && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Will be automatically set to the same as start date if left empty
-                      </p>
-                    )}
-                  </div>
+                  {formState.isMultiDay && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        End Date *
+                      </label>
+                      <input
+                        type="date"
+                        {...register("endDate", { 
+                          required: formState.isMultiDay ? "End date is required for multi-day events" : false 
+                        })}
+                        min={watch("startDate") || new Date().toISOString().split("T")[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                      />
+                      {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate.message}</p>}
+                    </div>
+                  )}
                 </div>
+
+                {!formState.isMultiDay && (
+                  <p className="text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    ℹ️ For single-day events, the end date will automatically be set to match the event date.
+                  </p>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
