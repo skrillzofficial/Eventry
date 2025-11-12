@@ -3,16 +3,14 @@ import { Link } from "react-router-dom";
 import {
   Calendar,
   ArrowRight,
-  Sparkles,
-  Ticket,
-  Shield,
-  TrendingUp,
   MapPin,
   Users,
+  Plus,
+  Search,
+  PartyPopper,
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import EventSlider from "../pages/EventSlider";
 import { eventAPI, apiCall } from "../services/api";
 
 // Local images for fallback
@@ -124,31 +122,28 @@ const Home = () => {
     }
   };
 
-  // Features data
-  const features = [
+  // How it works steps
+  const steps = [
     {
-      icon: <Ticket className="h-8 w-8" />,
-      title: "Easy Ticket Management",
-      description:
-        "Create, manage, and sell tickets seamlessly with our intuitive platform.",
+      number: "01",
+      icon: <Plus className="h-10 w-10" />,
+      title: "Create Your Event",
+      description: "Set up your event in minutes with our easy-to-use form. Add details, upload images, and set ticket prices.",
+      image: eventOne,
     },
     {
-      icon: <Shield className="h-8 w-8" />,
-      title: "Blockchain Security",
-      description:
-        "Your events and transactions are secured with cutting-edge blockchain technology.",
+      number: "02",
+      icon: <Search className="h-10 w-10" />,
+      title: "Discover Events",
+      description: "Browse through thousands of exciting events tailored to your interests. Filter by location, category, and date.",
+      image: eventTwo,
     },
     {
-      icon: <TrendingUp className="h-8 w-8" />,
-      title: "Real-time Analytics",
-      description:
-        "Track your event performance with detailed insights and analytics.",
-    },
-    {
-      icon: <Sparkles className="h-8 w-8" />,
-      title: "Smart Recommendations",
-      description:
-        "Discover events tailored to your interests with AI-powered suggestions.",
+      number: "03",
+      icon: <PartyPopper className="h-10 w-10" />,
+      title: "Attend & Enjoy",
+      description: "Book your tickets seamlessly and get ready to experience unforgettable moments at amazing events.",
+      image: eventThree,
     },
   ];
 
@@ -160,12 +155,7 @@ const Home = () => {
     return eventDateObj < today;
   };
 
-  // Separate events into upcoming and past
-  const upcomingEvents = allEvents
-    .filter(event => !isEventInPast(event.date))
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-    .slice(0, 6);
-
+  // Get past events
   const pastEvents = allEvents
     .filter(event => isEventInPast(event.date))
     .map(event => ({
@@ -207,7 +197,7 @@ const Home = () => {
               </Link>
 
               <Link
-                to="/create-event"
+                to="/events/create"
                 className="duration-300 transform hover:scale-105 shadow-lg border-2 border-white text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-[#FF6B35] transition-all flex items-center group"
               >
                 Create Your First Event
@@ -217,237 +207,73 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Features Section */}
-      <section className="bg-gray-50 py-20">
+      {/* How It Works Section */}
+      <section className="bg-white py-20">
         <div className="w-11/12 mx-auto container">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Why Choose <span className="text-[#FF6B35]">Eventry</span>?
+              How It <span className="text-[#FF6B35]">Works</span>?
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              We're revolutionizing event management in Africa with cutting-edge
-              technology and user-friendly features.
+              Getting started with Eventry is simple and straightforward. Follow these three easy steps.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
+          <div className="space-y-20">
+            {steps.map((step, index) => (
               <div
                 key={index}
-                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-xl transition-all group hover:border-[#FF6B35]/20"
+                className={`flex flex-col ${
+                  index % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'
+                } gap-12 items-center`}
               >
-                <div className="w-12 h-12 bg-[#FF6B35] rounded-xl flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform shadow-lg">
-                  {feature.icon}
+                {/* Image Side */}
+                <div className="flex-1 relative group">
+                  <div className="relative overflow-hidden rounded-2xl shadow-xl border border-gray-200">
+                    <img
+                      src={step.image}
+                      alt={step.title}
+                      className="w-full h-[400px] object-cover transform group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  
+                  {/* Floating Number Badge */}
+                  <div className={`absolute -top-6 ${index % 2 === 0 ? '-left-6' : '-right-6'} w-24 h-24 bg-[#FF6B35] rounded-2xl shadow-xl flex items-center justify-center transform rotate-12 group-hover:rotate-0 transition-transform`}>
+                    <span className="text-4xl font-bold text-white">{step.number}</span>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-[#FF6B35] transition-colors">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">{feature.description}</p>
+
+                {/* Content Side */}
+                <div className="flex-1 space-y-6">
+                  <div className="w-16 h-16 bg-[#FF6B35] rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    {step.icon}
+                  </div>
+                  
+                  <h3 className="text-3xl font-bold text-gray-900">
+                    {step.title}
+                  </h3>
+                  
+                  <p className="text-lg text-gray-600 leading-relaxed">
+                    {step.description}
+                  </p>
+
+                  <Link
+                    to={index === 0 ? "/events/create" : index === 1 ? "/discover" : "/signup"}
+                    className="inline-flex items-center bg-[#FF6B35] text-white px-6 py-3 rounded-full font-semibold hover:bg-[#FF8535] hover:shadow-lg transform hover:scale-105 transition-all group"
+                  >
+                    {index === 0 ? "Create Event" : index === 1 ? "Explore Events" : "Get Started"}
+                    <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Trending Events Section */}
-      <section className="bg-white py-20">
-        <div className="w-11/12 mx-auto container">
-          <div className="flex justify-between items-center mb-12">
-            <div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-2">
-                Trending <span className="text-[#FF6B35]">Events</span>
-              </h2>
-              <p className="text-gray-600">
-                Discover upcoming events that are creating buzz
-              </p>
-            </div>
-            <Link
-              to="/discover"
-              className="hidden md:flex items-center bg-[#FF6B35] px-6 py-3 rounded-full text-white font-semibold hover:bg-[#FF8535] transition-colors group"
-            >
-              SEE ALL
-              <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-80 bg-gray-200 rounded-xl animate-pulse"
-                />
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Failed to Load Events
-              </h3>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <button
-                onClick={loadEvents}
-                className="inline-flex items-center bg-[#FF6B35] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF8535] transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          ) : upcomingEvents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingEvents.map((event) => {
-                // Get price display inline
-                const getPriceDisplay = () => {
-                  if (event.ticketTypes && event.ticketTypes.length > 0) {
-                    const prices = event.ticketTypes.map(t => t.price);
-                    const minPrice = Math.min(...prices);
-                    return minPrice === 0 ? "Free" : `₦${minPrice.toLocaleString()}`;
-                  }
-                  return event.price === 0 ? "Free" : `₦${event.price.toLocaleString()}`;
-                };
-
-                // Get available tickets inline
-                const getAvailableTickets = () => {
-                  if (event.ticketTypes && event.ticketTypes.length > 0) {
-                    return event.ticketTypes.reduce((sum, tt) => sum + (tt.availableTickets || 0), 0);
-                  }
-                  return event.availableTickets || event.capacity || 0;
-                };
-
-                const priceDisplay = getPriceDisplay();
-                const availableTickets = getAvailableTickets();
-                const isSoldOut = availableTickets === 0;
-                
-                return (
-                  <Link
-                    to={`/event/${event.id}`}
-                    key={event.id}
-                    className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden group"
-                  >
-                    <div className="relative overflow-hidden">
-                      <img
-                        src={event.image}
-                        alt={event.title}
-                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute top-3 left-3">
-                        <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
-                          priceDisplay === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
-                        }`}>
-                          {priceDisplay}
-                        </span>
-                      </div>
-                      
-                      {isSoldOut && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                          <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold text-sm">
-                            SOLD OUT
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
-                        {event.title}
-                      </h3>
-
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-[#FF6B35]" />
-                          <span>
-                            {new Date(event.date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-[#FF6B35]" />
-                          <span className="truncate">
-                            {event.city}{event.state && `, ${event.state}`}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-[#FF6B35]" />
-                          <span>{event.attendees} attending</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full font-medium">
-                          {event.category}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No Upcoming Events
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Check back later for new events or create one yourself!
-              </p>
-              <Link
-                to="/create-event"
-                className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] font-semibold"
-              >
-                Create an Event
-                <ArrowRight className="h-5 w-5 ml-2" />
-              </Link>
-            </div>
-          )}
-
-          <div className="mt-8 text-center md:hidden">
-            <Link
-              to="/discover"
-              className="inline-flex items-center text-[#FF6B35] hover:text-[#E55A2B] font-semibold group"
-            >
-              View All Events
-              <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gray-50 py-20">
-        <div className="w-11/12 mx-auto container text-center">
-          <h2 className="text-4xl font-bold text-gray-900 mb-6">
-            Ready to Transform Your Event Experience?
-          </h2>
-          <p className="text-xl text-gray-800 mb-8 max-w-2xl mx-auto">
-            Join thousands of event organizers and attendees who trust Eventry
-            for seamless event management and discovery.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/signup"
-              className="bg-[#FF6B35] text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#FF8535] transition-colors transform hover:scale-105 shadow-lg hover:shadow-xl"
-            >
-              Get Started Free
-            </Link>
-            <Link
-              to="/team"
-              className="border-2 border-[#FF6B35] text-[#FF6B35] px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#FF6B35] hover:text-white transition-colors transform hover:scale-105"
-            >
-              Meet Our Team
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Past Events Slider Section */}
+      {/* Past Events Section */}
       {pastEvents.length > 0 && (
-        <section className="bg-white py-20">
+        <section className="bg-gray-50 py-20">
           <div className="w-11/12 mx-auto container">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -458,7 +284,67 @@ const Home = () => {
               </p>
             </div>
             
-            <EventSlider events={pastEvents} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pastEvents.slice(0, 6).map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden group relative"
+                >
+                  <div className="relative overflow-hidden">
+                    <img
+                      src={event.image}
+                      alt={event.title}
+                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-3 left-3">
+                      <span className="bg-gray-700 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                        Past Event
+                      </span>
+                    </div>
+                    
+                    {/* Overlay for past events */}
+                    <div className="absolute inset-0 bg-black/20"></div>
+                  </div>
+
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
+                      {event.title}
+                    </h3>
+
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-[#FF6B35]" />
+                        <span>
+                          {new Date(event.date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-[#FF6B35]" />
+                        <span className="truncate">
+                          {event.location || event.venue}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-[#FF6B35]" />
+                        <span>{event.attendees} attended</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full font-medium">
+                        {event.category}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}

@@ -40,7 +40,7 @@ const VerifyEmail = () => {
           `https://ecommerce-backend-tb8u.onrender.com/api/v1/verify-email?token=${token}`
         );
 
-        console.log("✅ Verification response:", response.data);
+        console.log(" Verification response:", response.data);
 
         if (response.data.success) {
           const { user, token: authToken } = response.data;
