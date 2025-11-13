@@ -7,7 +7,6 @@ import {
   ArrowRight,
   MapPin,
   Users,
-  Clock,
   Ticket,
   TrendingUp,
   Mic,
@@ -21,6 +20,7 @@ import { eventAPI, apiCall } from "../../services/api";
 import eventOne from "../../assets/Vision one.png";
 import eventTwo from "../../assets/Vision 2.png";
 import eventThree from "../../assets/vision 3.png";
+import heroBackground from "../../assets/conference.jpg";
 
 // Map local paths to imported images
 const imageMap = {
@@ -39,7 +39,7 @@ const NIGERIAN_STATES = [
   "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
 ];
 
-// Event Categories
+// Event Categories for sections
 const EVENT_CATEGORIES = [
   "Technology", "Business", "Marketing", "Arts", "Health",
   "Education", "Music", "Food", "Sports", "Entertainment",
@@ -49,6 +49,7 @@ const EVENT_CATEGORIES = [
 const DiscoverEvents = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
+  const [categorizedEvents, setCategorizedEvents] = useState({});
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,13 +63,13 @@ const DiscoverEvents = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [voiceSearchActive, setVoiceSearchActive] = useState(false);
-  const [showPastEvents, setShowPastEvents] = useState(false); // ✅ NEW: Toggle for past events
+  const [showPastEvents, setShowPastEvents] = useState(false);
+  const [featuredEvents, setFeaturedEvents] = useState([]);
 
-  // Handle URL search parameters (including voice search)
+  // Handle URL search parameters
   useEffect(() => {
     const urlSearch = searchParams.get('search');
     const isVoiceSearch = searchParams.get('isVoiceSearch') === 'true';
-    const originalQuery = searchParams.get('originalQuery');
     
     if (urlSearch) {
       const decodedSearch = decodeURIComponent(urlSearch);
@@ -76,10 +77,8 @@ const DiscoverEvents = () => {
       
       if (isVoiceSearch) {
         setVoiceSearchActive(true);
-        // Auto-parse voice search for filters
         parseVoiceSearchForFilters(decodedSearch);
         
-        // Show notification
         setTimeout(() => {
           setVoiceSearchActive(false);
         }, 3000);
@@ -91,7 +90,6 @@ const DiscoverEvents = () => {
   const parseVoiceSearchForFilters = (query) => {
     const lowerQuery = query.toLowerCase();
     
-    // Auto-detect state
     const detectedState = NIGERIAN_STATES.find(state => 
       lowerQuery.includes(state.toLowerCase())
     );
@@ -99,7 +97,6 @@ const DiscoverEvents = () => {
       setFilters(prev => ({ ...prev, state: detectedState }));
     }
     
-    // Auto-detect category
     const detectedCategory = EVENT_CATEGORIES.find(cat => 
       lowerQuery.includes(cat.toLowerCase())
     );
@@ -107,33 +104,24 @@ const DiscoverEvents = () => {
       setFilters(prev => ({ ...prev, category: detectedCategory }));
     }
     
-    // Auto-detect price filter
     if (lowerQuery.includes('free')) {
       setFilters(prev => ({ ...prev, priceRange: 'free' }));
     }
     
-    // Auto-show filters if any were detected
     if (detectedState || detectedCategory || lowerQuery.includes('free')) {
       setShowFilters(true);
     }
   };
 
-  // ✅ FIXED: Load events when component mounts or when showPastEvents changes
+  // Load events when component mounts or when showPastEvents changes
   useEffect(() => {
     loadEvents();
   }, [showPastEvents]);
 
   useEffect(() => {
     filterEvents();
+    organizeEventsByCategory();
   }, [events, searchTerm, filters]);
-
-  // Re-parse voice filters when categories are loaded
-  useEffect(() => {
-    const isVoiceSearch = searchParams.get('isVoiceSearch') === 'true';
-    if (isVoiceSearch && searchTerm && events.length > 0) {
-      parseVoiceSearchForFilters(searchTerm);
-    }
-  }, [events]);
 
   // Helper function to get price display for ticket types
   const getPriceDisplay = (event) => {
@@ -159,7 +147,6 @@ const DiscoverEvents = () => {
       };
     }
     
-    // Legacy single price
     return { 
       text: event.price === 0 ? "Free" : `₦${event.price.toLocaleString()}`,
       range: false
@@ -182,24 +169,20 @@ const DiscoverEvents = () => {
     return event.availableTickets || event.capacity || 0;
   };
 
-  // ✅ FIXED: Load events from backend - removed frontend date filtering
+  // Load events from backend
   const loadEvents = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // ✅ FIX: Let backend handle time filtering
       const params = {
-        limit: 50, // Get more events per page
-        timeFilter: showPastEvents ? 'past' : 'upcoming', // Backend filters by date
+        limit: 50,
+        timeFilter: showPastEvents ? 'past' : 'upcoming',
       };
 
       const result = await apiCall(() => eventAPI.getAllEvents(params));
 
-      console.log("API Response:", result);
-
       if (result.success) {
-        // Handle different possible response structures
         let eventsData = [];
         
         if (Array.isArray(result.data)) {
@@ -215,25 +198,17 @@ const DiscoverEvents = () => {
           eventsData = [];
         }
 
-        console.log("Processed events data:", eventsData);
-
         const processed = eventsData.map((event) => {
           const rawImages = event.images || [];
           let eventImage = eventOne;
 
           if (rawImages.length > 0) {
             const img = rawImages[0];
-
-            // If img is an object with url property (Cloudinary format)
             if (img && typeof img === "object" && img.url) {
               eventImage = img.url;
-            }
-            // If img is already a string URL
-            else if (typeof img === "string") {
+            } else if (typeof img === "string") {
               eventImage = img;
-            }
-            // Check if it matches a local image path
-            else {
+            } else {
               eventImage = imageMap[img] || eventOne;
             }
           }
@@ -242,8 +217,8 @@ const DiscoverEvents = () => {
             id: event._id || event.id,
             title: event.title || "Untitled Event",
             description: event.description || "",
-            category: event.category || "General",
-            date: event.startDate || event.date, // ✅ Use startDate first
+            category: event.category || "Other",
+            date: event.startDate || event.date,
             time: event.time,
             endTime: event.endTime,
             venue: event.venue,
@@ -268,15 +243,15 @@ const DiscoverEvents = () => {
             isFeatured: event.isFeatured || false,
           };
         });
-        // ✅ REMOVED: Frontend date filtering - backend handles it now
-
-        console.log("Total events loaded:", processed.length);
 
         setEvents(processed);
         setFilteredEvents(processed);
+        
+        // Set featured events
+        const featured = processed.filter(event => event.isFeatured).slice(0, 3);
+        setFeaturedEvents(featured);
       } else {
         setError(result.error || "Failed to load events");
-        console.error("API Error:", result.error);
       }
     } catch (error) {
       console.error("Error loading events:", error);
@@ -284,6 +259,21 @@ const DiscoverEvents = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Organize events by category
+  const organizeEventsByCategory = () => {
+    if (events.length === 0) return;
+
+    const categorized = {};
+    
+    EVENT_CATEGORIES.forEach(category => {
+      categorized[category] = events.filter(event => 
+        event.category === category
+      ).slice(0, 8); // Limit to 8 events per category
+    });
+
+    setCategorizedEvents(categorized);
   };
 
   // Filter events with enhanced search and state filtering
@@ -313,7 +303,6 @@ const DiscoverEvents = () => {
         new Date(event.date).toDateString() ===
           new Date(filters.date).toDateString();
 
-      // Price filtering with ticket types
       const minPrice = getMinPrice(event);
       const matchesPrice =
         !filters.priceRange ||
@@ -333,7 +322,6 @@ const DiscoverEvents = () => {
       );
     });
 
-    // Sort results with ticket type price support
     results.sort((a, b) => {
       switch (filters.sortBy) {
         case "date":
@@ -367,7 +355,6 @@ const DiscoverEvents = () => {
       sortBy: "date",
     });
     setSearchTerm("");
-    // Clear URL params
     setSearchParams({});
   };
 
@@ -426,312 +413,464 @@ const DiscoverEvents = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      {/* Search and Filter Header */}
-      <div className="max-w-6xl mx-auto px-4 py-12">
-        {/* Voice Search Notification */}
-        {voiceSearchActive && (
-          <div className="mb-6 bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white rounded-xl p-4 shadow-lg">
-            <div className="flex items-center gap-3">
-              <Mic className="h-5 w-5" />
+      {/* Hero Section with Proper Background Image */}
+      <div 
+        className="relative h-96 bg-cover bg-center bg-no-repeat bg-fixed"
+        style={{
+          backgroundImage: `url(${heroBackground})`
+        }}
+      >
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center text-white px-4">
+            <h1 className="text-4xl font-bold mb-4">Discover Amazing Events</h1>
+            <p className="text-xl mb-8 max-w-2xl mx-auto">
+              Find and book tickets to the best events in your area. From technology conferences to music festivals.
+            </p>
+            
+            {/* Quick Stats */}
+            <div className="flex justify-center gap-8 text-center">
               <div>
-                <p className="font-semibold">Voice search active</p>
-                <p className="text-sm text-white/90">
-                  Searching for: "{searchTerm}"
-                </p>
+                <div className="text-2xl font-bold">{events.length}+</div>
+                <div className="text-sm opacity-90">{showPastEvents ? 'Past' : 'Upcoming'} Events</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">
+                  {EVENT_CATEGORIES.length}
+                </div>
+                <div className="text-sm opacity-90">Categories</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">
+                  {NIGERIAN_STATES.length}
+                </div>
+                <div className="text-sm opacity-90">States Covered</div>
               </div>
             </div>
           </div>
-        )}
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Discover Events
-            </h1>
-            <p className="text-gray-600 mt-2">
-              {filteredEvents.length} {showPastEvents ? 'past' : 'upcoming'} event
-              {filteredEvents.length !== 1 ? "s" : ""} found
-              {searchTerm && (
-                <span className="ml-2 text-[#FF6B35]">
-                  for "{searchTerm}"
-                </span>
-              )}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 mt-4 md:mt-0 flex-wrap">
-            {/* ✅ NEW: Past/Upcoming Toggle */}
-            <div className="flex items-center bg-gray-100 rounded-xl p-1">
-              <button
-                onClick={() => setShowPastEvents(false)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  !showPastEvents
-                    ? 'bg-white text-[#FF6B35] shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Upcoming
-              </button>
-              <button
-                onClick={() => setShowPastEvents(true)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  showPastEvents
-                    ? 'bg-white text-[#FF6B35] shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Past
-              </button>
-            </div>
-
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-3 top-2.5 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Search events..."
-                className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  // Clear voice search params when manually typing
-                  if (searchParams.get('isVoiceSearch')) {
-                    setSearchParams({});
-                  }
-                }}
-              />
-            </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-xl transition-colors"
-            >
-              <SlidersHorizontal className="h-5 w-5 text-[#FF6B35]" /> Filters
-            </button>
-          </div>
         </div>
+      </div>
 
-        {/* Error Banner */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-            <p className="text-red-700">{error}</p>
-          </div>
-        )}
-
-        {/* Filter Panel */}
-        {showFilters && (
-          <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Category Filter */}
-              <select
-                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
-                value={filters.category}
-                onChange={(e) => handleFilterChange("category", e.target.value)}
-              >
-                <option value="">All Categories</option>
-                {EVENT_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-
-              {/* State Filter */}
-              <select
-                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
-                value={filters.state}
-                onChange={(e) => handleFilterChange("state", e.target.value)}
-              >
-                <option value="">All States</option>
-                {NIGERIAN_STATES.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
-
-              {/* Date Filter */}
-              <input
-                type="date"
-                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
-                value={filters.date}
-                onChange={(e) => handleFilterChange("date", e.target.value)}
-              />
-
-              {/* Price Filter */}
-              <select
-                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
-                value={filters.priceRange}
-                onChange={(e) =>
-                  handleFilterChange("priceRange", e.target.value)
-                }
-              >
-                <option value="">Price Range</option>
-                <option value="free">Free</option>
-                <option value="under5k">Under ₦5,000</option>
-                <option value="5k-15k">₦5,000 - ₦15,000</option>
-                <option value="over15k">Above ₦15,000</option>
-              </select>
-
-              {/* Sort Filter */}
-              <select
-                className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
-                value={filters.sortBy}
-                onChange={(e) => handleFilterChange("sortBy", e.target.value)}
-              >
-                <option value="date">Sort by Date</option>
-                <option value="price-low">Price (Low → High)</option>
-                <option value="price-high">Price (High → Low)</option>
-                <option value="rating">Rating</option>
-                <option value="popularity">Popularity</option>
-              </select>
-            </div>
-
-            <div className="flex justify-between items-center mt-4">
-              <p className="text-sm text-gray-600">
-                Showing {filteredEvents.length} of {events.length} {showPastEvents ? 'past' : 'upcoming'} events
-              </p>
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-2 text-sm text-[#FF6B35] hover:underline"
-              >
-                <X className="h-4 w-4" /> Clear Filters
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Event Grid */}
-        {filteredEvents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredEvents.map((event) => {
-              const priceDisplay = getPriceDisplay(event);
-              const availableTickets = getAvailableTickets(event);
-              const isSoldOut = availableTickets === 0;
-              
-              return (
-                <Link
-                  to={`/event/${event.id}`}
-                  key={event.id}
-                  className="bg-white rounded-2xl shadow hover:shadow-xl transition-all overflow-hidden group relative"
-                >
-                  {/* Featured Badge */}
-                  {event.isFeatured && (
-                    <div className="absolute top-3 right-3 z-10">
-                      <span className="bg-white/90 backdrop-blur-sm text-[#FF6B35] px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" />
-                        Featured
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="relative">
-                    <img
-                      src={event.image}
-                      alt={event.title}
-                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    {/* Price badge with range support */}
-                    <div className="absolute top-3 left-3">
-                      <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
-                        priceDisplay.text === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
-                      }`}>
-                        {priceDisplay.text}
-                      </span>
-                    </div>
-                    
-                    {/* Ticket type indicator */}
-                    {event.ticketTypes && event.ticketTypes.length > 1 && (
-                      <div className="absolute bottom-3 left-3">
-                        <span className="bg-white/90 backdrop-blur-sm text-gray-900 px-2 py-1 rounded-full text-xs font-medium">
-                          {event.ticketTypes.length} ticket types
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Sold Out Overlay */}
-                    {isSoldOut && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold">
-                          SOLD OUT
-                        </span>
-                      </div>
-                    )}
+      {/* Search and Filters Section */}
+      <div className="bg-white border-b shadow-sm -mt-16 relative z-10">
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Voice Search Notification */}
+            {voiceSearchActive && (
+              <div className="bg-gradient-to-r from-[#FF6B35] to-[#FF8535] text-white rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <Mic className="h-5 w-5" />
+                  <div>
+                    <p className="font-semibold">Voice search active</p>
+                    <p className="text-sm text-white/90">
+                      Searching for: "{searchTerm}"
+                    </p>
                   </div>
+                </div>
+              </div>
+            )}
 
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
-                      {event.title}
-                    </h3>
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-2.5 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Search events..."
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    if (searchParams.get('isVoiceSearch')) {
+                      setSearchParams({});
+                    }
+                  }}
+                />
+              </div>
 
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-[#FF6B35]" />
-                        <span>{formatDate(event.date)}</span>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-xl transition-colors"
+              >
+                <SlidersHorizontal className="h-5 w-5 text-[#FF6B35]" /> Filters
+              </button>
+
+              {/* Past/Upcoming Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-xl p-1">
+                <button
+                  onClick={() => setShowPastEvents(false)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    !showPastEvents
+                      ? 'bg-white text-[#FF6B35] shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Upcoming
+                </button>
+                <button
+                  onClick={() => setShowPastEvents(true)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    showPastEvents
+                      ? 'bg-white text-[#FF6B35] shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Past
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="bg-gray-50 rounded-xl p-6 mt-4 border">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <select
+                  className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  value={filters.category}
+                  onChange={(e) => handleFilterChange("category", e.target.value)}
+                >
+                  <option value="">All Categories</option>
+                  {EVENT_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  value={filters.state}
+                  onChange={(e) => handleFilterChange("state", e.target.value)}
+                >
+                  <option value="">All States</option>
+                  {NIGERIAN_STATES.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  value={filters.date}
+                  onChange={(e) => handleFilterChange("date", e.target.value)}
+                />
+
+                <select
+                  className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  value={filters.priceRange}
+                  onChange={(e) =>
+                    handleFilterChange("priceRange", e.target.value)
+                  }
+                >
+                  <option value="">Price Range</option>
+                  <option value="free">Free</option>
+                  <option value="under5k">Under ₦5,000</option>
+                  <option value="5k-15k">₦5,000 - ₦15,000</option>
+                  <option value="over15k">Above ₦15,000</option>
+                </select>
+
+                <select
+                  className="border border-gray-300 rounded-xl p-2 focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                  value={filters.sortBy}
+                  onChange={(e) => handleFilterChange("sortBy", e.target.value)}
+                >
+                  <option value="date">Sort by Date</option>
+                  <option value="price-low">Price (Low → High)</option>
+                  <option value="price-high">Price (High → Low)</option>
+                  <option value="rating">Rating</option>
+                  <option value="popularity">Popularity</option>
+                </select>
+              </div>
+
+              <div className="flex justify-between items-center mt-4">
+                <p className="text-sm text-gray-600">
+                  Showing {filteredEvents.length} of {events.length} {showPastEvents ? 'past' : 'upcoming'} events
+                </p>
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-2 text-sm text-[#FF6B35] hover:underline"
+                >
+                  <X className="h-4 w-4" /> Clear Filters
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto px-4 py-8 mt-8">
+        {/* Featured Events Section */}
+        {featuredEvents.length > 0 && !searchTerm && !filters.category && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Featured Events</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredEvents.map((event) => {
+                const priceDisplay = getPriceDisplay(event);
+                const availableTickets = getAvailableTickets(event);
+                const isSoldOut = availableTickets === 0;
+                
+                return (
+                  <Link
+                    to={`/event/${event.id}`}
+                    key={event.id}
+                    className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden group relative"
+                  >
+                    <div className="relative">
+                      <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute top-3 left-3">
+                        <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
+                          priceDisplay.text === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
+                        }`}>
+                          {priceDisplay.text}
+                        </span>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-[#FF6B35]" />
-                        <span className="truncate">
-                          {event.city}{event.state && `, ${event.state}`}
+                      <div className="absolute top-3 right-3">
+                        <span className="bg-white/90 backdrop-blur-sm text-[#FF6B35] px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                          <TrendingUp className="h-3 w-3" />
+                          Featured
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-[#FF6B35]" />
-                        <span>{event.attendees} attending</span>
-                      </div>
-
-                      {/* Available tickets display */}
-                      {!showPastEvents && (
-                        <div className="flex items-center gap-2">
-                          <Ticket className="h-4 w-4 text-[#FF6B35]" />
-                          <span className={availableTickets <= 10 && availableTickets > 0 ? "text-orange-600 font-medium" : ""}>
-                            {isSoldOut ? "Sold out" : `${availableTickets} tickets left`}
+                      {isSoldOut && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold">
+                            SOLD OUT
                           </span>
                         </div>
                       )}
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                      <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full font-medium">
-                        {event.category}
-                      </span>
-                      
-                      {priceDisplay.range && (
-                        <span className="text-xs text-gray-500">
-                          Multiple prices
-                        </span>
-                      )}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
+                        {event.title}
+                      </h3>
+
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-[#FF6B35]" />
+                          <span>{formatDate(event.date)}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-[#FF6B35]" />
+                          <span className="truncate">
+                            {event.city}{event.state && `, ${event.state}`}
+                          </span>
+                        </div>
+
+                        {!showPastEvents && (
+                          <div className="flex items-center gap-2">
+                            <Ticket className="h-4 w-4 text-[#FF6B35]" />
+                            <span className={availableTickets <= 10 && availableTickets > 0 ? "text-orange-600 font-medium" : ""}>
+                              {isSoldOut ? "Sold out" : `${availableTickets} tickets left`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No {showPastEvents ? 'Past' : 'Upcoming'} Events Found
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {searchTerm 
-                ? `No ${showPastEvents ? 'past' : 'upcoming'} events match "${searchTerm}". Try different search terms or filters.`
-                : events.length > 0
-                ? `Try adjusting your filters to see more ${showPastEvents ? 'past' : 'upcoming'} events.`
-                : `No ${showPastEvents ? 'past' : 'upcoming'} events available yet. Check back later!`}
-            </p>
-            {!showPastEvents && events.length === 0 && (
-              <Link
-                to="/create-event"
-                className="inline-flex items-center text-[#FF6B35] hover:text-[#FF8535] font-semibold"
-              >
-                Create an Event <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+        )}
+
+        {/* Show filtered results when searching */}
+        {searchTerm || Object.values(filters).some(filter => filter !== "" && filter !== "date") ? (
+          <>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Search Results ({filteredEvents.length})
+            </h2>
+            {filteredEvents.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredEvents.map((event) => {
+                  const priceDisplay = getPriceDisplay(event);
+                  const availableTickets = getAvailableTickets(event);
+                  const isSoldOut = availableTickets === 0;
+                  
+                  return (
+                    <Link
+                      to={`/event/${event.id}`}
+                      key={event.id}
+                      className="bg-white rounded-2xl shadow hover:shadow-lg transition-all overflow-hidden group relative"
+                    >
+                      {event.isFeatured && (
+                        <div className="absolute top-3 right-3 z-10">
+                          <span className="bg-white/90 backdrop-blur-sm text-[#FF6B35] px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            Featured
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="relative">
+                        <img
+                          src={event.image}
+                          alt={event.title}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-3 left-3">
+                          <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
+                            priceDisplay.text === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
+                          }`}>
+                            {priceDisplay.text}
+                          </span>
+                        </div>
+
+                        {isSoldOut && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                            <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold">
+                              SOLD OUT
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4">
+                        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
+                          {event.title}
+                        </h3>
+
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-[#FF6B35]" />
+                            <span>{formatDate(event.date)}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-[#FF6B35]" />
+                            <span className="truncate">
+                              {event.city}{event.state && `, ${event.state}`}
+                            </span>
+                          </div>
+
+                          {!showPastEvents && (
+                            <div className="flex items-center gap-2">
+                              <Ticket className="h-4 w-4 text-[#FF6B35]" />
+                              <span className={availableTickets <= 10 && availableTickets > 0 ? "text-orange-600 font-medium" : ""}>
+                                {isSoldOut ? "Sold out" : `${availableTickets} tickets left`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <span className="text-xs text-[#FF6B35] bg-orange-50 px-2 py-1 rounded-full font-medium">
+                            {event.category}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No Events Found
+                </h3>
+                <p className="text-gray-600">
+                  Try adjusting your search terms or filters
+                </p>
+              </div>
             )}
-          </div>
+          </>
+        ) : (
+          /* Show categorized sections when not searching */
+          <>
+            {EVENT_CATEGORIES.map((category) => (
+              categorizedEvents[category] && categorizedEvents[category].length > 0 && (
+                <div key={category} className="mb-12">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                    {category}
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {categorizedEvents[category].map((event) => {
+                      const priceDisplay = getPriceDisplay(event);
+                      const availableTickets = getAvailableTickets(event);
+                      const isSoldOut = availableTickets === 0;
+                      
+                      return (
+                        <Link
+                          to={`/event/${event.id}`}
+                          key={event.id}
+                          className="bg-white rounded-2xl shadow hover:shadow-lg transition-all overflow-hidden group relative"
+                        >
+                          {event.isFeatured && (
+                            <div className="absolute top-3 right-3 z-10">
+                              <span className="bg-white/90 backdrop-blur-sm text-[#FF6B35] px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3" />
+                                Featured
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="relative">
+                            <img
+                              src={event.image}
+                              alt={event.title}
+                              className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute top-3 left-3">
+                              <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
+                                priceDisplay.text === "Free" ? "bg-green-500" : "bg-[#FF6B35]"
+                              }`}>
+                                {priceDisplay.text}
+                              </span>
+                            </div>
+
+                            {isSoldOut && (
+                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold">
+                                  SOLD OUT
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-4">
+                            <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#FF6B35] transition-colors">
+                              {event.title}
+                            </h3>
+
+                            <div className="space-y-2 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-[#FF6B35]" />
+                                <span>{formatDate(event.date)}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-[#FF6B35]" />
+                                <span className="truncate">
+                                  {event.city}{event.state && `, ${event.state}`}
+                                </span>
+                              </div>
+
+                              {!showPastEvents && (
+                                <div className="flex items-center gap-2">
+                                  <Ticket className="h-4 w-4 text-[#FF6B35]" />
+                                  <span className={availableTickets <= 10 && availableTickets > 0 ? "text-orange-600 font-medium" : ""}>
+                                    {isSoldOut ? "Sold out" : `${availableTickets} tickets left`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )
+            ))}
+          </>
         )}
       </div>
 
