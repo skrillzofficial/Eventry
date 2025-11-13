@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import RoleSwitcher from '../pages/RoleSwitcher/RoleSwitcher';
 import apiClient  from "../services/api";
 
 const OrganizerDashboard = () => {
@@ -45,7 +46,7 @@ const OrganizerDashboard = () => {
     loadOrganizerData();
   }, [isAuthenticated, isOrganizer, navigate]);
 
-  // 🚀 DIRECT API CALL - Load organizer data
+  //  DIRECT API CALL - Load organizer data
   const loadOrganizerData = async () => {
     try {
       setLoading(true);
@@ -245,7 +246,7 @@ const OrganizerDashboard = () => {
           </div>
         )}
 
-        {/* Header */}
+        {/* Header with Role Switcher */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex justify-between items-start flex-wrap gap-4">
             <div>
@@ -261,7 +262,10 @@ const OrganizerDashboard = () => {
                 Welcome back, {user?.name || user?.fullName || "Organizer"}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Role Switcher Component */}
+              <RoleSwitcher currentRole="organizer" />
+              
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}

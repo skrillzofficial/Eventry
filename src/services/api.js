@@ -57,10 +57,6 @@ apiClient.interceptors.response.use(
   }
 );
 
-// ============================================
-// HELPER FUNCTION FOR EVENT FORMDATA
-// ============================================
-
 /**
  * Helper to build FormData for event creation/update
  * @param {Object} eventData - Event data object
@@ -97,7 +93,7 @@ const buildEventFormData = (eventData, imageFiles = [], socialBannerFile = null)
   if (imageFiles && imageFiles.length > 0) {
     imageFiles.forEach((file) => {
       if (file instanceof File) {
-        formData.append('images', file); // Backend expects 'images' field
+        formData.append('images', file); 
       }
     });
   }
@@ -124,7 +120,7 @@ const buildEventFormData = (eventData, imageFiles = [], socialBannerFile = null)
     formData.append('termsAccepted', 'true');
   }
 
-  // Ensure status is set (default to draft if not specified)
+  // Ensure status is set 
   if (!eventData.status) {
     formData.append('status', 'draft');
   }
@@ -132,9 +128,7 @@ const buildEventFormData = (eventData, imageFiles = [], socialBannerFile = null)
   return formData;
 };
 
-// ============================================
 // AUTH API CALLS
-// ============================================
 export const authAPI = {
   login: (email, password, userType = "attendee") =>
     apiClient.post("/login", {
@@ -153,17 +147,15 @@ export const authAPI = {
   logout: () => apiClient.post("/logout"),
 };
 
-// ============================================
+
 // USER API CALLS
-// ============================================
 export const userAPI = {
   updateUser: (userData) => apiClient.patch("/profile", userData),
   getUserProfile: () => apiClient.get("/users/profile"),
 };
 
-// ============================================
+
 // EVENT API CALLS
-// ============================================
 export const eventAPI = {
   // ========== PUBLIC ROUTES ==========
   getFeaturedEvents: () => apiClient.get("/events/featured"),
@@ -236,9 +228,8 @@ export const eventAPI = {
     apiClient.delete(`/events/${eventId}/shareable-banner/template`),
 };
 
-// ============================================
+
 // BOOKING API CALLS
-// ============================================
 export const bookingAPI = {
   getMyBookings: (params = {}) =>
     apiClient.get("/bookings/my-bookings", { params }),
@@ -248,9 +239,8 @@ export const bookingAPI = {
   cancelBooking: (bookingId) => apiClient.delete(`/bookings/${bookingId}`),
 };
 
-// ============================================
+
 // TICKET API CALLS
-// ============================================
 export const ticketAPI = {
   // ========== USER TICKETS ==========
   getUserTickets: (params = {}) =>
@@ -276,9 +266,8 @@ export const ticketAPI = {
     apiClient.post(`/tickets/${ticketId}/validate`, validationData),
 };
 
-// ============================================
+
 // TRANSACTION API CALLS
-// ============================================
 export const transactionAPI = {
   // ========== PUBLIC ROUTES ==========
   verifyTransaction: (reference) =>
@@ -303,9 +292,8 @@ export const transactionAPI = {
     apiClient.get("/transactions/stats/revenue", { params }),
 };
 
-// ============================================
+
 // NOTIFICATION API CALLS
-// ============================================
 export const notificationAPI = {
   getNotifications: (params = {}) =>
     apiClient.get("/notifications", { params }),
@@ -317,9 +305,8 @@ export const notificationAPI = {
     apiClient.delete(`/notifications/${notificationId}`),
 };
 
-// ============================================
+
 // SUPERADMIN API CALLS
-// ============================================
 export const superadminAPI = {
   getAllUsers: (params = {}) => apiClient.get("/admin/users", { params }),
   updateUserRole: (userId, roleData) =>
@@ -339,9 +326,8 @@ export const superadminAPI = {
     apiClient.get("/admin/analytics", { params }),
 };
 
-// ============================================
+
 // SIMPLIFIED API CALL WRAPPER
-// ============================================
 export const apiCall = async (apiFunction, ...args) => {
   try {
     const response = await (typeof apiFunction === "function"

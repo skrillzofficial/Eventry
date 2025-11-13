@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import RoleSwitcher from '../pages/RoleSwitcher/RoleSwitcher';
 import { authAPI, eventAPI, bookingAPI, transactionAPI, apiCall } from "../services/api";
 
 const UserProfile = () => {
@@ -332,20 +333,25 @@ const UserProfile = () => {
       <Navbar />
 
       <div className="flex-1 w-11/12 mx-auto container py-8 max-w-7xl">
-        {/* Header with User Info */}
+        {/* Header with User Info and Role Switcher */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 bg-[#FF6B35] rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {userName.charAt(0).toUpperCase()}
+          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-[#FF6B35] rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900 mb-1">
+                  Welcome, {userName} 
+                </h1>
+                {userEmail && (
+                  <p className="text-gray-600">{userEmail}</p>
+                )}
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-1">
-                Welcome, {userName} 
-              </h1>
-              {userEmail && (
-                <p className="text-gray-600">{userEmail}</p>
-              )}
-            </div>
+            
+            {/* Role Switcher Component */}
+            <RoleSwitcher currentRole="attendee" />
           </div>
           <p className="text-gray-600 text-lg">
             Ready to discover your next event?
