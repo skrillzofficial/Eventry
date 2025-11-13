@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Briefcase, RefreshCw, Sparkles } from 'lucide-react';
-import apiClient from '../../services/api';
+import { User, Briefcase, RefreshCw } from 'lucide-react';
+import { authAPI, apiCall } from '../../services/api';
 
 const RoleSwitcher = ({ currentRole, onRoleChange }) => {
   const navigate = useNavigate();
@@ -13,46 +13,47 @@ const RoleSwitcher = ({ currentRole, onRoleChange }) => {
     try {
       const newRole = currentRole === 'attendee' ? 'organizer' : 'attendee';
       
-      // Call your API to update active role
-      const response = await apiClient.post('/auth/switch-role', {
-        role: newRole
-      });
+      // Call API using the proper structure
+      const response = await apiCall(authAPI.switchRole, newRole);
 
-      if (response.data) {
-        // Update local storage with new role
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        user.activeRole = newRole;
+      if (response.success) {
+        // Get the updated user data from response
+        const updatedUser = response.data?.user;
+        const newToken = response.data?.token;
         
-        // If switching to organizer and not already in roles, add it
-        if (newRole === 'organizer' && (!user.roles || !user.roles.includes('organizer'))) {
-          user.roles = user.roles || [];
-          user.roles.push('organizer');
-        }
-        
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        // Call parent callback if provided
-        if (onRoleChange) {
-          onRoleChange(newRole);
-        }
-        
-        // Navigate to appropriate dashboard
-        if (newRole === 'organizer') {
-          navigate('/dashboard/organizer');
+        if (updatedUser && newToken) {
+          // Update localStorage with new user data and token
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          localStorage.setItem('token', newToken);
+          
+          // Call parent callback if provided
+          if (onRoleChange) {
+            onRoleChange(newRole);
+          }
+          
+          // Navigate to appropriate dashboard
+          if (newRole === 'organizer') {
+            navigate('/dashboard/organizer');
+          } else {
+            navigate('/dashboard');
+          }
+          
+          // Reload to refresh all data with new token
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
         } else {
-          navigate('/profile');
+          throw new Error('Invalid response from server');
         }
-        
-        // Reload to refresh all data
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
       } else {
-        throw new Error('Failed to switch role');
+        throw new Error(response.error || 'Failed to switch role');
       }
     } catch (error) {
       console.error('Error switching role:', error);
-      alert(error.response?.data?.message || 'Failed to switch role. Please try again.');
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to switch role. Please try again.';
+      alert(errorMessage);
     } finally {
       setSwitching(false);
     }

@@ -4,7 +4,7 @@ export const BACKEND_URL =
   import.meta.env.VITE_API_URL ||
   "https://ecommerce-backend-tb8u.onrender.com/api/v1";
 
-// Create axios instance 
+// Create axios instance
 const apiClient = axios.create({
   baseURL: BACKEND_URL,
   timeout: 50000,
@@ -48,11 +48,11 @@ apiClient.interceptors.response.use(
       localStorage.removeItem("user");
       localStorage.removeItem("userRole");
       localStorage.removeItem("userType");
-      
+
       // Dispatch storage event to notify AuthContext across tabs
       window.dispatchEvent(new Event("storage"));
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -64,20 +64,24 @@ apiClient.interceptors.response.use(
  * @param {File|null} socialBannerFile - Optional social banner file
  * @returns {FormData}
  */
-const buildEventFormData = (eventData, imageFiles = [], socialBannerFile = null) => {
+const buildEventFormData = (
+  eventData,
+  imageFiles = [],
+  socialBannerFile = null
+) => {
   const formData = new FormData();
 
   // Add all text/JSON fields
-  Object.keys(eventData).forEach(key => {
+  Object.keys(eventData).forEach((key) => {
     const value = eventData[key];
-    
+
     // Skip null/undefined values
     if (value === null || value === undefined) {
       return;
     }
-    
+
     // Handle different data types
-    if (typeof value === 'object' && !Array.isArray(value)) {
+    if (typeof value === "object" && !Array.isArray(value)) {
       // Stringify objects (like agreement, communityData)
       formData.append(key, JSON.stringify(value));
     } else if (Array.isArray(value)) {
@@ -93,14 +97,14 @@ const buildEventFormData = (eventData, imageFiles = [], socialBannerFile = null)
   if (imageFiles && imageFiles.length > 0) {
     imageFiles.forEach((file) => {
       if (file instanceof File) {
-        formData.append('images', file); 
+        formData.append("images", file);
       }
     });
   }
 
   // Add social banner if exists
   if (socialBannerFile instanceof File) {
-    formData.append('socialBanner', socialBannerFile);
+    formData.append("socialBanner", socialBannerFile);
   }
 
   // ENSURE TERMS ARE INCLUDED FOR ALL EVENTS
@@ -110,19 +114,19 @@ const buildEventFormData = (eventData, imageFiles = [], socialBannerFile = null)
       acceptedAt: new Date().toISOString(),
       serviceFee: { type: "percentage", amount: 5 },
       paymentTerms: "upfront",
-      agreementVersion: "1.0"
+      agreementVersion: "1.0",
     };
-    formData.append('agreement', JSON.stringify(defaultAgreement));
+    formData.append("agreement", JSON.stringify(defaultAgreement));
   }
 
   // Ensure termsAccepted flag is set
   if (!eventData.termsAccepted) {
-    formData.append('termsAccepted', 'true');
+    formData.append("termsAccepted", "true");
   }
 
-  // Ensure status is set 
+  // Ensure status is set
   if (!eventData.status) {
-    formData.append('status', 'draft');
+    formData.append("status", "draft");
   }
 
   return formData;
@@ -144,16 +148,16 @@ export const authAPI = {
 
   getCurrentUser: () => apiClient.get("/me"),
 
+  switchRole: (role) => apiClient.post("/switch-role", { role }),
+
   logout: () => apiClient.post("/logout"),
 };
-
 
 // USER API CALLS
 export const userAPI = {
   updateUser: (userData) => apiClient.patch("/profile", userData),
   getUserProfile: () => apiClient.get("/users/profile"),
 };
-
 
 // EVENT API CALLS
 export const eventAPI = {
@@ -190,19 +194,32 @@ export const eventAPI = {
 
   // Create event with proper FormData handling
   createEvent: (eventData, imageFiles = [], socialBannerFile = null) => {
-    const formData = buildEventFormData(eventData, imageFiles, socialBannerFile);
-    
+    const formData = buildEventFormData(
+      eventData,
+      imageFiles,
+      socialBannerFile
+    );
+
     // Axios will automatically set Content-Type with boundary for FormData
-    return apiClient.post("/events", formData, { 
+    return apiClient.post("/events", formData, {
       timeout: 120000,
     });
   },
 
   // Update event with proper FormData handling
-  updateEvent: (eventId, eventData, imageFiles = [], socialBannerFile = null) => {
-    const formData = buildEventFormData(eventData, imageFiles, socialBannerFile);
-    
-    return apiClient.patch(`/events/${eventId}`, formData, { 
+  updateEvent: (
+    eventId,
+    eventData,
+    imageFiles = [],
+    socialBannerFile = null
+  ) => {
+    const formData = buildEventFormData(
+      eventData,
+      imageFiles,
+      socialBannerFile
+    );
+
+    return apiClient.patch(`/events/${eventId}`, formData, {
       timeout: 120000,
     });
   },
@@ -228,7 +245,6 @@ export const eventAPI = {
     apiClient.delete(`/events/${eventId}/shareable-banner/template`),
 };
 
-
 // BOOKING API CALLS
 export const bookingAPI = {
   getMyBookings: (params = {}) =>
@@ -238,7 +254,6 @@ export const bookingAPI = {
     apiClient.post(`/bookings/${bookingId}/pay`),
   cancelBooking: (bookingId) => apiClient.delete(`/bookings/${bookingId}`),
 };
-
 
 // TICKET API CALLS
 export const ticketAPI = {
@@ -266,7 +281,6 @@ export const ticketAPI = {
     apiClient.post(`/tickets/${ticketId}/validate`, validationData),
 };
 
-
 // TRANSACTION API CALLS
 export const transactionAPI = {
   // ========== PUBLIC ROUTES ==========
@@ -292,7 +306,6 @@ export const transactionAPI = {
     apiClient.get("/transactions/stats/revenue", { params }),
 };
 
-
 // NOTIFICATION API CALLS
 export const notificationAPI = {
   getNotifications: (params = {}) =>
@@ -304,7 +317,6 @@ export const notificationAPI = {
   deleteNotification: (notificationId) =>
     apiClient.delete(`/notifications/${notificationId}`),
 };
-
 
 // SUPERADMIN API CALLS
 export const superadminAPI = {
@@ -325,7 +337,6 @@ export const superadminAPI = {
   getPlatformAnalytics: (params = {}) =>
     apiClient.get("/admin/analytics", { params }),
 };
-
 
 // SIMPLIFIED API CALL WRAPPER
 export const apiCall = async (apiFunction, ...args) => {
