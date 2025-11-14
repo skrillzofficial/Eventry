@@ -47,6 +47,23 @@ const PaymentVerification = () => {
     
     console.log('🔍 Payment verification started:', { reference, type, bookingId });
 
+    // ✅ CHECK TOKEN FIRST - Critical for Paystack callback
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('⚠️ No authentication token found');
+      setVerificationStatus('error');
+      setTransaction({
+        reference: reference,
+        error: 'Authentication required. Please log in to view your booking details.'
+      });
+      // Store the current URL to redirect back after login
+      setTimeout(() => {
+        localStorage.setItem('redirectAfterLogin', window.location.href);
+        navigate('/login');
+      }, 3000);
+      return;
+    }
+
     // Set payment type based on URL parameters or logic
     if (type === 'free' || type === 'approval-pending') {
       setPaymentType('free');
@@ -68,7 +85,7 @@ const PaymentVerification = () => {
             `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/bookings/${bookingId}`,
             {
               headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               }
             }
@@ -79,7 +96,7 @@ const PaymentVerification = () => {
             `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/bookings/order/${reference}`,
             {
               headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               }
             }
@@ -143,7 +160,7 @@ const PaymentVerification = () => {
           `${import.meta.env.VITE_API_URL || 'https://ecommerce-backend-tb8u.onrender.com/api/v1'}/transactions/verify-payment/${reference}`,
           {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }
@@ -648,11 +665,11 @@ const PaymentVerification = () => {
         </div>
 
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Verification Error
+          Authentication Required
         </h2>
         
         <p className="text-gray-600 mb-6">
-          We're having trouble verifying your {paymentType === 'free' ? 'booking' : 'payment'}. This might be a temporary issue.
+          {transaction?.error || "We're having trouble verifying your payment. This might be a temporary issue."}
         </p>
 
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6">
@@ -660,19 +677,22 @@ const PaymentVerification = () => {
             Next Steps
           </h3>
           <ul className="text-sm text-yellow-700 space-y-2">
+            <li>• You'll be redirected to login shortly</li>
+            <li>• After login, you'll be brought back to this page</li>
             <li>• Check your email for confirmation</li>
-            <li>• Verify in your {paymentType === 'free' ? 'bookings' : 'bank statement'}</li>
             <li>• Contact support if the issue persists</li>
-            <li>• Your {paymentType === 'free' ? 'event/booking' : 'payment'} might still be processed</li>
           </ul>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
-            onClick={handleRetry}
+            onClick={() => {
+              localStorage.setItem('redirectAfterLogin', window.location.href);
+              navigate('/login');
+            }}
             className="flex-1 bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
           >
-            Retry Verification
+            Go to Login
           </button>
           
           <button

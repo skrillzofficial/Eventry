@@ -172,15 +172,21 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
       const isFreeEvent = ticketPrice === 0;
       const requiresApproval = isApprovalEvent();
 
-      // Build the booking data - backend will handle generating IDs, QR codes, etc.
+      // Create booking data matching backend's validateBookingRequest expectations
+      // Backend expects: ticketBookings array with { ticketType, quantity }
       const bookingData = {
-        ticketType: ticketType,
-        quantity: ticketQuantity,
-        userInfo: {
-          name: formData.fullName,
+        ticketBookings: [
+          {
+            ticketType: ticketType,     // Ticket type name (VIP, Regular, etc.)
+            quantity: ticketQuantity,   // Number of tickets
+          }
+        ],
+        attendeeInfo: {
+          fullName: formData.fullName,
           email: formData.email,
           phone: formData.phone,
         },
+        paymentMethod: isFreeEvent ? 'free' : 'card',  // Payment method: free, card, bank_transfer, wallet
         requiresApproval: requiresApproval,
       };
 
@@ -193,9 +199,29 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
         }));
       }
 
+      console.log("=== BOOKING REQUEST DEBUG ===");
+      console.log("Ticket Type:", ticketType);
+      console.log("Quantity:", ticketQuantity);
+      console.log("Price:", ticketPrice);
+      console.log("Is Free Event:", isFreeEvent);
+      console.log("Requires Approval:", requiresApproval);
       console.log("Sending booking data to backend:", bookingData);
 
-      // Make the booking request - backend will handle all the ticket creation
+      // Validate we have valid bookings
+      if (!bookingData.ticketBookings || bookingData.ticketBookings.length === 0) {
+        throw new Error("No valid bookings created");
+      }
+
+      // Validate booking has required fields
+      const firstBooking = bookingData.ticketBookings[0];
+      if (!firstBooking.ticketType || !firstBooking.quantity || firstBooking.quantity <= 0) {
+        throw new Error("Invalid booking data: missing required fields");
+      }
+
+      console.log("✅ Frontend validation passed");
+      console.log("Sending to backend:", JSON.stringify(bookingData, null, 2));
+
+      // Make the booking request
       const response = await apiClient.post(
         `/events/${event.id || event._id}/book`,
         bookingData
@@ -213,8 +239,16 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
         
         if (requiresApproval) {
           navigate(`/payment-verification?reference=${bookingReference}&type=approval-pending`);
-        } else {
+        } else if (isFreeEvent) {
           navigate(`/payment-verification?reference=${bookingReference}&type=free`);
+        } else {
+          // For paid events, redirect to Paystack payment URL
+          const authUrl = response.data.data?.payment?.authorizationUrl;
+          if (authUrl) {
+            window.location.href = authUrl;
+          } else {
+            navigate(`/payment-verification?reference=${bookingReference}&type=paid`);
+          }
         }
       } else {
         throw new Error(response.data.message || "Booking failed");
@@ -249,7 +283,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
   const isRegularFree = isRegularFreeEvent();
   const approvalQuestions = getApprovalQuestions();
 
-  // ... rest of your component remains the same (the UI part)
+  // Event not found state
   if (!event) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -267,6 +301,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     );
   }
 
+  // Organizer restriction state
   if (isOrganizer) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -344,6 +379,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
     );
   }
 
+  // Main checkout UI
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -479,7 +515,7 @@ const CheckoutFlow = ({ event, ticketQuantity, onSuccess, onClose }) => {
                 />
               </div>
 
-              {/* Fixed Approval Questions Section */}
+              {/* Approval Questions Section */}
               {requiresApproval && approvalQuestions.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-gray-700">
